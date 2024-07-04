@@ -32,12 +32,6 @@ enum ePipelineStateSetting
 	BloomUp,
 	Combine,
 };
-enum eCommonContext
-{
-	// Pre = 0,
-	Mid = 0,
-	Post = 1
-};
 
 static const int NUM_THREADS = 6;
 static const int LIGHT_THREADS = 3;
@@ -47,10 +41,20 @@ const UINT MAX_DESCRIPTOR_NUM = 256;
 class ResourceManager
 {
 public:
+	struct InitialData
+	{
+		ID3D12Device5* pDevice;
+		ID3D12CommandQueue* pCommandQueue;
+		ID3D12CommandAllocator* pCommandAllocator;
+		ID3D12GraphicsCommandList* pCommandList;
+		DynamicDescriptorPool* pDynamicDescriptorPool;
+	};
+
+public:
 	ResourceManager() = default;
 	~ResourceManager() { Clear(); }
 
-	void Initialize(ID3D12Device5* pDevice, ID3D12CommandQueue* pCommandQueue, ID3D12CommandAllocator* pCommandAllocator, ID3D12GraphicsCommandList* pCommandList, DynamicDescriptorPool* pDynamicDescriptorPool);
+	void Initialize(InitialData* pInitialData);
 	void InitRTVDescriptorHeap(UINT maxDescriptorNum);
 	void InitDSVDescriptorHeap(UINT maxDescriptorNum);
 	void InitCBVSRVUAVDescriptorHeap(UINT maxDescriptorNum);
@@ -62,11 +66,9 @@ public:
 
 	void Clear();
 
-	void ResetCommandLists();
-
 	void SetGlobalConstants(ConstantBuffer* pGlobal, ConstantBuffer* pLight, ConstantBuffer* pReflection);
 	void SetCommonState(ePipelineStateSetting psoState);
-	void SetCommonState(ID3D12GraphicsCommandList* pCommandList, ePipelineStateSetting psoState);
+	// void SetCommonState(ID3D12GraphicsCommandList* pCommandList, ePipelineStateSetting psoState);
 
 protected:
 	void initSamplers();
@@ -75,7 +77,6 @@ protected:
 	void initDepthStencilStateDescs();
 	void initPipelineStates();
 	void initShaders();
-	void initCommandLists();
 	void initPhysics(bool interactive);
 
 	UINT64 fence();
@@ -86,17 +87,6 @@ public:
 	ID3D12CommandQueue* m_pCommandQueue = nullptr;
 	ID3D12CommandAllocator* m_pSingleCommandAllocator = nullptr;
 	ID3D12GraphicsCommandList* m_pSingleCommandList = nullptr;
-	
-	ID3D12CommandList* m_pBatchSubmits[COMMON_COMMANDLIST_COUNT + LIGHT_THREADS + NUM_THREADS * 2] = { nullptr, };
-
-	ID3D12CommandAllocator* m_pCommandAllocators[COMMON_COMMANDLIST_COUNT] = { nullptr, };
-	ID3D12CommandAllocator* m_pShadowCommandAllocators[LIGHT_THREADS] = { nullptr, };
-	ID3D12CommandAllocator* m_pRenderCommandAllocators[NUM_THREADS] = { nullptr, };
-	ID3D12CommandAllocator* m_pMirrorCommandAllocators[NUM_THREADS] = { nullptr, };
-	ID3D12GraphicsCommandList* m_pCommandLists[COMMON_COMMANDLIST_COUNT] = { nullptr, };
-	ID3D12GraphicsCommandList* m_pShadowCommandLists[LIGHT_THREADS] = { nullptr, };
-	ID3D12GraphicsCommandList* m_pRenderCommandLists[NUM_THREADS] = { nullptr, };
-	ID3D12GraphicsCommandList* m_pMirrorCommandLists[NUM_THREADS] = { nullptr, };
 
 	ID3D12DescriptorHeap* m_pRTVHeap = nullptr;
 	ID3D12DescriptorHeap* m_pDSVHeap = nullptr;

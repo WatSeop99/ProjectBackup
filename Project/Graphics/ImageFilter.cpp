@@ -95,79 +95,6 @@ void ImageFilter::BeforeRender(ResourceManager* pManager, ePipelineStateSetting 
 	}
 }
 
-void ImageFilter::BeforeRender(ResourceManager* pManager, ID3D12GraphicsCommandList* pCommandList, ePipelineStateSetting psoSetting, UINT frameIndex)
-{
-	_ASSERT(pManager);
-	_ASSERT(pCommandList);
-	_ASSERT(m_RTVHandles.size() > 0);
-	_ASSERT(m_SRVHandles.size() > 0);
-
-	HRESULT hr = S_OK;
-
-	ID3D12Device5* pDevice = pManager->m_pDevice;
-	DynamicDescriptorPool* pDynamicDescriptorPool = pManager->m_pDynamicDescriptorPool;
-	const UINT CBV_SRV_UAV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
-
-	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable = {};
-	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorTable = {};
-
-	switch (psoSetting)
-	{
-		case Sampling:
-		case BloomDown: case BloomUp:
-		{
-			hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 2);
-			BREAK_IF_FAILED(hr);
-
-			const CD3DX12_RESOURCE_BARRIER BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(m_RTVHandles[0].pResource, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
-			CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-
-			// t0
-			pDevice->CopyDescriptorsSimple(1, dstHandle, m_SRVHandles[0].CPUHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-			dstHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-
-			// b4
-			pDevice->CopyDescriptorsSimple(1, dstHandle, m_ConstantBuffer.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-			pCommandList->ResourceBarrier(1, &BARRIER);
-			pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
-			pCommandList->OMSetRenderTargets(1, &m_RTVHandles[0].CPUHandle, FALSE, nullptr);
-		}
-		break;
-
-		case Combine:
-		{
-			hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 4);
-			BREAK_IF_FAILED(hr);
-
-			CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-
-			// t0
-			pDevice->CopyDescriptorsSimple(1, dstHandle, m_SRVHandles[0].CPUHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-			dstHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-
-			// t1
-			pDevice->CopyDescriptorsSimple(1, dstHandle, m_SRVHandles[1].CPUHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-			dstHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-
-			// t2
-			pDevice->CopyDescriptorsSimple(1, dstHandle, m_SRVHandles[2].CPUHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-			dstHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-
-			// b4
-			pDevice->CopyDescriptorsSimple(1, dstHandle, m_ConstantBuffer.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-			pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
-			pCommandList->OMSetRenderTargets(1, &m_RTVHandles[frameIndex].CPUHandle, FALSE, nullptr);
-		}
-		break;
-
-		default:
-			__debugbreak();
-			break;
-	}
-}
-
 void ImageFilter::AfterRender(ResourceManager* pManager, ePipelineStateSetting psoSetting, UINT frameIndex)
 {
 	_ASSERT(pManager);
@@ -181,32 +108,6 @@ void ImageFilter::AfterRender(ResourceManager* pManager, ePipelineStateSetting p
 		{
 			const CD3DX12_RESOURCE_BARRIER BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(m_RTVHandles[0].pResource, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON);
 			pManager->m_pSingleCommandList->ResourceBarrier(1, &BARRIER);
-		}
-		break;
-
-		case Combine:
-			break;
-
-		default:
-			__debugbreak();
-			break;
-	}
-}
-
-void ImageFilter::AfterRender(ResourceManager* pManager, ID3D12GraphicsCommandList* pCommandList, ePipelineStateSetting psoSetting, UINT frameIndex)
-{
-	_ASSERT(pManager);
-	_ASSERT(pCommandList);
-	_ASSERT(m_RTVHandles.size() > 0);
-	_ASSERT(m_SRVHandles.size() > 0);
-
-	switch (psoSetting)
-	{
-		case Sampling:
-		case BloomDown: case BloomUp:
-		{
-			const CD3DX12_RESOURCE_BARRIER BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(m_RTVHandles[0].pResource, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON);
-			pCommandList->ResourceBarrier(1, &BARRIER);
 		}
 		break;
 

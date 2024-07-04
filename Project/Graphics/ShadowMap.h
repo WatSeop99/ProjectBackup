@@ -16,8 +16,8 @@ public:
 
 	void Update(ResourceManager* pManager, LightProperty& property, Camera& lightCam, Camera& mainCamera);
 
-	void Render(ResourceManager* pManager, Model* pFirstRenderObject, SkinnedMeshModel* pCharacter, Model* pMirror);
-	void Render(ResourceManager* pManager, ID3D12GraphicsCommandList* pCommandList, Model* pFirstRenderObjec, SkinnedMeshModel* pCharacter, Model* pMirror);
+	void Render(ResourceManager* pManager, std::vector<Model*>* pRenderObjects, SkinnedMeshModel* pCharacter, Model* pMirror);
+	// void Render(ResourceManager* pManager, ID3D12GraphicsCommandList* pCommandList, std::vector<Model*>* pRenderObjects, SkinnedMeshModel* pCharacter, Model* pMirror);
 
 	void Clear();
 

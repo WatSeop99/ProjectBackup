@@ -27,9 +27,9 @@ Renderer::~Renderer()
 
 void Renderer::Initizlie(InitialData* pIntialData)
 {
-	m_pFirstRenderObject = pIntialData->pFirstRenderObject;
+	m_pRenderObjects = pIntialData->pRenderObjects;
 	m_pLights = pIntialData->pLights;
-	m_pLightSpheres = pIntialData->ppLightSpheres;
+	m_pLightSpheres = pIntialData->pLightSpheres;
 
 	m_pSkybox = pIntialData->pSkybox;
 	m_pGround = pIntialData->pGround;
@@ -49,7 +49,7 @@ void Renderer::Initizlie(InitialData* pIntialData)
 		&m_GlobalConstant,
 		m_MainRenderTargetOffset, m_MainRenderTargetOffset + 1, m_FloatBufferSRVOffset, m_PrevBufferSRVOffset
 	};
-	m_PostProcessor.Initizlie(m_pResourceManager, config, m_ScreenWidth, m_ScreenHeight, 4);
+	m_PostProcessor.Initizlie(m_pResourceManager, config, m_ScreenWidth, m_ScreenHeight, 2);
 	m_PostProcessor.SetDescriptorHeap(m_pResourceManager);
 
 	m_DynamicDescriptorPool.Initialize(m_pDevice, 768);
@@ -406,7 +406,7 @@ LRESULT Renderer::MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			}
 			if (wParam == VK_SPACE)
 			{
-				m_pLights[1].bRotated = !m_pLights[1].bRotated;
+				(*m_pLights)[1].bRotated = !(*m_pLights)[1].bRotated;
 			}
 		}
 		break;
@@ -423,7 +423,7 @@ LRESULT Renderer::MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		break;
 
 		case WM_MOUSEWHEEL:
-			m_WheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+			m_Mouse.WheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
 			break;
 
 		case WM_DESTROY:
@@ -451,7 +451,7 @@ void Renderer::initMainWidndow()
 		NULL,						// hCursor
 		(HBRUSH)(COLOR_WINDOW + 1),	// hbrBackground
 		nullptr,					// lpszMenuName
-		L"KHUKHU",					// lpszClassName
+		L"OWL_",					// lpszClassName
 		NULL						// hIconSm
 	};
 
@@ -463,7 +463,7 @@ void Renderer::initMainWidndow()
 	RECT wr = { 0, 0, (long)m_ScreenWidth, (long)m_ScreenHeight };
 	BOOL bResult = AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
 	m_hMainWindow = CreateWindow(wc.lpszClassName,
-								 L"KHU",
+								 L"DX12",
 								 WS_OVERLAPPEDWINDOW,
 								 100,							// 윈도우 좌측 상단의 x 좌표
 								 100,							// 윈도우 좌측 상단의 y 좌표
@@ -575,8 +575,8 @@ LB_EXIT:
 		swapChainDesc.Flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
 		DXGI_SWAP_CHAIN_FULLSCREEN_DESC fsSwapChainDesc = {};
-		// fsSwapChainDesc.RefreshRate.Numerator = 60;
-		// fsSwapChainDesc.RefreshRate.Denominator = 1;
+		/*fsSwapChainDesc.RefreshRate.Numerator = 60;
+		fsSwapChainDesc.RefreshRate.Denominator = 1;*/
 		fsSwapChainDesc.Windowed = TRUE;
 
 		IDXGISwapChain1* pSwapChain1 = nullptr;
@@ -659,8 +659,9 @@ LB_EXIT:
 		m_pPrevBuffer->SetName(L"PrevBuffer");
 	}
 
+	ResourceManager::InitialData initData = { m_pDevice, m_pCommandQueue, m_pCommandAllocator, m_pCommandList, &m_DynamicDescriptorPool };
 	m_pResourceManager = new ResourceManager;
-	m_pResourceManager->Initialize(m_pDevice, m_pCommandQueue, m_pCommandAllocator, m_pCommandList, &m_DynamicDescriptorPool);
+	m_pResourceManager->Initialize(&initData);
 	m_pResourceManager->InitRTVDescriptorHeap(16);
 	m_pResourceManager->InitDSVDescriptorHeap(8);
 	m_pResourceManager->InitCBVSRVUAVDescriptorHeap(512);
@@ -679,82 +680,6 @@ void Renderer::initScene()
 	m_ReflectionGlobalConstant.Initialize(m_pResourceManager, sizeof(GlobalConstant));
 	m_pResourceManager->SetGlobalConstants(&m_GlobalConstant, &m_LightConstant, &m_ReflectionGlobalConstant);
 
-	// 환경맵 텍스쳐 로드.
-	/*{
-		m_EnvTexture.InitializeWithDDS(m_pResourceManager, L"./Assets/Textures/Cubemaps/HDRI/clear_pureskyEnvHDR.dds");
-		m_IrradianceTexture.InitializeWithDDS(m_pResourceManager, L"./Assets/Textures/Cubemaps/HDRI/clear_pureskyEnvHDR.dds");
-		m_SpecularTexture.InitializeWithDDS(m_pResourceManager, L"./Assets/Textures/Cubemaps/HDRI/clear_pureskyEnvHDR.dds");
-		m_BRDFTexture.InitializeWithDDS(m_pResourceManager, L"./Assets/Textures/Cubemaps/HDRI/clear_pureskyEnvHDR.dds");
-	}*/
-
-	// 조명 설정.
-	//{
-	//	m_Lights.resize(MAX_LIGHTS);
-
-	//	// 조명 0.
-	//	m_Lights[0].Property.Radiance = Vector3(3.0f);
-	//	m_Lights[0].Property.FallOffEnd = 10.0f;
-	//	m_Lights[0].Property.Position = Vector3(0.0f, 0.0f, 0.0f);
-	//	m_Lights[0].Property.Direction = Vector3(0.0f, 0.0f, 1.0f);
-	//	m_Lights[0].Property.SpotPower = 3.0f;
-	//	m_Lights[0].Property.LightType = LIGHT_POINT | LIGHT_SHADOW;
-	//	m_Lights[0].Property.Radius = 0.03f;
-	//	m_Lights[0].Initialize(m_pResourceManager);
-
-	//	// 조명 1.
-	//	m_Lights[1].Property.Radiance = Vector3(3.0f);
-	//	m_Lights[1].Property.FallOffEnd = 10.0f;
-	//	m_Lights[1].Property.Position = Vector3(1.0f, 1.1f, 2.0f);
-	//	m_Lights[1].Property.SpotPower = 2.0f;
-	//	m_Lights[1].Property.Direction = Vector3(0.0f, -0.5f, 1.7f) - m_Lights[1].Property.Position;
-	//	m_Lights[1].Property.Direction.Normalize();
-	//	m_Lights[1].Property.LightType = LIGHT_SPOT | LIGHT_SHADOW;
-	//	m_Lights[1].Property.Radius = 0.03f;
-	//	m_Lights[1].Initialize(m_pResourceManager);
-
-	//	// 조명 2.
-	//	m_Lights[2].Property.Radiance = Vector3(5.0f);
-	//	m_Lights[2].Property.Position = Vector3(5.0f, 5.0f, 5.0f);
-	//	m_Lights[2].Property.Direction = Vector3(-1.0f, -1.0f, -1.0f);
-	//	m_Lights[2].Property.Direction.Normalize();
-	//	m_Lights[2].Property.LightType = LIGHT_DIRECTIONAL | LIGHT_SHADOW;
-	//	m_Lights[2].Property.Radius = 0.05f;
-	//	m_Lights[2].Initialize(m_pResourceManager);
-	//}
-
-	// 조명 위치 표시.
-	//{
-	//	m_LightSpheres.resize(MAX_LIGHTS);
-
-	//	for (int i = 0; i < MAX_LIGHTS; ++i)
-	//	{
-	//		MeshInfo sphere = INIT_MESH_INFO;
-	//		MakeSphere(&sphere, 1.0f, 20, 20);
-
-	//		m_LightSpheres[i] = new Model(m_pResourceManager, { sphere });
-	//		m_LightSpheres[i]->UpdateWorld(Matrix::CreateTranslation(m_Lights[i].Property.Position));
-
-	//		MaterialConstant* pSphereMaterialConst = (MaterialConstant*)m_LightSpheres[i]->Meshes[0]->MaterialConstant.pData;
-	//		pSphereMaterialConst->AlbedoFactor = Vector3(0.0f);
-	//		pSphereMaterialConst->EmissionFactor = Vector3(1.0f, 1.0f, 0.0f);
-	//		m_LightSpheres[i]->bCastShadow = false; // 조명 표시 물체들은 그림자 X.
-	//		for (UINT64 j = 0, size = m_LightSpheres[i]->Meshes.size(); j < size; ++j)
-	//		{
-	//			Mesh* pCurMesh = m_LightSpheres[i]->Meshes[j];
-	//			MaterialConstant* pMeshMaterialConst = (MaterialConstant*)(pCurMesh->MaterialConstant.pData);
-	//			pMeshMaterialConst->AlbedoFactor = Vector3(0.0f);
-	//			pMeshMaterialConst->EmissionFactor = Vector3(1.0f, 1.0f, 0.0f);
-	//		}
-
-	//		m_LightSpheres[i]->bIsVisible = true;
-	//		m_LightSpheres[i]->Name = "LightSphere" + std::to_string(i);
-	//		m_LightSpheres[i]->bIsPickable = false;
-
-	//		m_RenderObjects.push_back(m_LightSpheres[i]); // 리스트에 등록.
-	//	}
-	//}
-
-
 	// 공용 global constant 설정.
 	{
 		GlobalConstant* pGlobalData = (GlobalConstant*)m_GlobalConstant.pData;
@@ -763,97 +688,9 @@ void Renderer::initScene()
 		LightConstant* pLightData = (LightConstant*)m_LightConstant.pData;
 		for (int i = 0; i < MAX_LIGHTS; ++i)
 		{
-			memcpy(&pLightData->Lights[i], &m_pLights[i].Property, sizeof(LightProperty));
+			memcpy(&pLightData->Lights[i], &(*m_pLights)[i].Property, sizeof(LightProperty));
 		}
 	}
-
-	// 바닥(거울).
-	//{
-	//	MeshInfo mesh = INIT_MESH_INFO;
-	//	MakeSquare(&mesh, 10.0f);
-
-	//	std::wstring path = L"./Assets/Textures/PBR/stringy-marble-ue/";
-	//	mesh.szAlbedoTextureFileName = path + L"stringy_marble_albedo.png";
-	//	mesh.szEmissiveTextureFileName = L"";
-	//	mesh.szAOTextureFileName = path + L"stringy_marble_ao.png";
-	//	mesh.szMetallicTextureFileName = path + L"stringy_marble_Metallic.png";
-	//	mesh.szNormalTextureFileName = path + L"stringy_marble_Normal-dx.png";
-	//	mesh.szRoughnessTextureFileName = path + L"stringy_marble_Roughness.png";
-
-	//	m_pGround = new Model(m_pResourceManager, { mesh });
-
-	//	MaterialConstant* pGroundMaterialConst = (MaterialConstant*)m_pGround->Meshes[0]->MaterialConstant.pData;
-	//	pGroundMaterialConst->AlbedoFactor = Vector3(0.7f);
-	//	pGroundMaterialConst->EmissionFactor = Vector3(0.0f);
-	//	pGroundMaterialConst->MetallicFactor = 0.5f;
-	//	pGroundMaterialConst->RoughnessFactor = 0.3f;
-
-	//	// Vector3 position = Vector3(0.0f, -1.0f, 0.0f);
-	//	Vector3 position = Vector3(0.0f, -0.5f, 0.0f);
-	//	m_pGround->UpdateWorld(Matrix::CreateRotationX(DirectX::XM_PI * 0.5f) * Matrix::CreateTranslation(position));
-	//	m_pGround->bCastShadow = false; // 바닥은 그림자 만들기 생략.
-
-	//	m_MirrorPlane = DirectX::SimpleMath::Plane(position, Vector3(0.0f, 1.0f, 0.0f));
-	//	m_pMirror = m_pGround; // 바닥에 거울처럼 반사 구현.
-	//}
-
-	// 환경 박스 초기화.
-	/*{
-		MeshInfo skyboxMeshInfo = INIT_MESH_INFO;
-		MakeBox(&skyboxMeshInfo, 40.0f);
-
-		std::reverse(skyboxMeshInfo.Indices.begin(), skyboxMeshInfo.Indices.end());
-		m_pSkybox = new Model(m_pResourceManager, { skyboxMeshInfo });
-		m_pSkybox->Name = "SkyBox";
-	}*/
-
-	// Main Object.
-	//{
-	//	std::wstring path = L"./Assets/";
-	//	std::vector<std::wstring> clipNames =
-	//	{
-	//		L"CatwalkIdleTwistR.fbx", L"CatwalkIdleToWalkForward.fbx",
-	//		L"CatwalkWalkForward.fbx", L"CatwalkWalkStop.fbx",
-	//	};
-	//	AnimationData aniData;
-
-	//	std::wstring filename = L"Remy.fbx";
-	//	std::vector<MeshInfo> characterMeshInfo;
-	//	AnimationData characterDefaultAnimData;
-	//	ReadAnimationFromFile(characterMeshInfo, characterDefaultAnimData, path, filename);
-
-	//	for (UINT64 i = 0, size = clipNames.size(); i < size; ++i)
-	//	{
-	//		std::wstring& name = clipNames[i];
-	//		std::vector<MeshInfo> animationMeshInfo;
-	//		AnimationData animationData;
-	//		ReadAnimationFromFile(animationMeshInfo, animationData, path, name);
-
-	//		if (aniData.Clips.empty())
-	//		{
-	//			aniData = animationData;
-	//		}
-	//		else
-	//		{
-	//			aniData.Clips.push_back(animationData.Clips[0]);
-	//		}
-	//	}
-
-	//	Vector3 center(0.0f, 0.0f, 2.0f);
-	//	m_pCharacter = new SkinnedMeshModel(m_pResourceManager, characterMeshInfo, aniData);
-	//	for (UINT64 i = 0, size = m_pCharacter->Meshes.size(); i < size; ++i)
-	//	{
-	//		Mesh* pCurMesh = m_pCharacter->Meshes[i];
-	//		MaterialConstant* pMeshConst = (MaterialConstant*)pCurMesh->MaterialConstant.pData;
-
-	//		pMeshConst->AlbedoFactor = Vector3(1.0f);
-	//		pMeshConst->RoughnessFactor = 0.8f;
-	//		pMeshConst->MetallicFactor = 0.0f;
-	//	}
-	//	m_pCharacter->UpdateWorld(Matrix::CreateScale(1.0f) * Matrix::CreateTranslation(center));
-
-	//	// m_RenderObjects.push_back(m_pCharacter);
-	//}
 }
 
 void Renderer::initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceTexture, Texture* pSpecularTexture, Texture* pBRDFTexture)
@@ -998,7 +835,7 @@ void Renderer::initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceText
 		m_pResourceManager->m_GlobalShaderResourceViewStartOffset = m_pResourceManager->m_CBVSRVUAVHeapSize;
 
 		srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		m_pLights[1].ShadowMap.SetDescriptorHeap(m_pResourceManager);
+		(*m_pLights)[1].ShadowMap.SetDescriptorHeap(m_pResourceManager);
 		cbvSrvHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 
 		m_pDevice->CreateShaderResourceView(nullptr, &srvDesc, cbvSrvHandle);
@@ -1010,11 +847,11 @@ void Renderer::initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceText
 		++(m_pResourceManager->m_CBVSRVUAVHeapSize);
 
 		// t11
-		m_pLights[0].ShadowMap.SetDescriptorHeap(m_pResourceManager);
+		(*m_pLights)[0].ShadowMap.SetDescriptorHeap(m_pResourceManager);
 		cbvSrvHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 
 		// t12
-		m_pLights[2].ShadowMap.SetDescriptorHeap(m_pResourceManager);
+		(*m_pLights)[2].ShadowMap.SetDescriptorHeap(m_pResourceManager);
 		cbvSrvHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 
 		// t13
@@ -1060,13 +897,10 @@ void Renderer::initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceText
 		++(m_pResourceManager->m_CBVSRVUAVHeapSize);
 
 		// Model 내 생성된 버퍼들 등록.
-		ListElem* pRenderObject = &m_pFirstRenderObject->LinkToList;
-		while (pRenderObject)
+		for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
 		{
-			Model* pModel = (Model*)pRenderObject->pItem;
+			Model* pModel = (*m_pRenderObjects)[i];
 			pModel->SetDescriptorHeap(m_pResourceManager);
-
-			pRenderObject = pRenderObject->pNext;
 		}
 		m_pSkybox->SetDescriptorHeap(m_pResourceManager);
 		m_pGround->SetDescriptorHeap(m_pResourceManager);
@@ -1096,7 +930,7 @@ void Renderer::shadowMapRender()
 {
 	for (int i = 0; i < MAX_LIGHTS; ++i)
 	{
-		m_pLights[i].RenderShadowMap(m_pResourceManager, m_pFirstRenderObject, (SkinnedMeshModel*)m_pCharacter, m_pMirror);
+		(*m_pLights)[i].RenderShadowMap(m_pResourceManager, m_pRenderObjects, (SkinnedMeshModel*)m_pCharacter, m_pMirror);
 	}
 }
 
@@ -1127,25 +961,13 @@ void Renderer::objectRender()
 	m_pSkybox->Render(m_pResourceManager, Skybox);
 
 	m_pResourceManager->SetCommonState(Default);
-	/*for (UINT64 i = 0, size = m_RenderObjects.size(); i < size; ++i)
+	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
 	{
-		Model* pCurModel = m_RenderObjects[i];
-
+		Model* pCurModel = (*m_pRenderObjects)[i];
 		if (pCurModel->bIsVisible)
 		{
 			pCurModel->Render(m_pResourceManager, Default);
 		}
-	}*/
-	ListElem* pRenderObject = &m_pFirstRenderObject->LinkToList;
-	while (pRenderObject)
-	{
-		Model* pModel = (Model*)pRenderObject->pItem;
-		if (pModel->bIsVisible)
-		{
-			pModel->Render(m_pResourceManager, Default);
-		}
-
-		pRenderObject = pRenderObject->pNext;
 	}
 
 	m_pResourceManager->SetCommonState(Skinned);
@@ -1169,18 +991,10 @@ void Renderer::mirrorRender()
 	// 거울 위치에 반사된 물체들을 렌더링.
 	m_pResourceManager->SetCommonState(ReflectionDefault);
 	m_pCommandList->ClearDepthStencilView(defaultDSVHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-	/*for (UINT64 i = 0, size = m_RenderObjects.size(); i < size; ++i)
+	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
 	{
-		Model* pCurModel = m_RenderObjects[i];
+		Model* pCurModel = (*m_pRenderObjects)[i];
 		pCurModel->Render(m_pResourceManager, ReflectionDefault);
-	}*/
-	ListElem* pRenderObject = &m_pFirstRenderObject->LinkToList;
-	while (pRenderObject)
-	{
-		Model* pModel = (Model*)pRenderObject->pItem;
-		pModel->Render(m_pResourceManager, ReflectionDefault);
-
-		pRenderObject = pRenderObject->pNext;
 	}
 
 	m_pResourceManager->SetCommonState(ReflectionSkinned);
@@ -1274,9 +1088,9 @@ void Renderer::updateLightConstants(const float DELTA_TIME)
 
 	for (int i = 0; i < MAX_LIGHTS; ++i)
 	{
-		m_pLights[i].Update(m_pResourceManager, DELTA_TIME, m_Camera);
-		m_pLightSpheres[i]->UpdateWorld(Matrix::CreateScale(Max(0.01f, m_pLights[i].Property.Radius)) * Matrix::CreateTranslation(m_pLights[i].Property.Position));
-		memcpy(&pLightConstData->Lights[i], &m_pLights[i].Property, sizeof(LightProperty));
+		(*m_pLights)[i].Update(m_pResourceManager, DELTA_TIME, m_Camera);
+		(*m_pLightSpheres)[i]->UpdateWorld(Matrix::CreateScale(Max(0.01f, (*m_pLights)[i].Property.Radius)) * Matrix::CreateTranslation((*m_pLights)[i].Property.Position));
+		memcpy(&pLightConstData->Lights[i], &(*m_pLights)[i].Property, sizeof(LightProperty));
 	}
 
 	m_LightConstant.Upload();
@@ -1284,30 +1098,30 @@ void Renderer::updateLightConstants(const float DELTA_TIME)
 
 void Renderer::onMouseMove(const int MOUSE_X, const int MOUSE_Y)
 {
-	m_MouseX = MOUSE_X;
-	m_MouseY = MOUSE_Y;
+	m_Mouse.MouseX = MOUSE_X;
+	m_Mouse.MouseY = MOUSE_Y;
 
 	// 마우스 커서의 위치를 NDC로 변환.
 	// 마우스 커서는 좌측 상단 (0, 0), 우측 하단(width-1, height-1).
 	// NDC는 좌측 하단이 (-1, -1), 우측 상단(1, 1).
-	m_MouseNDCX = (float)MOUSE_X * 2.0f / (float)m_ScreenWidth - 1.0f;
-	m_MouseNDCY = (float)(-MOUSE_Y) * 2.0f / (float)m_ScreenHeight + 1.0f;
+	m_Mouse.MouseNDCX = (float)MOUSE_X * 2.0f / (float)m_ScreenWidth - 1.0f;
+	m_Mouse.MouseNDCY = (float)(-MOUSE_Y) * 2.0f / (float)m_ScreenHeight + 1.0f;
 
 	// 커서가 화면 밖으로 나갔을 경우 범위 조절.
 	/*m_MouseNDCX = Clamp(m_MouseNDCX, -1.0f, 1.0f);
 	m_MouseNDCY = Clamp(m_MouseNDCY, -1.0f, 1.0f);*/
 
 	// 카메라 시점 회전.
-	m_Camera.UpdateMouse(m_MouseNDCX, m_MouseNDCY);
+	m_Camera.UpdateMouse(m_Mouse.MouseNDCX, m_Mouse.MouseNDCY);
 }
 
 void Renderer::onMouseClick(const int MOUSE_X, const int MOUSE_Y)
 {
-	m_MouseX = MOUSE_X;
-	m_MouseY = MOUSE_Y;
+	m_Mouse.MouseX = MOUSE_X;
+	m_Mouse.MouseY = MOUSE_Y;
 
-	m_MouseNDCX = (float)MOUSE_X * 2.0f / (float)m_ScreenWidth - 1.0f;
-	m_MouseNDCY = (float)(-MOUSE_Y) * 2.0f / (float)m_ScreenHeight + 1.0f;
+	m_Mouse.MouseNDCX = (float)MOUSE_X * 2.0f / (float)m_ScreenWidth - 1.0f;
+	m_Mouse.MouseNDCY = (float)(-MOUSE_Y) * 2.0f / (float)m_ScreenHeight + 1.0f;
 }
 
 void Renderer::processMouseControl()
@@ -1328,8 +1142,8 @@ void Renderer::processMouseControl()
 	{
 		const Matrix VIEW = m_Camera.GetView();
 		const Matrix PROJECTION = m_Camera.GetProjection();
-		const Vector3 NDC_NEAR = Vector3(m_MouseNDCX, m_MouseNDCY, 0.0f);
-		const Vector3 NDC_FAR = Vector3(m_MouseNDCX, m_MouseNDCY, 1.0f);
+		const Vector3 NDC_NEAR = Vector3(m_Mouse.MouseNDCX, m_Mouse.MouseNDCY, 0.0f);
+		const Vector3 NDC_FAR = Vector3(m_Mouse.MouseNDCX, m_Mouse.MouseNDCY, 1.0f);
 		const Matrix INV_PROJECTION_VIEW = (VIEW * PROJECTION).Invert();
 		const Vector3 WORLD_NEAR = Vector3::Transform(NDC_NEAR, INV_PROJECTION_VIEW);
 		const Vector3 WORLD_FAR = Vector3::Transform(NDC_FAR, INV_PROJECTION_VIEW);

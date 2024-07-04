@@ -8,7 +8,6 @@
 #include "../Model/Model.h"
 #include "../Model/SkinnedMeshModel.h"
 #include "../Graphics/PostProcessor.h"
-#include "Timer.h"
 
 const UINT SWAP_CHAIN_FRAME_COUNT = 2;
 const UINT MAX_PENDING_FRAME_NUM = SWAP_CHAIN_FRAME_COUNT - 1;
@@ -18,10 +17,9 @@ class Renderer
 public:
 	struct InitialData
 	{
-		UINT64 TotalRenderObject;
-		Model* pFirstRenderObject;
-		Light* pLights;
-		Model** ppLightSpheres;
+		std::vector<Model*>* pRenderObjects;
+		std::vector<Light>* pLights;
+		std::vector<Model*>* pLightSpheres;
 
 		Texture* pEnvTexture;
 		Texture* pIrradianceTexture;
@@ -38,11 +36,9 @@ public:
 
 public:
 	Renderer();
-	~Renderer();
+	virtual ~Renderer();
 
 	void Initizlie(InitialData* pIntialData);
-
-	int Run();
 
 	void Update(const float DELTA_TIME);
 
@@ -54,8 +50,6 @@ public:
 
 	inline ResourceManager* GetResourceManager() { return m_pResourceManager; }
 	inline HWND GetWindow() { return m_hMainWindow; }
-	inline Keyboard* GetKeyboard() { return &m_Keyboard; }
-	inline Mouse* GetMouse() { return &m_Mouse; }
 
 protected:
 	void initMainWidndow();
@@ -83,10 +77,30 @@ protected:
 	UINT64 fence();
 	void waitForFenceValue();
 
+protected:
+	HWND m_hMainWindow = nullptr;
+
+	Keyboard m_Keyboard;
+	Mouse m_Mouse;
+
+	// external data
+	ConstantBuffer m_GlobalConstant;
+	ConstantBuffer m_LightConstant;
+	ConstantBuffer m_ReflectionGlobalConstant;
+
+	std::vector<Model*>* m_pRenderObjects = nullptr;
+	std::vector<Light>* m_pLights = nullptr;
+	std::vector<Model*>* m_pLightSpheres = nullptr;
+
+	Model* m_pSkybox = nullptr;
+	Model* m_pGround = nullptr;
+	Model* m_pMirror = nullptr;
+	Model* m_pPickedModel = nullptr;
+	Model* m_pCharacter = nullptr;
+	DirectX::SimpleMath::Plane* m_pMirrorPlane = nullptr;
+
 private:
 	ResourceManager* m_pResourceManager = nullptr;
-
-	HWND m_hMainWindow = nullptr;
 
 	D3D_FEATURE_LEVEL m_FeatureLevel;
 	DXGI_FORMAT m_BackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -119,32 +133,7 @@ private:
 	UINT m_FrameIndex = 0;
 
 	PostProcessor m_PostProcessor;
-	Timer m_Timer;
-
-	// data
-	ConstantBuffer m_GlobalConstant;
-	ConstantBuffer m_LightConstant;
-	ConstantBuffer m_ReflectionGlobalConstant;
-
-	Model* m_pFirstRenderObject = nullptr;
-	Light* m_pLights = nullptr;
-	Model** m_pLightSpheres = nullptr;
-	
-	Model* m_pSkybox = nullptr;
-	Model* m_pGround = nullptr;
-	Model* m_pMirror = nullptr;
-	Model* m_pPickedModel = nullptr;
-	Model* m_pCharacter = nullptr;
-	DirectX::SimpleMath::Plane* m_pMirrorPlane = nullptr;
 
 	// control.
 	Camera m_Camera;
-	Keyboard m_Keyboard;
-	Mouse m_Mouse;
-
-	float m_MouseNDCX = 0.0f;
-	float m_MouseNDCY = 0.0f;
-	float m_WheelDelta = 0.0f;
-	int m_MouseX = -1;
-	int m_MouseY = -1;
 };

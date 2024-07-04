@@ -6,9 +6,9 @@ public:
 	Texture() = default;
 	~Texture() { Clear(); }
 
-	void Initialize(ResourceManager* pManager, const wchar_t* pszFileName, bool bUseSRGB);
+	void Initialize(ResourceManager* pManager, const WCHAR* pszFileName, bool bUseSRGB);
 	void Initialize(ResourceManager* pManager, const D3D12_RESOURCE_DESC& DESC);
-	void InitializeWithDDS(ResourceManager* pManager, const wchar_t* pszFileName);
+	void InitializeWithDDS(ResourceManager* pManager, const WCHAR* pszFileName);
 
 	void Clear();
 

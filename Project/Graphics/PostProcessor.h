@@ -28,7 +28,6 @@ public:
 	void Update(ResourceManager* pManager);
 
 	void Render(ResourceManager* pManager, UINT frameIndex);
-	void Render(ResourceManager* pManager, ID3D12GraphicsCommandList* pCommandList, UINT frameIndex);
 
 	void Clear();
 
@@ -39,9 +38,7 @@ protected:
 	void createImageResources(ResourceManager* pManager, const int WIDTH, const int HEIGHT, ImageFilter::ImageResource* pImageResource);
 
 	void renderPostProcessing(ResourceManager* pManager, UINT frameIndex);
-	void renderPostProcessing(ResourceManager* pManager, ID3D12GraphicsCommandList* pCommandList, UINT frameIndex);
 	void renderImageFilter(ResourceManager* pManager, ImageFilter& imageFilter, ePipelineStateSetting psoSetting, UINT frameIndex);
-	void renderImageFilter(ResourceManager* pManager, ID3D12GraphicsCommandList* pCommandList, ImageFilter& imageFilter, ePipelineStateSetting psoSetting, UINT frameIndex);
 
 	void setRenderConfig(const PostProcessingBuffers& CONFIG);
 

@@ -162,29 +162,29 @@ void PostProcessor::Render(ResourceManager* pManager, UINT frameIndex)
 	renderPostProcessing(pManager, frameIndex);
 }
 
-void PostProcessor::Render(ResourceManager* pManager, ID3D12GraphicsCommandList* pCommandList, UINT frameIndex)
-{
-	_ASSERT(pManager);
-	_ASSERT(pCommandList);
-
-	ID3D12Device5* pDevice = pManager->m_pDevice;
-
-	pCommandList->RSSetViewports(1, &m_Viewport);
-	pCommandList->RSSetScissorRects(1, &m_ScissorRect);
-
-	// 스크린 렌더링을 위한 정점 버퍼와 인텍스 버퍼를 미리 설정.
-	UINT stride = sizeof(Vertex);
-	UINT offset = 0;
-	pCommandList->IASetVertexBuffers(0, 1, &(m_pScreenMesh->VertexBufferView));
-	pCommandList->IASetIndexBuffer(&(m_pScreenMesh->IndexBufferView));
-
-	// basic sampling.
-	pManager->SetCommonState(pCommandList, Sampling);
-	renderImageFilter(pManager, pCommandList, m_BasicSamplingFilter, Sampling, frameIndex);
-
-	// post processing.
-	renderPostProcessing(pManager, pCommandList, frameIndex);
-}
+//void PostProcessor::Render(ResourceManager* pManager, ID3D12GraphicsCommandList* pCommandList, UINT frameIndex)
+//{
+//	_ASSERT(pManager);
+//	_ASSERT(pCommandList);
+//
+//	ID3D12Device5* pDevice = pManager->m_pDevice;
+//
+//	pCommandList->RSSetViewports(1, &m_Viewport);
+//	pCommandList->RSSetScissorRects(1, &m_ScissorRect);
+//
+//	// 스크린 렌더링을 위한 정점 버퍼와 인텍스 버퍼를 미리 설정.
+//	UINT stride = sizeof(Vertex);
+//	UINT offset = 0;
+//	pCommandList->IASetVertexBuffers(0, 1, &(m_pScreenMesh->VertexBufferView));
+//	pCommandList->IASetIndexBuffer(&(m_pScreenMesh->IndexBufferView));
+//
+//	// basic sampling.
+//	pManager->SetCommonState(pCommandList, Sampling);
+//	renderImageFilter(pManager, pCommandList, m_BasicSamplingFilter, Sampling, frameIndex);
+//
+//	// post processing.
+//	renderPostProcessing(pManager, pCommandList, frameIndex);
+//}
 
 void PostProcessor::Clear()
 {
@@ -415,8 +415,8 @@ void PostProcessor::renderPostProcessing(ResourceManager* pManager, UINT frameIn
 
 	ID3D12GraphicsCommandList* pCommandList = pManager->m_pSingleCommandList;
 	
-	// bloom pass 제외.
-	/*pManager->SetCommonState(BloomDown);
+	// bloom pass.
+	pManager->SetCommonState(BloomDown);
 	for (UINT64 i = 0, size = m_BloomDownFilters.size(); i < size; ++i)
 	{
 		renderImageFilter(pManager, m_BloomDownFilters[i], BloomDown, frameIndex);
@@ -425,43 +425,11 @@ void PostProcessor::renderPostProcessing(ResourceManager* pManager, UINT frameIn
 	for (UINT64 i = 0, size = m_BloomUpFilters.size(); i < size; ++i)
 	{
 		renderImageFilter(pManager, m_BloomUpFilters[i], BloomUp, frameIndex);
-	}*/
+	}
 
 	// combine pass
 	pManager->SetCommonState(Combine);
 	renderImageFilter(pManager, m_CombineFilter, Combine, frameIndex);
-
-	const CD3DX12_RESOURCE_BARRIER BEFORE_BARRIERs[2] =
-	{
-		CD3DX12_RESOURCE_BARRIER::Transition(m_ppBackBuffers[frameIndex], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE),
-		CD3DX12_RESOURCE_BARRIER::Transition(m_pPrevBuffer, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST)
-	};
-	const CD3DX12_RESOURCE_BARRIER AFTER_BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(m_pPrevBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
-	pCommandList->ResourceBarrier(2, BEFORE_BARRIERs);
-	pCommandList->CopyResource(m_pPrevBuffer, m_ppBackBuffers[frameIndex]);
-	pCommandList->ResourceBarrier(1, &AFTER_BARRIER);
-}
-
-void PostProcessor::renderPostProcessing(ResourceManager* pManager, ID3D12GraphicsCommandList* pCommandList, UINT frameIndex)
-{
-	_ASSERT(pManager);
-	_ASSERT(pCommandList);
-
-	// bloom pass 제외.
-	/*pManager->SetCommonState(pCommandList, BloomDown);
-	for (UINT64 i = 0, size = m_BloomDownFilters.size(); i < size; ++i)
-	{
-		renderImageFilter(pManager, pCommandList, m_BloomDownFilters[i], BloomDown, frameIndex);
-	}
-	pManager->SetCommonState(pCommandList, BloomUp);
-	for (UINT64 i = 0, size = m_BloomUpFilters.size(); i < size; ++i)
-	{
-		renderImageFilter(pManager, pCommandList, m_BloomUpFilters[i], BloomUp, frameIndex);
-	}*/
-
-	// combine pass
-	pManager->SetCommonState(pCommandList, Combine);
-	renderImageFilter(pManager, pCommandList, m_CombineFilter, Combine, frameIndex);
 
 	const CD3DX12_RESOURCE_BARRIER BEFORE_BARRIERs[2] =
 	{
@@ -479,13 +447,6 @@ void PostProcessor::renderImageFilter(ResourceManager* pManager, ImageFilter& im
 	imageFilter.BeforeRender(pManager, psoSetting, frameIndex);
 	pManager->m_pSingleCommandList->DrawIndexedInstanced(m_pScreenMesh->IndexCount, 1, 0, 0, 0);
 	imageFilter.AfterRender(pManager, psoSetting, frameIndex);
-}
-
-void PostProcessor::renderImageFilter(ResourceManager* pManager, ID3D12GraphicsCommandList* pCommandList, ImageFilter& imageFilter, ePipelineStateSetting psoSetting, UINT frameIndex)
-{
-	imageFilter.BeforeRender(pManager, pCommandList, psoSetting, frameIndex);
-	pCommandList->DrawIndexedInstanced(m_pScreenMesh->IndexCount, 1, 0, 0, 0);
-	imageFilter.AfterRender(pManager, pCommandList, psoSetting, frameIndex);
 }
 
 void PostProcessor::setRenderConfig(const PostProcessingBuffers& CONFIG)

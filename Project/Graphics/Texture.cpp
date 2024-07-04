@@ -3,7 +3,7 @@
 #include "../Util/Utility.h"
 #include "Texture.h"
 
-void Texture::Initialize(ResourceManager* pManager, const wchar_t* pszFileName, bool bUseSRGB)
+void Texture::Initialize(ResourceManager* pManager, const WCHAR* pszFileName, bool bUseSRGB)
 {
 	_ASSERT(pManager);
 
@@ -136,7 +136,7 @@ void Texture::Initialize(ResourceManager* pManager, const D3D12_RESOURCE_DESC& D
 	m_GPUMemAddr = m_pResource->GetGPUVirtualAddress();
 }
 
-void Texture::InitializeWithDDS(ResourceManager* pManager, const wchar_t* pszFileName)
+void Texture::InitializeWithDDS(ResourceManager* pManager, const WCHAR* pszFileName)
 {
 	_ASSERT(pManager);
 

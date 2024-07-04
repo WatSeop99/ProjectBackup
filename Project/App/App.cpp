@@ -6,26 +6,19 @@ void App::Initialize()
 {
 	UINT64 totalRenderObjectCount = 0;
 
-	m_pRenderer = new Renderer;
-	if (m_pRenderer == nullptr)
-	{
-		__debugbreak();
-	}
-
-	initScene(&totalRenderObjectCount);
+	initExternalData(&totalRenderObjectCount);
 
 	Renderer::InitialData initData =
 	{
-		totalRenderObjectCount,
-		(Model*)m_pRenderObjectsHead->pItem,
-		(Light*)m_Lights->Data,
-		(Model**)m_LightSpheres->Data,
+		&m_RenderObjects,
+		&m_Lights,
+		&m_LightSpheres,
 
 		&m_EnvTexture, &m_IrradianceTexture, &m_SpecularTexture, &m_BRDFTexture,
 
 		m_pSkybox, m_pGround, m_pMirror, m_pPickedModel, m_pCharacter, &m_MirrorPlane,
 	};
-	m_pRenderer->Initizlie(&initData);
+	Renderer::Initizlie(&initData);
 }
 
 int App::Run()
@@ -55,7 +48,7 @@ int App::Run()
 
 			Update(frameChange);
 			s_PrevUpdateTick = curTick;
-			m_pRenderer->Render();
+			Render();
 
 			if (curTick - s_PrevFrameCheckTick > 1000)
 			{
@@ -63,7 +56,7 @@ int App::Run()
 
 				WCHAR txt[64];
 				swprintf_s(txt, L"DX12  %uFPS", s_FrameCount);
-				SetWindowText(m_pRenderer->GetWindow(), txt);
+				SetWindowText(m_hMainWindow, txt);
 
 				s_FrameCount = 0;
 			}
@@ -75,19 +68,17 @@ int App::Run()
 
 void App::Update(const float DELTA_TIME)
 {
-	m_pRenderer->Update(DELTA_TIME);
+	Renderer::Update(DELTA_TIME);
 
 	if (m_pMirror)
 	{
 		m_pMirror->UpdateConstantBuffers();
 	}
 
-	ListElem* pRenderObject = m_pRenderObjectsHead;
-	while (pRenderObject)
+	for (UINT64 i = 0, size = m_RenderObjects.size(); i < size; ++i)
 	{
-		Model* pModel = (Model*)pRenderObject->pItem;
+		Model* pModel = m_RenderObjects[i];
 		pModel->UpdateConstantBuffers();
-		pRenderObject = pRenderObject->pNext;
 	}
 
 	m_pCharacter->UpdateConstantBuffers();
@@ -96,28 +87,14 @@ void App::Update(const float DELTA_TIME)
 
 void App::Clear()
 {
-	while (m_pRenderObjectsHead)
+	for (UINT64 i = 0, size = m_RenderObjects.size(); i < size; ++i)
 	{
-		Model* pModel = (Model*)m_pRenderObjectsHead->pItem;
-		UnLinkElemFromList(&m_pRenderObjectsHead, &m_pRenderObjectsTail, &pModel->LinkToList);
+		Model* pModel = m_RenderObjects[i];
 		delete pModel;
 	}
-	if (m_Lights)
-	{
-		Light* pLights = (Light*)m_Lights->Data;
-		for (UINT64 i = 0; i < m_Lights->ElemCount; ++i)
-		{
-			pLights[i].Clear();
-		}
-
-		free(m_Lights);
-		m_Lights = nullptr;
-	}
-	if (m_LightSpheres)
-	{
-		free(m_LightSpheres);
-		m_LightSpheres = nullptr;
-	}
+	m_RenderObjects.clear();
+	m_Lights.clear();
+	m_LightSpheres.clear();
 
 	if (m_pSkybox)
 	{
@@ -128,49 +105,24 @@ void App::Clear()
 	{
 		delete m_pGround;
 		m_pGround = nullptr;
+		m_pMirror = nullptr;
 	}
 	if (m_pCharacter)
 	{
 		delete m_pCharacter;
 		m_pCharacter = nullptr;
 	}
-	m_pMirror = nullptr;
 	m_pPickedModel = nullptr;
-
-	if (m_pRenderer)
-	{
-		delete m_pRenderer;
-		m_pRenderer = nullptr;
-	}
 }
 
-void App::initScene(UINT64* pTotalRenderObjectCount)
+void App::initExternalData(UINT64* pTotalRenderObjectCount)
 {
 	_ASSERT(pTotalRenderObjectCount);
 
-	ResourceManager* pResourceManager = m_pRenderer->GetResourceManager();
+	ResourceManager* pResourceManager = GetResourceManager();
 
-	UINT64 elemCount = MAX_LIGHTS;
-	UINT64 memSize = GetAllocMemSize(MAX_LIGHTS * sizeof(Light));
-	m_Lights = (Container*)malloc(memSize);
-	memset(m_Lights, 0, memSize);
-	m_Lights->ElemCount = elemCount;
-	m_Lights->MemSize = memSize;
-	
-	memSize = GetAllocMemSize(MAX_LIGHTS * sizeof(Model*));
-	m_LightSpheres = (Container*)malloc(memSize);
-	memset(m_LightSpheres, 0, memSize);
-	m_LightSpheres->ElemCount = elemCount;
-	m_LightSpheres->MemSize = memSize;
-
-	Light* pLightData = (Light*)m_Lights->Data;
-	Model** pLightSphereData = (Model**)m_LightSpheres->Data;
-	Light initLight;
-
-	for (UINT64 i = 0; i < m_Lights->ElemCount; ++i)
-	{
-		memcpy(pLightData + i, &initLight, sizeof(Light));
-	}
+	m_Lights.resize(MAX_LIGHTS);
+	m_LightSpheres.resize(MAX_LIGHTS);
 
 	// 환경맵 텍스쳐 로드.
 	{
@@ -184,34 +136,34 @@ void App::initScene(UINT64* pTotalRenderObjectCount)
 	{
 
 		// 조명 0.
-		pLightData[0].Property.Radiance = Vector3(3.0f);
-		pLightData[0].Property.FallOffEnd = 10.0f;
-		pLightData[0].Property.Position = Vector3(0.0f, 0.0f, 0.0f);
-		pLightData[0].Property.Direction = Vector3(0.0f, 0.0f, 1.0f);
-		pLightData[0].Property.SpotPower = 3.0f;
-		pLightData[0].Property.LightType = LIGHT_POINT | LIGHT_SHADOW;
-		pLightData[0].Property.Radius = 0.03f;
-		pLightData[0].Initialize(pResourceManager);
+		m_Lights[0].Property.Radiance = Vector3(3.0f);
+		m_Lights[0].Property.FallOffEnd = 10.0f;
+		m_Lights[0].Property.Position = Vector3(0.0f, 0.0f, 0.0f);
+		m_Lights[0].Property.Direction = Vector3(0.0f, 0.0f, 1.0f);
+		m_Lights[0].Property.SpotPower = 3.0f;
+		m_Lights[0].Property.LightType = LIGHT_POINT | LIGHT_SHADOW;
+		m_Lights[0].Property.Radius = 0.03f;
+		m_Lights[0].Initialize(pResourceManager);
 
 		// 조명 1.
-		pLightData[1].Property.Radiance = Vector3(3.0f);
-		pLightData[1].Property.FallOffEnd = 10.0f;
-		pLightData[1].Property.Position = Vector3(1.0f, 1.1f, 2.0f);
-		pLightData[1].Property.SpotPower = 2.0f;
-		pLightData[1].Property.Direction = Vector3(0.0f, -0.5f, 1.7f) - pLightData[1].Property.Position;
-		pLightData[1].Property.Direction.Normalize();
-		pLightData[1].Property.LightType = LIGHT_SPOT | LIGHT_SHADOW;
-		pLightData[1].Property.Radius = 0.03f;
-		pLightData[1].Initialize(pResourceManager);
+		m_Lights[1].Property.Radiance = Vector3(3.0f);
+		m_Lights[1].Property.FallOffEnd = 10.0f;
+		m_Lights[1].Property.Position = Vector3(1.0f, 1.1f, 2.0f);
+		m_Lights[1].Property.SpotPower = 2.0f;
+		m_Lights[1].Property.Direction = Vector3(0.0f, -0.5f, 1.7f) - m_Lights[1].Property.Position;
+		m_Lights[1].Property.Direction.Normalize();
+		m_Lights[1].Property.LightType = LIGHT_SPOT | LIGHT_SHADOW;
+		m_Lights[1].Property.Radius = 0.03f;
+		m_Lights[1].Initialize(pResourceManager);
 
 		// 조명 2.
-		pLightData[2].Property.Radiance = Vector3(5.0f);
-		pLightData[2].Property.Position = Vector3(5.0f, 5.0f, 5.0f);
-		pLightData[2].Property.Direction = Vector3(-1.0f, -1.0f, -1.0f);
-		pLightData[2].Property.Direction.Normalize();
-		pLightData[2].Property.LightType = LIGHT_DIRECTIONAL | LIGHT_SHADOW;
-		pLightData[2].Property.Radius = 0.05f;
-		pLightData[2].Initialize(pResourceManager);
+		m_Lights[2].Property.Radiance = Vector3(5.0f);
+		m_Lights[2].Property.Position = Vector3(5.0f, 5.0f, 5.0f);
+		m_Lights[2].Property.Direction = Vector3(-1.0f, -1.0f, -1.0f);
+		m_Lights[2].Property.Direction.Normalize();
+		m_Lights[2].Property.LightType = LIGHT_DIRECTIONAL | LIGHT_SHADOW;
+		m_Lights[2].Property.Radius = 0.05f;
+		m_Lights[2].Initialize(pResourceManager);
 	}
 
 	// 조명 위치 표시.
@@ -223,27 +175,26 @@ void App::initScene(UINT64* pTotalRenderObjectCount)
 			MeshInfo sphere = INIT_MESH_INFO;
 			MakeSphere(&sphere, 1.0f, 20, 20);
 
-			pLightSphereData[i] = new Model(pResourceManager, { sphere });
-			pLightSphereData[i]->UpdateWorld(Matrix::CreateTranslation(pLightData[i].Property.Position));
+			m_LightSpheres[i] = new Model(pResourceManager, { sphere });
+			m_LightSpheres[i]->UpdateWorld(Matrix::CreateTranslation(m_Lights[i].Property.Position));
 
-			MaterialConstant* pSphereMaterialConst = (MaterialConstant*)pLightSphereData[i]->Meshes[0]->MaterialConstant.pData;
+			MaterialConstant* pSphereMaterialConst = (MaterialConstant*)m_LightSpheres[i]->Meshes[0]->MaterialConstant.pData;
 			pSphereMaterialConst->AlbedoFactor = Vector3(0.0f);
 			pSphereMaterialConst->EmissionFactor = Vector3(1.0f, 1.0f, 0.0f);
-			pLightSphereData[i]->bCastShadow = false; // 조명 표시 물체들은 그림자 X.
-			for (UINT64 j = 0, size = pLightSphereData[i]->Meshes.size(); j < size; ++j)
+			m_LightSpheres[i]->bCastShadow = false; // 조명 표시 물체들은 그림자 X.
+			for (UINT64 j = 0, size = m_LightSpheres[i]->Meshes.size(); j < size; ++j)
 			{
-				Mesh* pCurMesh = pLightSphereData[i]->Meshes[j];
-				MaterialConstant* pMeshMaterialConst = (MaterialConstant*)(pCurMesh->MaterialConstant.pData);
+				Mesh* pCurMesh = m_LightSpheres[i]->Meshes[j];
+				MaterialConstant* pMeshMaterialConst = (MaterialConstant*)pCurMesh->MaterialConstant.pData;
 				pMeshMaterialConst->AlbedoFactor = Vector3(0.0f);
 				pMeshMaterialConst->EmissionFactor = Vector3(1.0f, 1.0f, 0.0f);
 			}
 
-			pLightSphereData[i]->bIsVisible = true;
-			pLightSphereData[i]->Name = "LightSphere" + std::to_string(i);
-			pLightSphereData[i]->bIsPickable = false;
+			m_LightSpheres[i]->bIsVisible = true;
+			m_LightSpheres[i]->Name = "LightSphere" + std::to_string(i);
+			m_LightSpheres[i]->bIsPickable = false;
 
-			LinkElemIntoListFIFO(&m_pRenderObjectsHead, &m_pRenderObjectsTail, &pLightSphereData[i]->LinkToList);
-			++(*pTotalRenderObjectCount); // 리스트에 등록.
+			m_RenderObjects.push_back(m_LightSpheres[i]);
 		}
 	}
 
@@ -331,8 +282,6 @@ void App::initScene(UINT64* pTotalRenderObjectCount)
 			pMeshConst->MetallicFactor = 0.0f;
 		}
 		m_pCharacter->UpdateWorld(Matrix::CreateScale(1.0f) * Matrix::CreateTranslation(center));
-
-		// m_RenderObjects.push_back(m_pCharacter);
 	}
 }
 
@@ -347,20 +296,19 @@ void App::updateAnimation(const float DELTA_TIME)
 	// 3: walk to stop
 	static int s_State = 0;
 	SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)m_pCharacter;
-	Keyboard* pKeyboard = m_pRenderer->GetKeyboard();
 
 	switch (s_State)
 	{
 		case 0:
 		{
-			if (pKeyboard->bPressed[VK_UP])
+			if (m_Keyboard.bPressed[VK_UP])
 			{
 				s_State = 1;
 				s_FrameCount = 0;
 			}
 			else if (s_FrameCount ==
 					 pCharacter->AnimData.Clips[s_State].Keys[0].size() ||
-					 pKeyboard->bPressed[VK_UP]) // 재생이 다 끝난다면.
+					 m_Keyboard.bPressed[VK_UP]) // 재생이 다 끝난다면.
 			{
 				s_FrameCount = 0; // 상태 변화 없이 반복.
 			}
@@ -379,13 +327,13 @@ void App::updateAnimation(const float DELTA_TIME)
 
 		case 2:
 		{
-			if (pKeyboard->bPressed[VK_RIGHT])
+			if (m_Keyboard.bPressed[VK_RIGHT])
 			{
 				pCharacter->AnimData.AccumulatedRootTransform =
 					Matrix::CreateRotationY(DirectX::XM_PI * 60.0f / 180.0f * DELTA_TIME * 2.0f) *
 					pCharacter->AnimData.AccumulatedRootTransform;
 			}
-			if (pKeyboard->bPressed[VK_LEFT])
+			if (m_Keyboard.bPressed[VK_LEFT])
 			{
 				pCharacter->AnimData.AccumulatedRootTransform =
 					Matrix::CreateRotationY(-DirectX::XM_PI * 60.0f / 180.0f * DELTA_TIME * 2.0f) *
@@ -394,7 +342,7 @@ void App::updateAnimation(const float DELTA_TIME)
 			if (s_FrameCount == pCharacter->AnimData.Clips[s_State].Keys[0].size())
 			{
 				// 방향키를 누르고 있지 않으면 정지. (누르고 있으면 계속 걷기)
-				if (!pKeyboard->bPressed[VK_UP])
+				if (!m_Keyboard.bPressed[VK_UP])
 				{
 					s_State = 3;
 				}

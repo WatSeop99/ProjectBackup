@@ -5,8 +5,9 @@
 #include "../Model/Model.h"
 #include "../Renderer/Renderer.h"
 #include "../Util/Utility.h"
+#include "../Renderer/Timer.h"
 
-class App
+class App final : public Renderer
 {
 public:
 	App() = default;
@@ -21,20 +22,17 @@ public:
 	void Clear();
 
 protected:
-	void initScene(UINT64* pTotalRenderObjectCount);
+	void initExternalData(UINT64* pTotalRenderObjectCount);
 
 	void updateAnimation(const float DELTA_TIME);
 
 private:
-	Renderer* m_pRenderer = nullptr;
-
 	Timer m_Timer;
 
 	// data
-	ListElem* m_pRenderObjectsHead = nullptr;
-	ListElem* m_pRenderObjectsTail = nullptr;
-	Container* m_Lights = nullptr;
-	Container* m_LightSpheres = nullptr;
+	std::vector<Model*> m_RenderObjects;
+	std::vector<Light> m_Lights;
+	std::vector<Model*> m_LightSpheres;
 
 	Texture m_EnvTexture;
 	Texture m_IrradianceTexture;

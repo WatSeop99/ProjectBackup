@@ -65,9 +65,11 @@ void UnLinkElemFromList(ListElem** ppHead, ListElem** ppTail, ListElem* pDel)
 	{
 #ifdef _DEBUG
 		if (pDel != (*ppHead))
+		{
 			__debugbreak();
+		}
 #endif
-		(*ppHead) = pNext;
+		*ppHead = pNext;
 	}
 
 	if (pDel->pNext)
