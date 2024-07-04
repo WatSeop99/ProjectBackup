@@ -52,7 +52,7 @@ void Renderer::Initizlie(InitialData* pIntialData)
 	m_PostProcessor.Initizlie(m_pResourceManager, config, m_ScreenWidth, m_ScreenHeight, 2);
 	m_PostProcessor.SetDescriptorHeap(m_pResourceManager);
 
-	m_DynamicDescriptorPool.Initialize(m_pDevice, 768);
+	m_DynamicDescriptorPool.Initialize(m_pDevice, 1024);
 
 	m_ScreenViewport.TopLeftX = 0;
 	m_ScreenViewport.TopLeftY = 0;
@@ -664,7 +664,7 @@ LB_EXIT:
 	m_pResourceManager->Initialize(&initData);
 	m_pResourceManager->InitRTVDescriptorHeap(16);
 	m_pResourceManager->InitDSVDescriptorHeap(8);
-	m_pResourceManager->InitCBVSRVUAVDescriptorHeap(512);
+	m_pResourceManager->InitCBVSRVUAVDescriptorHeap(1024);
 
 	SAFE_RELEASE(pDebugController);
 	SAFE_RELEASE(pFactory5);
@@ -896,6 +896,11 @@ void Renderer::initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceText
 		cbvSrvHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 		++(m_pResourceManager->m_CBVSRVUAVHeapSize);
 
+		// null. 15번째.
+		m_pDevice->CreateShaderResourceView(nullptr, &srvDesc, cbvSrvHandle);
+		// cbvSrvHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+		++(m_pResourceManager->m_CBVSRVUAVHeapSize);
+
 		// Model 내 생성된 버퍼들 등록.
 		for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
 		{
@@ -960,20 +965,30 @@ void Renderer::objectRender()
 	m_pResourceManager->SetCommonState(Skybox);
 	m_pSkybox->Render(m_pResourceManager, Skybox);
 
-	m_pResourceManager->SetCommonState(Default);
 	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
 	{
 		Model* pCurModel = (*m_pRenderObjects)[i];
 		if (pCurModel->bIsVisible)
 		{
+			m_pResourceManager->SetCommonState(Default);
 			pCurModel->Render(m_pResourceManager, Default);
-			// pCurModel->RenderBoundingObject();
 		}
 	}
-
 	m_pResourceManager->SetCommonState(Skinned);
 	m_pCharacter->Render(m_pResourceManager, Skinned);
-	// m_pCharacter->RenderBoundingObject();
+
+	// obb rendering
+	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
+	{
+		Model* pCurModel = (*m_pRenderObjects)[i];
+		if (pCurModel->bIsVisible)
+		{
+			m_pResourceManager->SetCommonState(Wire);
+			pCurModel->RenderBoundingBox(m_pResourceManager, Wire);
+		}
+	}
+	m_pResourceManager->SetCommonState(Wire);
+	m_pCharacter->RenderBoundingBox(m_pResourceManager, Wire);
 }
 
 void Renderer::mirrorRender()

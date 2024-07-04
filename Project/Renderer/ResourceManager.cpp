@@ -393,6 +393,7 @@ void ResourceManager::Clear()
 	SAFE_RELEASE(m_pDepthOnlyAroundSkinnedRootSignature);
 	SAFE_RELEASE(m_pSamplingRootSignature);
 	SAFE_RELEASE(m_pCombineRootSignature);
+	SAFE_RELEASE(m_pDefaultWireRootSignature);
 
 	SAFE_RELEASE(m_pDepthOnlyCascadeGS);
 	SAFE_RELEASE(m_pDepthOnlyCubeGS);
@@ -691,7 +692,7 @@ void ResourceManager::SetCommonState(ePipelineStateSetting psoState)
 		break;
 
 	case Wire:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pDefaultRootSignature);
+		m_pSingleCommandList->SetGraphicsRootSignature(m_pDefaultWireRootSignature);
 		m_pSingleCommandList->SetPipelineState(m_pDefaultWirePSO);
 		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
 		m_pSingleCommandList->OMSetStencilRef(0);
@@ -1229,6 +1230,37 @@ void ResourceManager::initPipelineStates()
 		SAFE_RELEASE(pError);
 	}
 
+	{
+		CD3DX12_DESCRIPTOR_RANGE perDefaultObjectResourceRanges[2];
+		perDefaultObjectResourceRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 2, 2); // b2, b3
+		perDefaultObjectResourceRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 6); // t6. 여기서는 그냥 없는 걸로 놔둠.
+
+		CD3DX12_ROOT_PARAMETER rootParameters[3];
+		rootParameters[0].InitAsDescriptorTable(2, perDefaultObjectResourceRanges, D3D12_SHADER_VISIBILITY_ALL);
+		rootParameters[1].InitAsDescriptorTable(4, commonResourceRanges, D3D12_SHADER_VISIBILITY_ALL);
+		rootParameters[2].InitAsDescriptorTable(1, &commonResourceRanges[4], D3D12_SHADER_VISIBILITY_ALL);
+
+		rootSignatureDesc.Init(_countof(rootParameters), rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+		hr = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &pSignature, &pError);
+		if (FAILED(hr))
+		{
+			if (pError)
+			{
+				OutputDebugStringA((char*)pError->GetBufferPointer());
+				SAFE_RELEASE(pError);
+			}
+			__debugbreak();
+		}
+
+		hr = m_pDevice->CreateRootSignature(0, pSignature->GetBufferPointer(), pSignature->GetBufferSize(), IID_PPV_ARGS(&m_pDefaultWireRootSignature));
+		BREAK_IF_FAILED(hr);
+		m_pDefaultWireRootSignature->SetName(L"DefaultWireRootSignature");
+
+		SAFE_RELEASE(pSignature);
+		SAFE_RELEASE(pError);
+	}
+
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = { 0, };
 	psoDesc.pRootSignature = m_pDefaultRootSignature;
@@ -1597,7 +1629,7 @@ void ResourceManager::initPipelineStates()
 	m_pCombinePSO->SetName(L"CombinePSO");
 
 
-	psoDesc.pRootSignature = m_pDefaultRootSignature;
+	psoDesc.pRootSignature = m_pDefaultWireRootSignature;
 	psoDesc.VS = { (BYTE*)m_pBasicVS->GetBufferPointer(), m_pBasicVS->GetBufferSize() };
 	psoDesc.PS = { (BYTE*)m_pColorPS->GetBufferPointer(), m_pColorPS->GetBufferSize() };
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
@@ -1606,7 +1638,7 @@ void ResourceManager::initPipelineStates()
 	psoDesc.DepthStencilState.DepthEnable = FALSE;
 	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
 	psoDesc.NumRenderTargets = 1;
-	psoDesc.RTVFormats[0] = DXGI_FORMAT_R10G10B10A2_UNORM;
+	psoDesc.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 	psoDesc.SampleDesc.Count = 1;
 	psoDesc.SampleDesc.Quality = 0;

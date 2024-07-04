@@ -174,91 +174,6 @@ void SkinnedMeshModel::Render(ResourceManager* pManager, ePipelineStateSetting p
 	}
 }
 
-void SkinnedMeshModel::Render(ResourceManager* pManager, ID3D12GraphicsCommandList* pCommandList, ePipelineStateSetting psoSetting)
-{
-	if (bIsVisible == false)
-	{
-		return;
-	}
-
-	_ASSERT(pManager);
-	_ASSERT(pCommandList);
-
-	HRESULT hr = S_OK;
-
-	ID3D12Device5* pDevice = pManager->m_pDevice;
-	DynamicDescriptorPool* pDynamicDescriptorPool = pManager->m_pDynamicDescriptorPool;
-	const UINT CBV_SRV_UAV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
-	bool bIsSkinnedPSO = false;
-
-
-	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable = {};
-	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorTable = {};
-
-	for (UINT64 i = 0, size = Meshes.size(); i < size; ++i)
-	{
-		Mesh* const pCurMesh = Meshes[i];
-
-		switch (psoSetting)
-		{
-			case Default: case Skinned: case ReflectionSkinned:
-			{
-				hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 10);
-				BREAK_IF_FAILED(hr);
-
-				CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-
-				// t7
-				pDevice->CopyDescriptorsSimple(1, dstHandle, BoneTransforms.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-				dstHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-
-				// b2, b3
-				pDevice->CopyDescriptorsSimple(2, dstHandle, pCurMesh->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-				dstHandle.Offset(2, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-
-				// t0 ~ t5
-				pDevice->CopyDescriptorsSimple(6, dstHandle, pCurMesh->Material.Albedo.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-				dstHandle.Offset(6, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-
-				// t6
-				pDevice->CopyDescriptorsSimple(1, dstHandle, pCurMesh->Material.Height.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-				pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
-
-			}
-			break;
-
-			case DepthOnlySkinned: case DepthOnlyCubeSkinned: case DepthOnlyCascadeSkinned:
-			{
-
-				hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 3);
-				BREAK_IF_FAILED(hr);
-
-				CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-
-				// t7
-				pDevice->CopyDescriptorsSimple(1, dstHandle, BoneTransforms.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-				dstHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-
-				// b2, b3
-				pDevice->CopyDescriptorsSimple(2, dstHandle, pCurMesh->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-				pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
-
-			}
-			break;
-
-			default:
-				__debugbreak();
-				break;
-		}
-
-		pCommandList->IASetVertexBuffers(0, 1, &pCurMesh->Vertex.VertexBufferView);
-		pCommandList->IASetIndexBuffer(&pCurMesh->Index.IndexBufferView);
-		pCommandList->DrawIndexedInstanced(pCurMesh->Index.Count, 1, 0, 0, 0);
-	}
-}
-
 void SkinnedMeshModel::Clear()
 {
 	BoneTransforms.Clear();
@@ -360,4 +275,19 @@ void SkinnedMeshModel::SetDescriptorHeap(ResourceManager* pManager)
 		cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 		++(pManager->m_CBVSRVUAVHeapSize);
 	}
+
+	// bounding box
+	cbvDesc.BufferLocation = m_pBoundingBoxMesh->MeshConstant.GetGPUMemAddr();
+	cbvDesc.SizeInBytes = (UINT)m_pBoundingBoxMesh->MeshConstant.GetBufferSize();
+	pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
+	m_pBoundingBoxMesh->MeshConstant.SetCBVHandle(cbvSrvLastHandle);
+	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+	++(pManager->m_CBVSRVUAVHeapSize);
+
+	cbvDesc.BufferLocation = m_pBoundingBoxMesh->MaterialConstant.GetGPUMemAddr();
+	cbvDesc.SizeInBytes = (UINT)m_pBoundingBoxMesh->MaterialConstant.GetBufferSize();
+	pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
+	m_pBoundingBoxMesh->MaterialConstant.SetCBVHandle(cbvSrvLastHandle);
+	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+	++(pManager->m_CBVSRVUAVHeapSize);
 }

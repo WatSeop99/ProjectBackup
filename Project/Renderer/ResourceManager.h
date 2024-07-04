@@ -119,6 +119,7 @@ private:
 	ID3D12RootSignature* m_pDepthOnlyAroundSkinnedRootSignature = nullptr;
 	ID3D12RootSignature* m_pSamplingRootSignature = nullptr;
 	ID3D12RootSignature* m_pCombineRootSignature = nullptr;
+	ID3D12RootSignature* m_pDefaultWireRootSignature = nullptr;
 
 	// pipeline state.
 	ID3D12PipelineState* m_pDefaultSolidPSO = nullptr;

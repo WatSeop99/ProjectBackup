@@ -16,7 +16,6 @@ public:
 	void UpdateAnimation(int clipID, int frame) override;
 
 	void Render(ResourceManager* pManager, ePipelineStateSetting psoSetting) override;
-	void Render(ResourceManager* pManager, ID3D12GraphicsCommandList* pCommandList, ePipelineStateSetting psoSetting) override;
 
 	void Clear();
 

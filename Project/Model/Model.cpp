@@ -412,78 +412,41 @@ void Model::Render(ResourceManager* pManager, ePipelineStateSetting psoSetting)
 	}
 }
 
-void Model::Render(ResourceManager* pManager, ID3D12GraphicsCommandList* pCommandList, ePipelineStateSetting psoSetting)
+void Model::RenderBoundingBox(ResourceManager* pManager, ePipelineStateSetting psoSetting)
 {
-	if (!bIsVisible)
-	{
-		return;
-	}
-
 	_ASSERT(pManager);
-	_ASSERT(pCommandList);
 
 	HRESULT hr = S_OK;
 
 	ID3D12Device5* pDevice = pManager->m_pDevice;
+	ID3D12GraphicsCommandList* pCommandList = pManager->m_pSingleCommandList;
+	ID3D12DescriptorHeap* pCBVSRVHeap = pManager->m_pCBVSRVUAVHeap;
 	DynamicDescriptorPool* pDynamicDescriptorPool = pManager->m_pDynamicDescriptorPool;
 	const UINT CBV_SRV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
 
-	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable;
-	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorTable;
+	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable = {};
+	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorTable = {};
 
-	for (UINT64 i = 0, size = Meshes.size(); i < size; ++i)
-	{
-		Mesh* pCurMesh = Meshes[i];
+	hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 3);
+	BREAK_IF_FAILED(hr);
 
-		switch (psoSetting)
-		{
-			case Default: case Skybox: case MirrorBlend: 
-			case ReflectionDefault: case ReflectionSkybox:
-			{
-				hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 9);
-				BREAK_IF_FAILED(hr);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_DESCRIPTOR_SIZE);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE nullHandle(pCBVSRVHeap->GetCPUDescriptorHandleForHeapStart(), 14, CBV_SRV_DESCRIPTOR_SIZE);
 
-				CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_DESCRIPTOR_SIZE);
+	// b2, b3
+	pDevice->CopyDescriptorsSimple(1, dstHandle, m_pBoundingBoxMesh->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	dstHandle.Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+	pDevice->CopyDescriptorsSimple(1, dstHandle, m_pBoundingBoxMesh->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	dstHandle.Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
 
-				// b2, b3
-				pDevice->CopyDescriptorsSimple(2, dstHandle, pCurMesh->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-				dstHandle.Offset(2, CBV_SRV_DESCRIPTOR_SIZE);
+	// t6(null)
+	pDevice->CopyDescriptorsSimple(1, dstHandle, nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-				// t0 ~ t5
-				pDevice->CopyDescriptorsSimple(6, dstHandle, pCurMesh->Material.Albedo.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-				dstHandle.Offset(6, CBV_SRV_DESCRIPTOR_SIZE);
+	pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
 
-				// t6
-				pDevice->CopyDescriptorsSimple(1, dstHandle, pCurMesh->Material.Height.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-				pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
-			}
-			break;
-
-			case DepthOnlyDefault: case DepthOnlyCubeDefault: case DepthOnlyCascadeDefault: 
-			case StencilMask:
-			{
-				hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 2);
-				BREAK_IF_FAILED(hr);
-
-				CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_DESCRIPTOR_SIZE);
-
-				// b2, b3
-				pDevice->CopyDescriptorsSimple(2, dstHandle, pCurMesh->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-				pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
-			}
-			break;
-
-			default:
-				__debugbreak();
-				break;
-		}
-
-		pCommandList->IASetVertexBuffers(0, 1, &(pCurMesh->Vertex.VertexBufferView));
-		pCommandList->IASetIndexBuffer(&(pCurMesh->Index.IndexBufferView));
-		pCommandList->DrawIndexedInstanced(pCurMesh->Index.Count, 1, 0, 0, 0);
-	}
+	pCommandList->IASetVertexBuffers(0, 1, &m_pBoundingBoxMesh->Vertex.VertexBufferView);
+	pCommandList->IASetIndexBuffer(&m_pBoundingBoxMesh->Index.IndexBufferView);
+	pCommandList->DrawIndexedInstanced(m_pBoundingBoxMesh->Index.Count, 1, 0, 0, 0);
 }
 
 void Model::Clear()
@@ -586,4 +549,19 @@ void Model::SetDescriptorHeap(ResourceManager* pManager)
 		cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 		++(pManager->m_CBVSRVUAVHeapSize);
 	}
+
+	// bounding box
+	cbvDesc.BufferLocation = m_pBoundingBoxMesh->MeshConstant.GetGPUMemAddr();
+	cbvDesc.SizeInBytes = (UINT)m_pBoundingBoxMesh->MeshConstant.GetBufferSize();
+	pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
+	m_pBoundingBoxMesh->MeshConstant.SetCBVHandle(cbvSrvLastHandle);
+	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+	++(pManager->m_CBVSRVUAVHeapSize);
+
+	cbvDesc.BufferLocation = m_pBoundingBoxMesh->MaterialConstant.GetGPUMemAddr();
+	cbvDesc.SizeInBytes = (UINT)m_pBoundingBoxMesh->MaterialConstant.GetBufferSize();
+	pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
+	m_pBoundingBoxMesh->MaterialConstant.SetCBVHandle(cbvSrvLastHandle);
+	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+	++(pManager->m_CBVSRVUAVHeapSize);
 }
