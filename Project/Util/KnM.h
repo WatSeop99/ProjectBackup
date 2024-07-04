@@ -2,7 +2,7 @@
 
 struct Keyboard
 {
-	bool bPressed[256];
+	bool bPressed[256] = { false, };
 };
 struct Mouse
 {

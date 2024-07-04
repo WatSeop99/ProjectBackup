@@ -35,24 +35,23 @@ void PostProcessor::Initizlie(ResourceManager* pManager, const PostProcessingBuf
 		MeshInfo meshInfo = INIT_MESH_INFO;
 		MakeSquare(&meshInfo);
 
-		m_pScreenMesh = (Mesh*)malloc(sizeof(Mesh));
-		*m_pScreenMesh = INIT_MESH;
+		m_pScreenMesh = new Mesh;
 
 		hr = pManager->CreateVertexBuffer(sizeof(Vertex),
 										  (UINT)meshInfo.Vertices.size(),
-										  &(m_pScreenMesh->VertexBufferView),
-										  &(m_pScreenMesh->pVertexBuffer),
+										  &m_pScreenMesh->Vertex.VertexBufferView,
+										  &m_pScreenMesh->Vertex.pBuffer,
 										  (void*)meshInfo.Vertices.data());
 		BREAK_IF_FAILED(hr);
-		m_pScreenMesh->VertexCount = (UINT)meshInfo.Vertices.size();
+		m_pScreenMesh->Vertex.Count = (UINT)meshInfo.Vertices.size();
 
 		hr = pManager->CreateIndexBuffer(sizeof(UINT),
 										 (UINT)meshInfo.Indices.size(),
-										 &(m_pScreenMesh->IndexBufferView),
-										 &(m_pScreenMesh->pIndexBuffer),
+										 &m_pScreenMesh->Index.IndexBufferView,
+										 &m_pScreenMesh->Index.pBuffer,
 										 (void*)meshInfo.Indices.data());
 		BREAK_IF_FAILED(hr);
-		m_pScreenMesh->IndexCount = (UINT)meshInfo.Indices.size();
+		m_pScreenMesh->Index.Count = (UINT)meshInfo.Indices.size();
 	}
 
 	createPostBackBuffers(pManager);
@@ -151,8 +150,8 @@ void PostProcessor::Render(ResourceManager* pManager, UINT frameIndex)
 	// 스크린 렌더링을 위한 정점 버퍼와 인텍스 버퍼를 미리 설정.
 	UINT stride = sizeof(Vertex);
 	UINT offset = 0;
-	pCommandList->IASetVertexBuffers(0, 1, &(m_pScreenMesh->VertexBufferView));
-	pCommandList->IASetIndexBuffer(&(m_pScreenMesh->IndexBufferView));
+	pCommandList->IASetVertexBuffers(0, 1, &m_pScreenMesh->Vertex.VertexBufferView);
+	pCommandList->IASetIndexBuffer(&m_pScreenMesh->Index.IndexBufferView);
 
 	// basic sampling.
 	pManager->SetCommonState(Sampling);
@@ -223,7 +222,8 @@ void PostProcessor::Clear()
 
 	if (m_pScreenMesh)
 	{
-		ReleaseMesh(&m_pScreenMesh);
+		delete m_pScreenMesh;
+		m_pScreenMesh = nullptr;
 	}
 }
 
@@ -445,7 +445,7 @@ void PostProcessor::renderPostProcessing(ResourceManager* pManager, UINT frameIn
 void PostProcessor::renderImageFilter(ResourceManager* pManager, ImageFilter& imageFilter, ePipelineStateSetting psoSetting, UINT frameIndex)
 {
 	imageFilter.BeforeRender(pManager, psoSetting, frameIndex);
-	pManager->m_pSingleCommandList->DrawIndexedInstanced(m_pScreenMesh->IndexCount, 1, 0, 0, 0);
+	pManager->m_pSingleCommandList->DrawIndexedInstanced(m_pScreenMesh->Index.Count, 1, 0, 0, 0);
 	imageFilter.AfterRender(pManager, psoSetting, frameIndex);
 }
 

@@ -1,14 +1,11 @@
 #pragma once
 
 #include <ctype.h>
-#include <physx/PxPhysicsAPI.h>
 #include "../Graphics/ConstantBuffer.h"
 #include "DynamicDescriptorPool.h"
 #include "../Graphics/Texture.h"
 
 class ConstantBuffer;
-
-using namespace physx;
 
 enum ePipelineStateSetting
 {
@@ -31,6 +28,7 @@ enum ePipelineStateSetting
 	BloomDown,
 	BloomUp,
 	Combine,
+	Wire,
 };
 
 static const int NUM_THREADS = 6;
@@ -77,7 +75,6 @@ protected:
 	void initDepthStencilStateDescs();
 	void initPipelineStates();
 	void initShaders();
-	void initPhysics(bool interactive);
 
 	UINT64 fence();
 	void waitForGPU();
@@ -113,16 +110,6 @@ private:
 	ID3D12Fence* m_pFence = nullptr;
 	UINT64 m_FenceValue = 0;
 
-	// physx ฐüทร.
-	PxDefaultAllocator m_PhysxAllocator;
-	PxDefaultErrorCallback m_ErrorCallback;
-	PxFoundation* m_pFoundation = nullptr;
-	PxPhysics* m_pPhysics = nullptr;
-	PxDefaultCpuDispatcher* m_pDispatcher = nullptr;
-	PxScene* m_pScene = nullptr;
-	PxMaterial* m_pMaterial = nullptr;
-	PxPvd* m_pPvd = nullptr;
-
 	// root signature.
 	ID3D12RootSignature* m_pDefaultRootSignature = nullptr;
 	ID3D12RootSignature* m_pSkinnedRootSignature = nullptr;
@@ -156,10 +143,13 @@ private:
 	ID3D12PipelineState* m_pBloomUpPSO = nullptr;
 	ID3D12PipelineState* m_pCombinePSO = nullptr;
 
+	ID3D12PipelineState* m_pDefaultWirePSO = nullptr;
+
 	// rasterizer state.
 	D3D12_RASTERIZER_DESC m_RasterizerSolidDesc = {};
 	D3D12_RASTERIZER_DESC m_RasterizerSolidCcwDesc = {};
 	D3D12_RASTERIZER_DESC m_RasterizerPostProcessDesc = {};
+	D3D12_RASTERIZER_DESC m_RasterizerWireDesc = {};
 
 	// depthstencil state.
 	D3D12_DEPTH_STENCIL_DESC m_DepthStencilDrawDesc = {};
@@ -193,6 +183,7 @@ private:
 	ID3DBlob* m_pCombinePS = nullptr;
 	ID3DBlob* m_pBloomDownPS = nullptr;
 	ID3DBlob* m_pBloomUpPS = nullptr;
+	ID3DBlob* m_pColorPS = nullptr;
 
 	ID3DBlob* m_pDepthOnlyCubeGS = nullptr;
 	ID3DBlob* m_pDepthOnlyCascadeGS = nullptr;

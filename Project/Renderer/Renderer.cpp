@@ -967,11 +967,13 @@ void Renderer::objectRender()
 		if (pCurModel->bIsVisible)
 		{
 			pCurModel->Render(m_pResourceManager, Default);
+			// pCurModel->RenderBoundingObject();
 		}
 	}
 
 	m_pResourceManager->SetCommonState(Skinned);
 	m_pCharacter->Render(m_pResourceManager, Skinned);
+	// m_pCharacter->RenderBoundingObject();
 }
 
 void Renderer::mirrorRender()

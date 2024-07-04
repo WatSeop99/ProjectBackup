@@ -25,22 +25,22 @@ void SkinnedMeshModel::InitMeshBuffers(ResourceManager* pManager, const MeshInfo
 		{
 			hr = pManager->CreateVertexBuffer(sizeof(SkinnedVertex),
 											  (UINT)MESH_INFO.SkinnedVertices.size(),
-											  &(pNewMesh->VertexBufferView),
-											  &(pNewMesh->pVertexBuffer),
+											  &pNewMesh->Vertex.VertexBufferView,
+											  &pNewMesh->Vertex.pBuffer,
 											  (void*)MESH_INFO.SkinnedVertices.data());
 			BREAK_IF_FAILED(hr);
-			pNewMesh->VertexCount = (UINT)(MESH_INFO.SkinnedVertices.size());
+			pNewMesh->Vertex.Count = (UINT)MESH_INFO.SkinnedVertices.size();
 			pNewMesh->bSkinnedMesh = true;
 		}
 		else
 		{
 			hr = pManager->CreateVertexBuffer(sizeof(Vertex),
 											  (UINT)MESH_INFO.Vertices.size(),
-											  &(pNewMesh->VertexBufferView),
-											  &(pNewMesh->pVertexBuffer),
+											  &pNewMesh->Vertex.VertexBufferView,
+											  &pNewMesh->Vertex.pBuffer,
 											  (void*)MESH_INFO.Vertices.data());
 			BREAK_IF_FAILED(hr);
-			pNewMesh->VertexCount = (UINT)(MESH_INFO.Vertices.size());
+			pNewMesh->Vertex.Count = (UINT)MESH_INFO.Vertices.size();
 		}
 	}
 
@@ -48,11 +48,11 @@ void SkinnedMeshModel::InitMeshBuffers(ResourceManager* pManager, const MeshInfo
 	{
 		hr = pManager->CreateIndexBuffer(sizeof(UINT),
 										 (UINT)MESH_INFO.Indices.size(),
-										 &(pNewMesh->IndexBufferView),
-										 &(pNewMesh->pIndexBuffer),
+										 &pNewMesh->Index.IndexBufferView,
+										 &pNewMesh->Index.pBuffer,
 										 (void*)MESH_INFO.Indices.data());
 		BREAK_IF_FAILED(hr);
-		pNewMesh->IndexCount = (UINT)(MESH_INFO.Indices.size());
+		pNewMesh->Index.Count = (UINT)MESH_INFO.Indices.size();
 	}
 }
 
@@ -134,11 +134,11 @@ void SkinnedMeshModel::Render(ResourceManager* pManager, ePipelineStateSetting p
 				dstHandle.Offset(2, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 
 				// t0 ~ t5
-				pDevice->CopyDescriptorsSimple(6, dstHandle, pCurMesh->pMaterialBuffer->Albedo.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+				pDevice->CopyDescriptorsSimple(6, dstHandle, pCurMesh->Material.Albedo.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 				dstHandle.Offset(6, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 
 				// t6
-				pDevice->CopyDescriptorsSimple(1, dstHandle, pCurMesh->pMaterialBuffer->Height.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+				pDevice->CopyDescriptorsSimple(1, dstHandle, pCurMesh->Material.Height.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 				pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
 
@@ -168,9 +168,9 @@ void SkinnedMeshModel::Render(ResourceManager* pManager, ePipelineStateSetting p
 				break;
 		}
 
-		pCommandList->IASetVertexBuffers(0, 1, &(pCurMesh->VertexBufferView));
-		pCommandList->IASetIndexBuffer(&(pCurMesh->IndexBufferView));
-		pCommandList->DrawIndexedInstanced(pCurMesh->IndexCount, 1, 0, 0, 0);
+		pCommandList->IASetVertexBuffers(0, 1, &pCurMesh->Vertex.VertexBufferView);
+		pCommandList->IASetIndexBuffer(&pCurMesh->Index.IndexBufferView);
+		pCommandList->DrawIndexedInstanced(pCurMesh->Index.Count, 1, 0, 0, 0);
 	}
 }
 
@@ -217,11 +217,11 @@ void SkinnedMeshModel::Render(ResourceManager* pManager, ID3D12GraphicsCommandLi
 				dstHandle.Offset(2, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 
 				// t0 ~ t5
-				pDevice->CopyDescriptorsSimple(6, dstHandle, pCurMesh->pMaterialBuffer->Albedo.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+				pDevice->CopyDescriptorsSimple(6, dstHandle, pCurMesh->Material.Albedo.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 				dstHandle.Offset(6, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 
 				// t6
-				pDevice->CopyDescriptorsSimple(1, dstHandle, pCurMesh->pMaterialBuffer->Height.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+				pDevice->CopyDescriptorsSimple(1, dstHandle, pCurMesh->Material.Height.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 				pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
 
@@ -253,9 +253,9 @@ void SkinnedMeshModel::Render(ResourceManager* pManager, ID3D12GraphicsCommandLi
 				break;
 		}
 
-		pCommandList->IASetVertexBuffers(0, 1, &(pCurMesh->VertexBufferView));
-		pCommandList->IASetIndexBuffer(&(pCurMesh->IndexBufferView));
-		pCommandList->DrawIndexedInstanced(pCurMesh->IndexCount, 1, 0, 0, 0);
+		pCommandList->IASetVertexBuffers(0, 1, &pCurMesh->Vertex.VertexBufferView);
+		pCommandList->IASetIndexBuffer(&pCurMesh->Index.IndexBufferView);
+		pCommandList->DrawIndexedInstanced(pCurMesh->Index.Count, 1, 0, 0, 0);
 	}
 }
 
@@ -307,7 +307,7 @@ void SkinnedMeshModel::SetDescriptorHeap(ResourceManager* pManager)
 		Mesh* pCurMesh = Meshes[i];
 		ConstantBuffer& meshConstant = pCurMesh->MeshConstant;
 		ConstantBuffer& materialConstant = pCurMesh->MaterialConstant;
-		Material* pMaterialBuffer = pCurMesh->pMaterialBuffer;
+		Material* pMaterialBuffer = &pCurMesh->Material;
 
 		cbvDesc.BufferLocation = meshConstant.GetGPUMemAddr();
 		cbvDesc.SizeInBytes = (UINT)(meshConstant.GetBufferSize());

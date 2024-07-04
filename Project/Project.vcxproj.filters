@@ -208,6 +208,7 @@
     <FxCompile Include="Shaders\SamplingVS.hlsl" />
     <FxCompile Include="Shaders\SkyboxPS.hlsl" />
     <FxCompile Include="Shaders\SkyboxVS.hlsl" />
+    <FxCompile Include="Shaders\ColorPS.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\Common.hlsli" />

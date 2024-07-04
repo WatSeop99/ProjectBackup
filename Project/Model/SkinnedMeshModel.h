@@ -3,7 +3,7 @@
 #include "Model.h"
 #include "../Graphics/Texture.h"
 
-class SkinnedMeshModel : public Model
+class SkinnedMeshModel final : public Model
 {
 public:
 	SkinnedMeshModel(ResourceManager* pManager, const std::vector<MeshInfo>& MESHES, const AnimationData& ANIM_DATA);

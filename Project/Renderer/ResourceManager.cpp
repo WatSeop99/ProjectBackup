@@ -18,9 +18,6 @@
 			(p)->Release(); \
 			(p) = nullptr;	\
 		}
-#define SINGLETHREAD FALSE
-
-const char* PVD_HOST = "127.0.0.1";
 
 void ResourceManager::Initialize(InitialData* pInitialData)
 {
@@ -360,40 +357,6 @@ void ResourceManager::Clear()
 	m_CBVSRVUAVHeapSize = 0;
 	m_SamplerHeapSize = 0;
 
-	// physx관련 해제.
-	if (m_pScene)
-	{
-		m_pScene->release();
-		m_pScene = nullptr;
-	}
-	if (m_pDispatcher)
-	{
-		m_pDispatcher->release();
-		m_pDispatcher = nullptr;
-	}
-	if (m_pPhysics)
-	{
-		PxCloseExtensions();
-		m_pPhysics->release();
-		m_pPhysics = nullptr;
-	}
-	if (m_pPvd)
-	{
-		PxPvdTransport* pTransport = m_pPvd->getTransport();
-		m_pPvd->release();
-		m_pPvd = nullptr;
-		if (pTransport)
-		{
-			pTransport->release();
-			pTransport = nullptr;
-		}
-	}
-	if (m_pFoundation)
-	{
-		m_pFoundation->release();
-		m_pFoundation = nullptr;
-	}
-
 	if (m_hFenceEvent)
 	{
 		CloseHandle(m_hFenceEvent);
@@ -420,6 +383,7 @@ void ResourceManager::Clear()
 	SAFE_RELEASE(m_pBloomDownPSO);
 	SAFE_RELEASE(m_pBloomUpPSO);
 	SAFE_RELEASE(m_pCombinePSO);
+	SAFE_RELEASE(m_pDefaultWirePSO);
 
 	SAFE_RELEASE(m_pDefaultRootSignature);
 	SAFE_RELEASE(m_pSkinnedRootSignature);
@@ -432,6 +396,7 @@ void ResourceManager::Clear()
 
 	SAFE_RELEASE(m_pDepthOnlyCascadeGS);
 	SAFE_RELEASE(m_pDepthOnlyCubeGS);
+	SAFE_RELEASE(m_pColorPS);
 	SAFE_RELEASE(m_pBloomUpPS);
 	SAFE_RELEASE(m_pBloomDownPS);
 	SAFE_RELEASE(m_pCombinePS);
@@ -490,7 +455,7 @@ void ResourceManager::SetCommonState(ePipelineStateSetting psoState)
 		case Default: case Skinned: case Skybox:
 		case MirrorBlend: case DepthOnlyCubeDefault: case DepthOnlyCubeSkinned:
 		case DepthOnlyCascadeDefault: case DepthOnlyCascadeSkinned:
-		case Sampling: case BloomDown: case BloomUp: case Combine:
+		case Sampling: case BloomDown: case BloomUp: case Combine: case Wire:
 		{
 			hr = m_pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 11);
 			BREAK_IF_FAILED(hr);
@@ -725,6 +690,16 @@ void ResourceManager::SetCommonState(ePipelineStateSetting psoState)
 		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
+	case Wire:
+		m_pSingleCommandList->SetGraphicsRootSignature(m_pDefaultRootSignature);
+		m_pSingleCommandList->SetPipelineState(m_pDefaultWirePSO);
+		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+		m_pSingleCommandList->OMSetStencilRef(0);
+		m_pSingleCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		break;
+		break;
+
 	default:
 		__debugbreak();
 		break;
@@ -863,6 +838,7 @@ void ResourceManager::initRasterizerStateDescs()
 	ZeroMemory(&m_RasterizerSolidDesc, sizeof(m_RasterizerSolidDesc));
 	ZeroMemory(&m_RasterizerSolidCcwDesc, sizeof(m_RasterizerSolidCcwDesc));
 	ZeroMemory(&m_RasterizerPostProcessDesc, sizeof(m_RasterizerPostProcessDesc));
+	ZeroMemory(&m_RasterizerWireDesc, sizeof(m_RasterizerWireDesc));
 
 	m_RasterizerSolidDesc.FillMode = D3D12_FILL_MODE_SOLID;
 	m_RasterizerSolidDesc.CullMode = D3D12_CULL_MODE_BACK;
@@ -881,6 +857,12 @@ void ResourceManager::initRasterizerStateDescs()
 	m_RasterizerPostProcessDesc.FrontCounterClockwise = FALSE;
 	m_RasterizerPostProcessDesc.DepthClipEnable = FALSE;
 	m_RasterizerPostProcessDesc.MultisampleEnable = FALSE;
+
+	m_RasterizerWireDesc.FillMode = D3D12_FILL_MODE_WIREFRAME;
+	m_RasterizerWireDesc.CullMode = D3D12_CULL_MODE_BACK;
+	m_RasterizerWireDesc.FrontCounterClockwise = FALSE;
+	m_RasterizerWireDesc.DepthClipEnable = TRUE;
+	m_RasterizerWireDesc.MultisampleEnable = FALSE;
 }
 
 void ResourceManager::initBlendStateDescs()
@@ -1613,6 +1595,26 @@ void ResourceManager::initPipelineStates()
 	hr = m_pDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pCombinePSO));
 	BREAK_IF_FAILED(hr);
 	m_pCombinePSO->SetName(L"CombinePSO");
+
+
+	psoDesc.pRootSignature = m_pDefaultRootSignature;
+	psoDesc.VS = { (BYTE*)m_pBasicVS->GetBufferPointer(), m_pBasicVS->GetBufferSize() };
+	psoDesc.PS = { (BYTE*)m_pColorPS->GetBufferPointer(), m_pColorPS->GetBufferSize() };
+	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	psoDesc.SampleMask = UINT_MAX;
+	psoDesc.RasterizerState = m_RasterizerWireDesc;
+	psoDesc.DepthStencilState.DepthEnable = FALSE;
+	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+	psoDesc.NumRenderTargets = 1;
+	psoDesc.RTVFormats[0] = DXGI_FORMAT_R10G10B10A2_UNORM;
+	psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	psoDesc.SampleDesc.Count = 1;
+	psoDesc.SampleDesc.Quality = 0;
+	psoDesc.InputLayout = { m_InputLayoutBasicDescs, _countof(m_InputLayoutBasicDescs) };
+
+	hr = m_pDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pDefaultWirePSO));
+	BREAK_IF_FAILED(hr);
+	m_pDefaultWirePSO->SetName(L"DefaultWirePSO");
 }
 
 void ResourceManager::initShaders()
@@ -1716,43 +1718,14 @@ void ResourceManager::initShaders()
 	hr = CompileShader(L"./Shaders/BloomUpPS.hlsl", "ps_5_1", nullptr, &m_pBloomUpPS);
 	BREAK_IF_FAILED(hr);
 
+	hr = CompileShader(L"./Shaders/ColorPS.hlsl", "ps_5_1", nullptr, &m_pColorPS);
+	BREAK_IF_FAILED(hr);
+
 	hr = CompileShader(L"./Shaders/DepthOnlyCubeGS.hlsl", "gs_5_1", nullptr, &m_pDepthOnlyCubeGS);
 	BREAK_IF_FAILED(hr);
 
 	hr = CompileShader(L"./Shaders/DepthOnlyCascadeGS.hlsl", "gs_5_1", nullptr, &m_pDepthOnlyCascadeGS);
 	BREAK_IF_FAILED(hr);
-}
-
-void ResourceManager::initPhysics(bool interactive)
-{
-	m_pFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, m_PhysxAllocator, m_ErrorCallback);
-	m_pPvd = PxCreatePvd(*m_pFoundation);
-
-	PxPvdTransport* pTransport = PxDefaultPvdSocketTransportCreate(PVD_HOST, 5425, 10);
-	m_pPvd->connect(*pTransport, PxPvdInstrumentationFlag::eALL);
-
-	m_pPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *m_pFoundation, PxTolerancesScale(), true, m_pPvd);
-	PxInitExtensions(*m_pPhysics, m_pPvd);
-
-	PxSceneDesc sceneDesc(m_pPhysics->getTolerancesScale());
-	sceneDesc.gravity = PxVec3(0.0f, -9.81f, 0.0f);
-	m_pDispatcher = PxDefaultCpuDispatcherCreate(2); // 추후 스레드 갯수 수정.
-	sceneDesc.cpuDispatcher = m_pDispatcher;
-	sceneDesc.filterShader = PxDefaultSimulationFilterShader;
-	m_pScene = m_pPhysics->createScene(sceneDesc);
-
-	PxPvdSceneClient* pPvdClient = m_pScene->getScenePvdClient();
-	if (pPvdClient)
-	{
-		pPvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONSTRAINTS, true);
-		pPvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONTACTS, true);
-		pPvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
-	}
-
-	// 추후 단계.
-	// 그라운드 세팅.
-	// 캐릭터 다리부분 메쉬에 physics 세팅. joint로 연결. 이때, 각도 설정이 중요할 듯. 과정은 샘플 참고할 것.
-	m_pMaterial = m_pPhysics->createMaterial(0.5f, 0.5f, 0.6f);
 }
 
 UINT64 ResourceManager::fence()

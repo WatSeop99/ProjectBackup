@@ -2,13 +2,13 @@
 #define PCH_H
 
 #ifdef _DEBUG
-//#define _CRTDBG_MAP_ALLOC
-//#define _CRTDBG_MAP_ALLOC_NEW
-//#include <crtdbg.h>
+#define _CRTDBG_MAP_ALLOC
+#define _CRTDBG_MAP_ALLOC_NEW
+#include <crtdbg.h>
 #include <dxgidebug.h>
 
-//#define DEBUG_NEW new(_NORMAL_BLOCK, __FILE__, __LINE__)
-//#define new DEBUG_NEW
+#define DEBUG_NEW new(_NORMAL_BLOCK, __FILE__, __LINE__)
+#define new DEBUG_NEW
 #endif
 
 #include "targetver.h"

@@ -4,6 +4,17 @@
 #include "../Graphics/ConstantBuffer.h"
 #include "../Graphics/Texture.h"
 
+// Vertex and Index Info
+struct BufferInfo
+{
+	ID3D12Resource* pBuffer = nullptr;
+	union
+	{
+		D3D12_VERTEX_BUFFER_VIEW VertexBufferView;
+		D3D12_INDEX_BUFFER_VIEW IndexBufferView;
+	};
+	UINT Count;
+};
 struct Material
 {
 	Texture Albedo;
@@ -14,52 +25,25 @@ struct Material
 	Texture Metallic;
 	Texture Roughness;
 };
-struct Mesh
+class Mesh
 {
-	ID3D12Resource* pVertexBuffer = nullptr;
-	ID3D12Resource* pIndexBuffer = nullptr;
-	Material* pMaterialBuffer = nullptr;
+public:
+	Mesh() = default;
+	~Mesh()
+	{
+		SAFE_RELEASE(Vertex.pBuffer);
+		SAFE_RELEASE(Index.pBuffer);
+		MeshConstant.Clear();
+		MaterialConstant.Clear();
+	}
 
-	D3D12_VERTEX_BUFFER_VIEW VertexBufferView;
-	D3D12_INDEX_BUFFER_VIEW IndexBufferView;
-
-	UINT VertexCount;
-	UINT IndexCount;
+public:
+	BufferInfo Vertex;
+	BufferInfo Index;
+	Material Material;
 
 	ConstantBuffer MeshConstant;
 	ConstantBuffer MaterialConstant;
 
-	bool bSkinnedMesh;
+	bool bSkinnedMesh = false;
 };
-
-#define INIT_MESH							\
-	{										\
-		nullptr, nullptr, nullptr,			\
-		{ 0, }, { 0, },	0, 0,				\
-		ConstantBuffer(), ConstantBuffer(),	\
-		false								\
-	}
-
-#define INIT_MATERIAL																 \
-	{																				 \
-		Texture(), Texture(), Texture(), Texture(), Texture(), Texture(), Texture(), \
-	}
-
-static void ReleaseMesh(Mesh** ppMesh)
-{
-	_ASSERT(*ppMesh);
-
-	if ((*ppMesh)->pMaterialBuffer)
-	{
-		delete (*ppMesh)->pMaterialBuffer;
-		(*ppMesh)->pMaterialBuffer = nullptr;
-	}
-	SAFE_RELEASE((*ppMesh)->pVertexBuffer);
-	SAFE_RELEASE((*ppMesh)->pIndexBuffer);
-
-	(*ppMesh)->MeshConstant.Clear();
-	(*ppMesh)->MaterialConstant.Clear();
-
-	free(*ppMesh);
-	*ppMesh = nullptr;
-}
