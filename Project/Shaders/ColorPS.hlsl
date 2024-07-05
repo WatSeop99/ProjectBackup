@@ -8,7 +8,7 @@ struct PixelShaderOutput
 PixelShaderOutput main(PixelShaderInput input)
 {
 	PixelShaderOutput output;
-	output.PixelColor.rgba = 1.0f;
+	output.PixelColor.rgba = float4(1.0f, 0.0f, 0.0f, 1.0f);
     
 	return output;
 }

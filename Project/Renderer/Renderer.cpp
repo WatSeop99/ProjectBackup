@@ -673,7 +673,8 @@ LB_EXIT:
 
 void Renderer::initScene()
 {
-	m_Camera.Reset(Vector3(3.74966f, 5.03645f, -2.54918f), -0.819048f, 0.741502f);
+	// m_Camera.Reset(Vector3(3.74966f, 5.03645f, -2.54918f), -0.819048f, 0.741502f);
+	m_Camera.Reset(Vector3(0.0f, 3.0f, -2.0f), -0.819048f, 0.741502f);
 
 	m_GlobalConstant.Initialize(m_pResourceManager, sizeof(GlobalConstant));
 	m_LightConstant.Initialize(m_pResourceManager, sizeof(LightConstant));
@@ -976,19 +977,6 @@ void Renderer::objectRender()
 	}
 	m_pResourceManager->SetCommonState(Skinned);
 	m_pCharacter->Render(m_pResourceManager, Skinned);
-
-	// obb rendering
-	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
-	{
-		Model* pCurModel = (*m_pRenderObjects)[i];
-		if (pCurModel->bIsVisible)
-		{
-			m_pResourceManager->SetCommonState(Wire);
-			pCurModel->RenderBoundingBox(m_pResourceManager, Wire);
-		}
-	}
-	m_pResourceManager->SetCommonState(Wire);
-	m_pCharacter->RenderBoundingBox(m_pResourceManager, Wire);
 }
 
 void Renderer::mirrorRender()
@@ -1023,6 +1011,19 @@ void Renderer::mirrorRender()
 	// °Å¿ï ·»´õ¸µ.
 	m_pResourceManager->SetCommonState(MirrorBlend);
 	m_pMirror->Render(m_pResourceManager, MirrorBlend);
+
+	// obb rendering
+	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
+	{
+		Model* pCurModel = (*m_pRenderObjects)[i];
+		if (pCurModel->bIsVisible)
+		{
+			m_pResourceManager->SetCommonState(Wire);
+			pCurModel->RenderBoundingBox(m_pResourceManager, Wire);
+		}
+	}
+	m_pResourceManager->SetCommonState(Wire);
+	m_pCharacter->RenderBoundingBox(m_pResourceManager, Wire);
 }
 
 void Renderer::postProcess()

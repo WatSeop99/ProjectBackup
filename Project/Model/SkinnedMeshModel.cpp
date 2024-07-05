@@ -1,4 +1,5 @@
 #include "../pch.h"
+#include "../Graphics/ConstantDataType.h"
 #include "../Graphics/GraphicsUtil.h"
 #include "SkinnedMeshModel.h"
 
@@ -7,10 +8,17 @@ SkinnedMeshModel::SkinnedMeshModel(ResourceManager* pManager, const std::vector<
 	Initialize(pManager, MESHES, ANIM_DATA);
 }
 
-void SkinnedMeshModel::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>&MESHES, const AnimationData& ANIM_DATA)
+void SkinnedMeshModel::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& MESH_INFOS, const AnimationData& ANIM_DATA)
 {
-	Model::Initialize(pManager, MESHES);
+	Model::Initialize(pManager, MESH_INFOS);
 	InitAnimationData(pManager, ANIM_DATA);
+
+	/*{
+		Matrix rootBoneTransform = AnimData.Get(0, 0, 0);
+		MeshConstant* pBoxMeshConst = (MeshConstant*)m_pBoundingBoxMesh->MeshConstant.pData;
+		pBoxMeshConst->World = (Matrix::CreateTranslation(Vector3(10.0f, 0.0f, 0.0f)) * World).Transpose();
+		m_pBoundingBoxMesh->MeshConstant.Upload();
+	}*/
 }
 
 void SkinnedMeshModel::InitMeshBuffers(ResourceManager* pManager, const MeshInfo& MESH_INFO, Mesh* pNewMesh)
@@ -90,6 +98,17 @@ void SkinnedMeshModel::UpdateAnimation(int clipID, int frame)
 		pBoneTransformConstData[i] = AnimData.Get(clipID, (UINT)i, frame).Transpose();
 	}
 	BoneTransforms.Upload();
+
+	// root bone transform을 통해 bounding box 업데이트.
+	// 캐릭터는 world 상 고정된 좌표에서 bone transform을 통해 애니메이션하고 있으므로,
+	// world를 바꿔주게 되면 캐릭터 자체가 시야에서 없어져버림.
+	// 현재, Model에서는 bounding box와 bounding sphere를 world에 맞춰 이동시키는데,
+	// 캐릭터에서는 이를 방지하기 위해 bounding object만 따로 변환시킴.
+	Matrix rootBoneTransform = AnimData.Get(clipID, 0, frame);
+	const Matrix CORRECTION = Matrix::CreateTranslation(Vector3(0.2f, 0.0f, 0.0f));
+	MeshConstant* pBoxMeshConst = (MeshConstant*)m_pBoundingBoxMesh->MeshConstant.pData;
+	pBoxMeshConst->World = (CORRECTION * rootBoneTransform * World).Transpose();
+	m_pBoundingBoxMesh->MeshConstant.Upload();
 }
 
 void SkinnedMeshModel::Render(ResourceManager* pManager, ePipelineStateSetting psoSetting)

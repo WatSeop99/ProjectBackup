@@ -295,7 +295,14 @@ void App::updateAnimation(const float DELTA_TIME)
 	// 2: walk forward
 	// 3: walk to stop
 	static int s_State = 0;
+	static Vector3 s_Dir = Vector3(0.0f, 0.0f, -1.0f);
+	static float s_Speed = 1.0f;
+	
+	static Quaternion rotation;
+	static Vector3 translation;
+
 	SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)m_pCharacter;
+	
 
 	switch (s_State)
 	{
@@ -322,6 +329,8 @@ void App::updateAnimation(const float DELTA_TIME)
 				s_State = 2;
 				s_FrameCount = 0;
 			}
+
+			// translation += s_Dir * s_Speed * 2 * DELTA_TIME;
 		}
 		break;
 
@@ -332,12 +341,14 @@ void App::updateAnimation(const float DELTA_TIME)
 				pCharacter->AnimData.AccumulatedRootTransform =
 					Matrix::CreateRotationY(DirectX::XM_PI * 60.0f / 180.0f * DELTA_TIME * 2.0f) *
 					pCharacter->AnimData.AccumulatedRootTransform;
+				s_Dir;
 			}
 			if (m_Keyboard.bPressed[VK_LEFT])
 			{
 				pCharacter->AnimData.AccumulatedRootTransform =
 					Matrix::CreateRotationY(-DirectX::XM_PI * 60.0f / 180.0f * DELTA_TIME * 2.0f) *
 					pCharacter->AnimData.AccumulatedRootTransform;
+				s_Dir;
 			}
 			if (s_FrameCount == pCharacter->AnimData.Clips[s_State].Keys[0].size())
 			{
@@ -348,6 +359,8 @@ void App::updateAnimation(const float DELTA_TIME)
 				}
 				s_FrameCount = 0;
 			}
+
+			// translation += s_Dir * s_Speed * DELTA_TIME;
 		}
 		break;
 
@@ -359,6 +372,8 @@ void App::updateAnimation(const float DELTA_TIME)
 				s_State = 0;
 				s_FrameCount = 0;
 			}
+
+			// translation += s_Dir * s_Speed * 0.5f * DELTA_TIME;
 		}
 		break;
 

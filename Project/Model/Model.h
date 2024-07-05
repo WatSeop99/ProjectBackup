@@ -29,7 +29,14 @@ public:
 
 	virtual void Clear();
 
-	virtual void SetDescriptorHeap(ResourceManager* pManager);
+	virtual void SetDescriptorHeap(ResourceManager* pManager); 
+
+protected:
+	void initBoundingBox(ResourceManager* pManager, const std::vector<MeshInfo>& MESH_INFOS);
+	void initBoundingSphere(ResourceManager* pManager, const std::vector<MeshInfo>& MESH_INFOS);
+
+	DirectX::BoundingBox getBoundingBox(const std::vector<Vertex>& VERTICES);
+	void extendBoundingBox(const DirectX::BoundingBox& SRC_BOX, DirectX::BoundingBox* pDestBox);
 
 public:
 	Matrix World = Matrix();

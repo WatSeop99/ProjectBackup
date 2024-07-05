@@ -9,7 +9,7 @@ public:
 	SkinnedMeshModel(ResourceManager* pManager, const std::vector<MeshInfo>& MESHES, const AnimationData& ANIM_DATA);
 	~SkinnedMeshModel() { Clear(); }
 
-	void Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& MESHES, const AnimationData& ANIM_DATA);
+	void Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& MESH_INFOS, const AnimationData& ANIM_DATA);
 	void InitMeshBuffers(ResourceManager* pManager, const MeshInfo& MESH_INFO, Mesh* pNewMesh) override;
 	void InitAnimationData(ResourceManager* pManager, const AnimationData& ANIM_DATA);
 

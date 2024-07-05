@@ -5,42 +5,42 @@
 #include "../Util/Utility.h"
 #include "Model.h"
 
-DirectX::BoundingBox GetBoundingBox(const std::vector<Vertex>& VERTICES)
-{
-	using DirectX::SimpleMath::Vector3;
-
-	if (VERTICES.size() == 0)
-	{
-		return DirectX::BoundingBox();
-	}
-
-	Vector3 minCorner = VERTICES[0].Position;
-	Vector3 maxCorner = VERTICES[0].Position;
-
-	for (UINT64 i = 1, size = VERTICES.size(); i < size; ++i)
-	{
-		minCorner = Vector3::Min(minCorner, VERTICES[i].Position);
-		maxCorner = Vector3::Max(maxCorner, VERTICES[i].Position);
-	}
-
-	Vector3 center = (minCorner + maxCorner) * 0.5f;
-	Vector3 extents = maxCorner - center;
-
-	return DirectX::BoundingBox(center, extents);
-}
-void ExtendBoundingBox(const DirectX::BoundingBox& SRC_BOX, DirectX::BoundingBox* pDestBox)
-{
-	using DirectX::SimpleMath::Vector3;
-
-	Vector3 minCorner = Vector3(SRC_BOX.Center) - Vector3(SRC_BOX.Extents);
-	Vector3 maxCorner = Vector3(SRC_BOX.Center) - Vector3(SRC_BOX.Extents);
-
-	minCorner = Vector3::Min(minCorner, Vector3(pDestBox->Center) - Vector3(pDestBox->Extents));
-	maxCorner = Vector3::Max(maxCorner, Vector3(pDestBox->Center) + Vector3(pDestBox->Extents));
-
-	pDestBox->Center = (minCorner + maxCorner) * 0.5f;
-	pDestBox->Extents = maxCorner - pDestBox->Center;
-}
+//DirectX::BoundingBox GetBoundingBox(const std::vector<Vertex>& VERTICES)
+//{
+//	using DirectX::SimpleMath::Vector3;
+//
+//	if (VERTICES.size() == 0)
+//	{
+//		return DirectX::BoundingBox();
+//	}
+//
+//	Vector3 minCorner = VERTICES[0].Position;
+//	Vector3 maxCorner = VERTICES[0].Position;
+//
+//	for (UINT64 i = 1, size = VERTICES.size(); i < size; ++i)
+//	{
+//		minCorner = Vector3::Min(minCorner, VERTICES[i].Position);
+//		maxCorner = Vector3::Max(maxCorner, VERTICES[i].Position);
+//	}
+//
+//	Vector3 center = (minCorner + maxCorner) * 0.5f;
+//	Vector3 extents = maxCorner - center;
+//
+//	return DirectX::BoundingBox(center, extents);
+//}
+//void ExtendBoundingBox(const DirectX::BoundingBox& SRC_BOX, DirectX::BoundingBox* pDestBox)
+//{
+//	using DirectX::SimpleMath::Vector3;
+//
+//	Vector3 minCorner = Vector3(SRC_BOX.Center) - Vector3(SRC_BOX.Extents);
+//	Vector3 maxCorner = Vector3(SRC_BOX.Center) - Vector3(SRC_BOX.Extents);
+//
+//	minCorner = Vector3::Min(minCorner, Vector3(pDestBox->Center) - Vector3(pDestBox->Extents));
+//	maxCorner = Vector3::Max(maxCorner, Vector3(pDestBox->Center) + Vector3(pDestBox->Extents));
+//
+//	pDestBox->Center = (minCorner + maxCorner) * 0.5f;
+//	pDestBox->Extents = maxCorner - pDestBox->Center;
+//}
 
 
 Model::Model(ResourceManager* pManager, std::wstring& basePath, std::wstring& fileName)
@@ -193,72 +193,11 @@ void Model::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& M
 			}
 		}
 
-		// physx rigid body 추가.
-		// mesh가 각 bone 마다 분리되어 있는 것이 아님.
-		// PxRigidBody를 적용하기 위해서는 animation transform 초기화 혹은 bone 초기화 시 적용해야 할듯.
-		// 
-
 		Meshes.push_back(pNewMesh);
 	}
 
-	// Bounding box 초기화.
-	{
-		BoundingBox = GetBoundingBox(MESH_INFOS[0].Vertices);
-		for (UINT64 i = 1, size = MESH_INFOS.size(); i < size; ++i)
-		{
-			DirectX::BoundingBox bb = GetBoundingBox(MESH_INFOS[0].Vertices);
-			ExtendBoundingBox(bb, &BoundingBox);
-		}
-
-		MeshInfo meshData = INIT_MESH_INFO;
-		MeshConstant* pMeshConst = nullptr;
-		MaterialConstant* pMaterialConst = nullptr;
-
-		MakeWireBox(&meshData, BoundingBox.Center, Vector3(BoundingBox.Extents) + Vector3(1e-3f));
-		m_pBoundingBoxMesh = new Mesh;
-
-		m_pBoundingBoxMesh->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
-		m_pBoundingBoxMesh->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
-		pMeshConst = (MeshConstant*)m_pBoundingBoxMesh->MeshConstant.pData;
-		pMaterialConst = (MaterialConstant*)m_pBoundingBoxMesh->MaterialConstant.pData;
-
-		pMeshConst->World = Matrix();
-
-		InitMeshBuffers(pManager, meshData, m_pBoundingBoxMesh);
-	}
-
-	// Bounding sphere 초기화.
-	{
-		float maxRadius = 0.0f;
-		for (UINT64 i = 0, size = MESH_INFOS.size(); i < size; ++i)
-		{
-			const MeshInfo& curMesh = MESH_INFOS[i];
-			for (UINT64 j = 0, vertSize = curMesh.Vertices.size(); j < vertSize; ++j)
-			{
-				const Vertex& v = curMesh.Vertices[j];
-				maxRadius = Max((Vector3(BoundingBox.Center) - v.Position).Length(), maxRadius);
-			}
-		}
-
-		maxRadius += 1e-2f; // 살짝 크게 설정.
-		BoundingSphere = DirectX::BoundingSphere(BoundingBox.Center, maxRadius);
-
-		MeshInfo meshData = INIT_MESH_INFO;
-		MeshConstant* pMeshConst = nullptr;
-		MaterialConstant* pMaterialConst = nullptr;
-
-		MakeWireSphere(&meshData, BoundingSphere.Center, BoundingSphere.Radius);
-		m_pBoundingSphereMesh = new Mesh;
-
-		m_pBoundingSphereMesh->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
-		m_pBoundingSphereMesh->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
-		pMeshConst = (MeshConstant*)m_pBoundingSphereMesh->MeshConstant.pData;
-		pMaterialConst = (MaterialConstant*)m_pBoundingSphereMesh->MaterialConstant.pData;
-
-		pMeshConst->World = Matrix();
-
-		InitMeshBuffers(pManager, meshData, m_pBoundingSphereMesh);
-	}
+	initBoundingBox(pManager, MESH_INFOS);
+	initBoundingSphere(pManager, MESH_INFOS);
 }
 
 void Model::InitMeshBuffers(ResourceManager* pManager, const MeshInfo& MESH_INFO, Mesh* pNewMesh)
@@ -564,4 +503,101 @@ void Model::SetDescriptorHeap(ResourceManager* pManager)
 	m_pBoundingBoxMesh->MaterialConstant.SetCBVHandle(cbvSrvLastHandle);
 	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 	++(pManager->m_CBVSRVUAVHeapSize);
+}
+
+void Model::initBoundingBox(ResourceManager* pManager, const std::vector<MeshInfo>& MESH_INFOS)
+{
+	BoundingBox = getBoundingBox(MESH_INFOS[0].Vertices);
+	for (UINT64 i = 1, size = MESH_INFOS.size(); i < size; ++i)
+	{
+		DirectX::BoundingBox bb = getBoundingBox(MESH_INFOS[i].Vertices);
+		extendBoundingBox(bb, &BoundingBox);
+	}
+
+	MeshInfo meshData = INIT_MESH_INFO;
+	MeshConstant* pMeshConst = nullptr;
+	MaterialConstant* pMaterialConst = nullptr;
+
+	MakeWireBox(&meshData, BoundingBox.Center, Vector3(BoundingBox.Extents) + Vector3(1e-3f));
+	m_pBoundingBoxMesh = new Mesh;
+
+	m_pBoundingBoxMesh->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
+	m_pBoundingBoxMesh->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
+	pMeshConst = (MeshConstant*)m_pBoundingBoxMesh->MeshConstant.pData;
+	pMaterialConst = (MaterialConstant*)m_pBoundingBoxMesh->MaterialConstant.pData;
+
+	pMeshConst->World = Matrix();
+
+	InitMeshBuffers(pManager, meshData, m_pBoundingBoxMesh);
+}
+
+void Model::initBoundingSphere(ResourceManager* pManager, const std::vector<MeshInfo>& MESH_INFOS)
+{
+	float maxRadius = 0.0f;
+	for (UINT64 i = 0, size = MESH_INFOS.size(); i < size; ++i)
+	{
+		const MeshInfo& curMesh = MESH_INFOS[i];
+		for (UINT64 j = 0, vertSize = curMesh.Vertices.size(); j < vertSize; ++j)
+		{
+			const Vertex& v = curMesh.Vertices[j];
+			maxRadius = Max((Vector3(BoundingBox.Center) - v.Position).Length(), maxRadius);
+		}
+	}
+
+	maxRadius += 1e-2f; // 살짝 크게 설정.
+	BoundingSphere = DirectX::BoundingSphere(BoundingBox.Center, maxRadius);
+
+	MeshInfo meshData = INIT_MESH_INFO;
+	MeshConstant* pMeshConst = nullptr;
+	MaterialConstant* pMaterialConst = nullptr;
+
+	MakeWireSphere(&meshData, BoundingSphere.Center, BoundingSphere.Radius);
+	m_pBoundingSphereMesh = new Mesh;
+
+	m_pBoundingSphereMesh->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
+	m_pBoundingSphereMesh->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
+	pMeshConst = (MeshConstant*)m_pBoundingSphereMesh->MeshConstant.pData;
+	pMaterialConst = (MaterialConstant*)m_pBoundingSphereMesh->MaterialConstant.pData;
+
+	pMeshConst->World = Matrix();
+
+	InitMeshBuffers(pManager, meshData, m_pBoundingSphereMesh);
+}
+
+DirectX::BoundingBox Model::getBoundingBox(const std::vector<Vertex>& VERTICES)
+{
+	using DirectX::SimpleMath::Vector3;
+
+	if (VERTICES.size() == 0)
+	{
+		return DirectX::BoundingBox();
+	}
+
+	Vector3 minCorner = VERTICES[0].Position;
+	Vector3 maxCorner = VERTICES[0].Position;
+
+	for (UINT64 i = 1, size = VERTICES.size(); i < size; ++i)
+	{
+		minCorner = Vector3::Min(minCorner, VERTICES[i].Position);
+		maxCorner = Vector3::Max(maxCorner, VERTICES[i].Position);
+	}
+
+	Vector3 center = (minCorner + maxCorner) * 0.5f;
+	Vector3 extents = maxCorner - center;
+
+	return DirectX::BoundingBox(center, extents);
+}
+
+void Model::extendBoundingBox(const DirectX::BoundingBox& SRC_BOX, DirectX::BoundingBox* pDestBox)
+{
+	using DirectX::SimpleMath::Vector3;
+
+	Vector3 minCorner = Vector3(SRC_BOX.Center) - Vector3(SRC_BOX.Extents);
+	Vector3 maxCorner = Vector3(SRC_BOX.Center) - Vector3(SRC_BOX.Extents);
+
+	minCorner = Vector3::Min(minCorner, Vector3(pDestBox->Center) - Vector3(pDestBox->Extents));
+	maxCorner = Vector3::Max(maxCorner, Vector3(pDestBox->Center) + Vector3(pDestBox->Extents));
+
+	pDestBox->Center = (minCorner + maxCorner) * 0.5f;
+	pDestBox->Extents = maxCorner - pDestBox->Center;
 }
