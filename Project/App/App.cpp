@@ -297,12 +297,7 @@ void App::updateAnimation(const float DELTA_TIME)
 	static int s_State = 0;
 	static Vector3 s_Dir = Vector3(0.0f, 0.0f, -1.0f);
 	static float s_Speed = 1.0f;
-	
-	static Quaternion rotation;
-	static Vector3 translation;
-
 	SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)m_pCharacter;
-	
 
 	switch (s_State)
 	{
@@ -329,8 +324,6 @@ void App::updateAnimation(const float DELTA_TIME)
 				s_State = 2;
 				s_FrameCount = 0;
 			}
-
-			// translation += s_Dir * s_Speed * 2 * DELTA_TIME;
 		}
 		break;
 
@@ -359,8 +352,6 @@ void App::updateAnimation(const float DELTA_TIME)
 				}
 				s_FrameCount = 0;
 			}
-
-			// translation += s_Dir * s_Speed * DELTA_TIME;
 		}
 		break;
 
@@ -372,8 +363,6 @@ void App::updateAnimation(const float DELTA_TIME)
 				s_State = 0;
 				s_FrameCount = 0;
 			}
-
-			// translation += s_Dir * s_Speed * 0.5f * DELTA_TIME;
 		}
 		break;
 
