@@ -7,6 +7,15 @@
 
 using DirectX::SimpleMath::Matrix;
 
+enum eModelType
+{
+	DefaultModel = 0,
+	SkinnedModel,
+	SkyBoxModel,
+	MirrorModel,
+	TotalModelType
+};
+
 class Model
 {
 public:
@@ -42,10 +51,6 @@ public:
 	Matrix World = Matrix();
 	Matrix WorldInverseTranspose = Matrix();
 
-	bool bIsVisible = true;
-	bool bCastShadow = true;
-	bool bIsPickable = false;
-
 	std::vector<Mesh*> Meshes;
 
 	DirectX::BoundingBox BoundingBox;
@@ -53,7 +58,13 @@ public:
 
 	std::string Name;
 
-	ListElem LinkToList = { nullptr, nullptr, this };
+	eModelType ModelType = DefaultModel;
+
+	bool bIsVisible = true;
+	bool bCastShadow = true;
+	bool bIsPickable = false;
+
+	// ListElem LinkToList = { nullptr, nullptr, this };
 
 protected:
 	Mesh* m_pBoundingBoxMesh = nullptr;

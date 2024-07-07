@@ -420,7 +420,6 @@ void Model::SetDescriptorHeap(ResourceManager* pManager)
 	CD3DX12_CPU_DESCRIPTOR_HANDLE cbvSrvLastHandle(pCBVSRVHeap->GetCPUDescriptorHandleForHeapStart(), pManager->m_CBVSRVUAVHeapSize, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 
 	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -430,6 +429,7 @@ void Model::SetDescriptorHeap(ResourceManager* pManager)
 	srvDesc.Texture2D.PlaneSlice = 0;
 	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
+	// meshes.
 	for (UINT64 i = 0, size = Meshes.size(); i < size; ++i)
 	{
 		Mesh* pCurMesh = Meshes[i];

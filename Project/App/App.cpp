@@ -16,7 +16,7 @@ void App::Initialize()
 
 		&m_EnvTexture, &m_IrradianceTexture, &m_SpecularTexture, &m_BRDFTexture,
 
-		m_pSkybox, m_pGround, m_pMirror, m_pPickedModel, m_pCharacter, &m_MirrorPlane,
+		m_pMirror, m_pPickedModel, &m_MirrorPlane,
 	};
 	Renderer::Initizlie(&initData);
 }
@@ -96,22 +96,8 @@ void App::Clear()
 	m_Lights.clear();
 	m_LightSpheres.clear();
 
-	if (m_pSkybox)
-	{
-		delete m_pSkybox;
-		m_pSkybox = nullptr;
-	}
-	if (m_pGround)
-	{
-		delete m_pGround;
-		m_pGround = nullptr;
-		m_pMirror = nullptr;
-	}
-	if (m_pCharacter)
-	{
-		delete m_pCharacter;
-		m_pCharacter = nullptr;
-	}
+	m_pCharacter = nullptr;
+	m_pMirror = nullptr;
 	m_pPickedModel = nullptr;
 }
 
@@ -132,9 +118,20 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		m_BRDFTexture.InitializeWithDDS(pResourceManager, L"./Assets/Textures/Cubemaps/HDRI/clear_pureskyEnvHDR.dds");
 	}
 
+	// 환경 박스 초기화.
+	{
+		MeshInfo skyboxMeshInfo = INIT_MESH_INFO;
+		MakeBox(&skyboxMeshInfo, 40.0f);
+
+		std::reverse(skyboxMeshInfo.Indices.begin(), skyboxMeshInfo.Indices.end());
+		Model* pSkybox = new Model(pResourceManager, { skyboxMeshInfo });
+		pSkybox->Name = "SkyBox";
+		pSkybox->ModelType = SkyBoxModel;
+		m_RenderObjects.push_back(pSkybox);
+	}
+
 	// 조명 설정.
 	{
-
 		// 조명 0.
 		m_Lights[0].Property.Radiance = Vector3(3.0f);
 		m_Lights[0].Property.FallOffEnd = 10.0f;
@@ -168,8 +165,6 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 
 	// 조명 위치 표시.
 	{
-		// m_LightSpheres.resize(MAX_LIGHTS);
-
 		for (int i = 0; i < MAX_LIGHTS; ++i)
 		{
 			MeshInfo sphere = INIT_MESH_INFO;
@@ -200,6 +195,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 
 	// 바닥(거울).
 	{
+		Model* pGround = nullptr;
 		MeshInfo mesh = INIT_MESH_INFO;
 		MakeSquare(&mesh, 10.0f);
 
@@ -211,9 +207,9 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		mesh.szNormalTextureFileName = path + L"stringy_marble_Normal-dx.png";
 		mesh.szRoughnessTextureFileName = path + L"stringy_marble_Roughness.png";
 
-		m_pGround = new Model(pResourceManager, { mesh });
+		pGround = new Model(pResourceManager, { mesh });
 
-		MaterialConstant* pGroundMaterialConst = (MaterialConstant*)m_pGround->Meshes[0]->MaterialConstant.pData;
+		MaterialConstant* pGroundMaterialConst = (MaterialConstant*)pGround->Meshes[0]->MaterialConstant.pData;
 		pGroundMaterialConst->AlbedoFactor = Vector3(0.7f);
 		pGroundMaterialConst->EmissionFactor = Vector3(0.0f);
 		pGroundMaterialConst->MetallicFactor = 0.5f;
@@ -221,21 +217,13 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 
 		// Vector3 position = Vector3(0.0f, -1.0f, 0.0f);
 		Vector3 position = Vector3(0.0f, -0.5f, 0.0f);
-		m_pGround->UpdateWorld(Matrix::CreateRotationX(DirectX::XM_PI * 0.5f) * Matrix::CreateTranslation(position));
-		m_pGround->bCastShadow = false; // 바닥은 그림자 만들기 생략.
+		pGround->UpdateWorld(Matrix::CreateRotationX(DirectX::XM_PI * 0.5f) * Matrix::CreateTranslation(position));
+		pGround->bCastShadow = false; // 바닥은 그림자 만들기 생략.
 
 		m_MirrorPlane = DirectX::SimpleMath::Plane(position, Vector3(0.0f, 1.0f, 0.0f));
-		m_pMirror = m_pGround; // 바닥에 거울처럼 반사 구현.
-	}
-
-	// 환경 박스 초기화.
-	{
-		MeshInfo skyboxMeshInfo = INIT_MESH_INFO;
-		MakeBox(&skyboxMeshInfo, 40.0f);
-
-		std::reverse(skyboxMeshInfo.Indices.begin(), skyboxMeshInfo.Indices.end());
-		m_pSkybox = new Model(pResourceManager, { skyboxMeshInfo });
-		m_pSkybox->Name = "SkyBox";
+		m_pMirror = pGround; // 바닥에 거울처럼 반사 구현.
+		pGround->ModelType = MirrorModel;
+		m_RenderObjects.push_back(pGround);
 	}
 
 	// Main Object.
@@ -282,6 +270,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 			pMeshConst->MetallicFactor = 0.0f;
 		}
 		m_pCharacter->UpdateWorld(Matrix::CreateScale(1.0f) * Matrix::CreateTranslation(center));
+		m_RenderObjects.push_back((Model*)m_pCharacter);
 	}
 }
 
@@ -297,7 +286,6 @@ void App::updateAnimation(const float DELTA_TIME)
 	static int s_State = 0;
 	static Vector3 s_Dir = Vector3(0.0f, 0.0f, -1.0f);
 	static float s_Speed = 1.0f;
-	SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)m_pCharacter;
 
 	switch (s_State)
 	{
@@ -309,7 +297,7 @@ void App::updateAnimation(const float DELTA_TIME)
 				s_FrameCount = 0;
 			}
 			else if (s_FrameCount ==
-					 pCharacter->AnimData.Clips[s_State].Keys[0].size() ||
+					 m_pCharacter->AnimData.Clips[s_State].Keys[0].size() ||
 					 m_Keyboard.bPressed[VK_UP]) // 재생이 다 끝난다면.
 			{
 				s_FrameCount = 0; // 상태 변화 없이 반복.
@@ -319,7 +307,7 @@ void App::updateAnimation(const float DELTA_TIME)
 
 		case 1:
 		{
-			if (s_FrameCount == pCharacter->AnimData.Clips[s_State].Keys[0].size())
+			if (s_FrameCount == m_pCharacter->AnimData.Clips[s_State].Keys[0].size())
 			{
 				s_State = 2;
 				s_FrameCount = 0;
@@ -331,19 +319,19 @@ void App::updateAnimation(const float DELTA_TIME)
 		{
 			if (m_Keyboard.bPressed[VK_RIGHT])
 			{
-				pCharacter->AnimData.AccumulatedRootTransform =
+				m_pCharacter->AnimData.AccumulatedRootTransform =
 					Matrix::CreateRotationY(DirectX::XM_PI * 60.0f / 180.0f * DELTA_TIME * 2.0f) *
-					pCharacter->AnimData.AccumulatedRootTransform;
+					m_pCharacter->AnimData.AccumulatedRootTransform;
 				s_Dir;
 			}
 			if (m_Keyboard.bPressed[VK_LEFT])
 			{
-				pCharacter->AnimData.AccumulatedRootTransform =
+				m_pCharacter->AnimData.AccumulatedRootTransform =
 					Matrix::CreateRotationY(-DirectX::XM_PI * 60.0f / 180.0f * DELTA_TIME * 2.0f) *
-					pCharacter->AnimData.AccumulatedRootTransform;
+					m_pCharacter->AnimData.AccumulatedRootTransform;
 				s_Dir;
 			}
-			if (s_FrameCount == pCharacter->AnimData.Clips[s_State].Keys[0].size())
+			if (s_FrameCount == m_pCharacter->AnimData.Clips[s_State].Keys[0].size())
 			{
 				// 방향키를 누르고 있지 않으면 정지. (누르고 있으면 계속 걷기)
 				if (!m_Keyboard.bPressed[VK_UP])
@@ -357,7 +345,7 @@ void App::updateAnimation(const float DELTA_TIME)
 
 		case 3:
 		{
-			if (s_FrameCount == pCharacter->AnimData.Clips[s_State].Keys[0].size())
+			if (s_FrameCount == m_pCharacter->AnimData.Clips[s_State].Keys[0].size())
 			{
 				// s_State = 4;
 				s_State = 0;
@@ -370,6 +358,6 @@ void App::updateAnimation(const float DELTA_TIME)
 			break;
 	}
 
-	pCharacter->UpdateAnimation(s_State, s_FrameCount);
+	m_pCharacter->UpdateAnimation(s_State, s_FrameCount);
 	++s_FrameCount;
 }

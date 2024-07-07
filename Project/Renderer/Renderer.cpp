@@ -31,11 +31,8 @@ void Renderer::Initizlie(InitialData* pIntialData)
 	m_pLights = pIntialData->pLights;
 	m_pLightSpheres = pIntialData->pLightSpheres;
 
-	m_pSkybox = pIntialData->pSkybox;
-	m_pGround = pIntialData->pGround;
 	m_pMirror = pIntialData->pMirror;
 	m_pPickedModel = pIntialData->pPickedModel;
-	m_pCharacter = pIntialData->pCharacter;
 	m_pMirrorPlane = pIntialData->pMirrorPlane;
 
 	initScene();
@@ -160,6 +157,12 @@ LRESULT Renderer::MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			// 화면 해상도가 바뀌면 SwapChain을 다시 생성.
 			if (m_pSwapChain)
 			{
+				fence();
+				for (int i = 0; i < SWAP_CHAIN_FRAME_COUNT; ++i)
+				{
+					waitForFenceValue();
+				}
+
 				m_ScreenWidth = (UINT)LOWORD(lParam);
 				m_ScreenHeight = (UINT)HIWORD(lParam);
 
@@ -906,11 +909,24 @@ void Renderer::initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceText
 		for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
 		{
 			Model* pModel = (*m_pRenderObjects)[i];
-			pModel->SetDescriptorHeap(m_pResourceManager);
+
+			switch (pModel->ModelType)
+			{
+				case DefaultModel: case SkyBoxModel: case MirrorModel:
+					pModel->SetDescriptorHeap(m_pResourceManager);
+					break;
+
+				case SkinnedModel:
+				{
+					SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pModel;
+					pCharacter->SetDescriptorHeap(m_pResourceManager);
+				}
+					break;
+
+				default:
+					break;
+			}
 		}
-		m_pSkybox->SetDescriptorHeap(m_pResourceManager);
-		m_pGround->SetDescriptorHeap(m_pResourceManager);
-		m_pCharacter->SetDescriptorHeap(m_pResourceManager);
 	}
 }
 
@@ -936,7 +952,7 @@ void Renderer::shadowMapRender()
 {
 	for (int i = 0; i < MAX_LIGHTS; ++i)
 	{
-		(*m_pLights)[i].RenderShadowMap(m_pResourceManager, m_pRenderObjects, (SkinnedMeshModel*)m_pCharacter, m_pMirror);
+		(*m_pLights)[i].RenderShadowMap(m_pResourceManager, m_pRenderObjects);
 	}
 }
 
@@ -963,20 +979,41 @@ void Renderer::objectRender()
 	m_pCommandList->RSSetScissorRects(1, &m_ScissorRect);
 	m_pCommandList->OMSetRenderTargets(1, &floatRtvHandle, FALSE, &dsvHandle);
 
-	m_pResourceManager->SetCommonState(Skybox);
-	m_pSkybox->Render(m_pResourceManager, Skybox);
-
 	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
 	{
 		Model* pCurModel = (*m_pRenderObjects)[i];
+		ePipelineStateSetting psoSetting;
 		if (pCurModel->bIsVisible)
 		{
-			m_pResourceManager->SetCommonState(Default);
-			pCurModel->Render(m_pResourceManager, Default);
+
+			switch (pCurModel->ModelType)
+			{
+				case DefaultModel:
+					psoSetting = Default;
+					break;
+
+				case SkinnedModel:
+				{
+					SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pCurModel;
+					psoSetting = Skinned;
+					m_pResourceManager->SetCommonState(psoSetting);
+					pCharacter->Render(m_pResourceManager, psoSetting);
+					
+					continue;
+				}
+
+				case SkyBoxModel:
+					psoSetting = Skybox;
+					break;
+
+				default:
+					continue;
+			}
+
+			m_pResourceManager->SetCommonState(psoSetting);
+			pCurModel->Render(m_pResourceManager, psoSetting);
 		}
 	}
-	m_pResourceManager->SetCommonState(Skinned);
-	m_pCharacter->Render(m_pResourceManager, Skinned);
 }
 
 void Renderer::mirrorRender()
@@ -994,19 +1031,40 @@ void Renderer::mirrorRender()
 	m_pMirror->Render(m_pResourceManager, StencilMask);
 
 	// 거울 위치에 반사된 물체들을 렌더링.
-	m_pResourceManager->SetCommonState(ReflectionDefault);
-	m_pCommandList->ClearDepthStencilView(defaultDSVHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
 	{
 		Model* pCurModel = (*m_pRenderObjects)[i];
-		pCurModel->Render(m_pResourceManager, ReflectionDefault);
+		ePipelineStateSetting psoSetting;
+
+		if (pCurModel->bIsVisible)
+		{
+			switch (pCurModel->ModelType)
+			{
+				case DefaultModel:
+					psoSetting = ReflectionDefault;
+					break;
+
+				case SkinnedModel:
+				{
+					SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pCurModel;
+					m_pResourceManager->SetCommonState(ReflectionSkinned);
+					pCharacter->Render(m_pResourceManager, ReflectionSkinned);
+
+					continue;
+				}
+
+				case SkyBoxModel:
+					psoSetting = ReflectionSkybox;
+					break;
+
+				default:
+					continue;
+			}
+
+			m_pResourceManager->SetCommonState(psoSetting);
+			pCurModel->Render(m_pResourceManager, psoSetting);
+		}
 	}
-
-	m_pResourceManager->SetCommonState(ReflectionSkinned);
-	m_pCharacter->Render(m_pResourceManager, ReflectionSkinned);
-
-	m_pResourceManager->SetCommonState(ReflectionSkybox);
-	m_pSkybox->Render(m_pResourceManager, ReflectionSkybox);
 
 	// 거울 렌더링.
 	m_pResourceManager->SetCommonState(MirrorBlend);
@@ -1019,11 +1077,24 @@ void Renderer::mirrorRender()
 		if (pCurModel->bIsVisible)
 		{
 			m_pResourceManager->SetCommonState(Wire);
-			pCurModel->RenderBoundingBox(m_pResourceManager, Wire);
+			switch (pCurModel->ModelType)
+			{
+				case DefaultModel:
+					pCurModel->RenderBoundingBox(m_pResourceManager, Wire);
+					break;
+
+				case SkinnedModel:
+				{
+					SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pCurModel;
+					pCharacter->RenderBoundingBox(m_pResourceManager, Wire);
+				}
+					break;
+
+				default:
+					break;
+			}
 		}
 	}
-	m_pResourceManager->SetCommonState(Wire);
-	m_pCharacter->RenderBoundingBox(m_pResourceManager, Wire);
 }
 
 void Renderer::postProcess()

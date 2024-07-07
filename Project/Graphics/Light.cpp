@@ -102,21 +102,13 @@ void Light::Update(ResourceManager* pManager, const float DELTA_TIME, Camera& ma
 	}
 }
 
-void Light::RenderShadowMap(ResourceManager* pManager, std::vector<Model*>* pRenderObjects, SkinnedMeshModel* pCharacter, Model* pMirror)
+void Light::RenderShadowMap(ResourceManager* pManager, std::vector<Model*>* pRenderObjects)
 {
 	if (Property.LightType & LIGHT_SHADOW)
 	{
-		ShadowMap.Render(pManager, pRenderObjects, pCharacter, pMirror);
+		ShadowMap.Render(pManager, pRenderObjects);
 	}
 }
-
-//void Light::RenderShadowMap(ResourceManager* pManager, ID3D12GraphicsCommandList* pCommandList, std::vector<Model*>* pRenderObjects, SkinnedMeshModel* pCharacter, Model* pMirror)
-//{
-//	if (Property.LightType & LIGHT_SHADOW)
-//	{
-//		ShadowMap.Render(pManager, pCommandList, pRenderObjects, pCharacter, pMirror);
-//	}
-//}
 
 void Light::Clear()
 {

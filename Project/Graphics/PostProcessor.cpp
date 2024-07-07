@@ -161,30 +161,6 @@ void PostProcessor::Render(ResourceManager* pManager, UINT frameIndex)
 	renderPostProcessing(pManager, frameIndex);
 }
 
-//void PostProcessor::Render(ResourceManager* pManager, ID3D12GraphicsCommandList* pCommandList, UINT frameIndex)
-//{
-//	_ASSERT(pManager);
-//	_ASSERT(pCommandList);
-//
-//	ID3D12Device5* pDevice = pManager->m_pDevice;
-//
-//	pCommandList->RSSetViewports(1, &m_Viewport);
-//	pCommandList->RSSetScissorRects(1, &m_ScissorRect);
-//
-//	// 스크린 렌더링을 위한 정점 버퍼와 인텍스 버퍼를 미리 설정.
-//	UINT stride = sizeof(Vertex);
-//	UINT offset = 0;
-//	pCommandList->IASetVertexBuffers(0, 1, &(m_pScreenMesh->VertexBufferView));
-//	pCommandList->IASetIndexBuffer(&(m_pScreenMesh->IndexBufferView));
-//
-//	// basic sampling.
-//	pManager->SetCommonState(pCommandList, Sampling);
-//	renderImageFilter(pManager, pCommandList, m_BasicSamplingFilter, Sampling, frameIndex);
-//
-//	// post processing.
-//	renderPostProcessing(pManager, pCommandList, frameIndex);
-//}
-
 void PostProcessor::Clear()
 {
 	m_ppBackBuffers[0] = nullptr;

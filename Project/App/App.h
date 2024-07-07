@@ -39,11 +39,9 @@ private:
 	Texture m_SpecularTexture;
 	Texture m_BRDFTexture;
 	
-	Model* m_pSkybox = nullptr;
-	Model* m_pGround = nullptr;
 	Model* m_pMirror = nullptr;
 	Model* m_pPickedModel = nullptr;
-	Model* m_pCharacter = nullptr;
+	SkinnedMeshModel* m_pCharacter = nullptr;
 	DirectX::SimpleMath::Plane m_MirrorPlane;
 };
 

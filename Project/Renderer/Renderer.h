@@ -26,11 +26,8 @@ public:
 		Texture* pSpecularTexture;
 		Texture* pBRDFTexture;
 
-		Model* pSkybox;
-		Model* pGround;
 		Model* pMirror;
 		Model* pPickedModel;
-		Model* pCharacter;
 		DirectX::SimpleMath::Plane* pMirrorPlane;
 	};
 
@@ -92,11 +89,8 @@ protected:
 	std::vector<Light>* m_pLights = nullptr;
 	std::vector<Model*>* m_pLightSpheres = nullptr;
 
-	Model* m_pSkybox = nullptr;
-	Model* m_pGround = nullptr;
 	Model* m_pMirror = nullptr;
 	Model* m_pPickedModel = nullptr;
-	Model* m_pCharacter = nullptr;
 	DirectX::SimpleMath::Plane* m_pMirrorPlane = nullptr;
 
 private:

@@ -5,6 +5,7 @@
 
 SkinnedMeshModel::SkinnedMeshModel(ResourceManager* pManager, const std::vector<MeshInfo>& MESHES, const AnimationData& ANIM_DATA)
 {
+	ModelType = SkinnedModel;
 	Initialize(pManager, MESHES, ANIM_DATA);
 }
 
@@ -12,13 +13,6 @@ void SkinnedMeshModel::Initialize(ResourceManager* pManager, const std::vector<M
 {
 	Model::Initialize(pManager, MESH_INFOS);
 	InitAnimationData(pManager, ANIM_DATA);
-
-	/*{
-		Matrix rootBoneTransform = AnimData.Get(0, 0, 0);
-		MeshConstant* pBoxMeshConst = (MeshConstant*)m_pBoundingBoxMesh->MeshConstant.pData;
-		pBoxMeshConst->World = (Matrix::CreateTranslation(Vector3(10.0f, 0.0f, 0.0f)) * World).Transpose();
-		m_pBoundingBoxMesh->MeshConstant.Upload();
-	}*/
 }
 
 void SkinnedMeshModel::InitMeshBuffers(ResourceManager* pManager, const MeshInfo& MESH_INFO, Mesh* pNewMesh)
@@ -236,6 +230,7 @@ void SkinnedMeshModel::SetDescriptorHeap(ResourceManager* pManager)
 		++(pManager->m_CBVSRVUAVHeapSize);
 	}
 
+	// meshes.
 	for (UINT64 i = 0, size = Meshes.size(); i < size; ++i)
 	{
 		Mesh* pCurMesh = Meshes[i];
