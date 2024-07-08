@@ -35,7 +35,7 @@ enum ePipelineStateSetting
 
 static const UINT SWAP_CHAIN_FRAME_COUNT = 2;
 static const UINT MAX_RENDER_THREAD_COUNT = 6;
-static const UINT MAX_DESCRIPTOR_NUM = 256;
+static const UINT MAX_DESCRIPTOR_NUM = 1024;
 
 class ResourceManager
 {

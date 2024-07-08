@@ -243,11 +243,6 @@ void Model::UpdateWorld(const Matrix& WORLD)
 
 void Model::Render(ResourceManager* pManager, ePipelineStateSetting psoSetting)
 {
-	if (!bIsVisible)
-	{
-		return;
-	}
-
 	_ASSERT(pManager);
 
 	HRESULT hr = S_OK;

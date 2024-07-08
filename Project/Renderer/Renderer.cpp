@@ -701,6 +701,7 @@ LB_EXIT:
 		m_pPrevBuffer->SetName(L"PrevBuffer");
 	}
 
+
 	UINT physicalCoreCount = 0;
 	UINT logicalCoreCount = 0;
 	GetPhysicalCoreCount(&physicalCoreCount, &logicalCoreCount);
@@ -709,6 +710,7 @@ LB_EXIT:
 	{
 		m_RenderThreadCount = MAX_RENDER_THREAD_COUNT;
 	}
+
 
 	ResourceManager::InitialData initData = { m_pDevice, m_pCommandQueue, m_ppCommandAllocator, m_ppCommandList, &m_DynamicDescriptorPool, m_hFenceEvent, m_pFence, &m_FrameIndex, &m_FenceValue, m_LastFenceValues };
 	m_pResourceManager = new ResourceManager;
@@ -1116,6 +1118,7 @@ void Renderer::mirrorRender()
 	// °Å¿ï ·»´õ¸µ.
 	m_pResourceManager->SetCommonState(MirrorBlend);
 	m_pMirror->Render(m_pResourceManager, MirrorBlend);
+
 
 	// obb rendering
 	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
