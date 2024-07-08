@@ -5,44 +5,6 @@
 #include "../Util/Utility.h"
 #include "Model.h"
 
-//DirectX::BoundingBox GetBoundingBox(const std::vector<Vertex>& VERTICES)
-//{
-//	using DirectX::SimpleMath::Vector3;
-//
-//	if (VERTICES.size() == 0)
-//	{
-//		return DirectX::BoundingBox();
-//	}
-//
-//	Vector3 minCorner = VERTICES[0].Position;
-//	Vector3 maxCorner = VERTICES[0].Position;
-//
-//	for (UINT64 i = 1, size = VERTICES.size(); i < size; ++i)
-//	{
-//		minCorner = Vector3::Min(minCorner, VERTICES[i].Position);
-//		maxCorner = Vector3::Max(maxCorner, VERTICES[i].Position);
-//	}
-//
-//	Vector3 center = (minCorner + maxCorner) * 0.5f;
-//	Vector3 extents = maxCorner - center;
-//
-//	return DirectX::BoundingBox(center, extents);
-//}
-//void ExtendBoundingBox(const DirectX::BoundingBox& SRC_BOX, DirectX::BoundingBox* pDestBox)
-//{
-//	using DirectX::SimpleMath::Vector3;
-//
-//	Vector3 minCorner = Vector3(SRC_BOX.Center) - Vector3(SRC_BOX.Extents);
-//	Vector3 maxCorner = Vector3(SRC_BOX.Center) - Vector3(SRC_BOX.Extents);
-//
-//	minCorner = Vector3::Min(minCorner, Vector3(pDestBox->Center) - Vector3(pDestBox->Extents));
-//	maxCorner = Vector3::Max(maxCorner, Vector3(pDestBox->Center) + Vector3(pDestBox->Extents));
-//
-//	pDestBox->Center = (minCorner + maxCorner) * 0.5f;
-//	pDestBox->Extents = maxCorner - pDestBox->Center;
-//}
-
-
 Model::Model(ResourceManager* pManager, std::wstring& basePath, std::wstring& fileName)
 {
 	Initialize(pManager, basePath, fileName);
@@ -64,10 +26,11 @@ void Model::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& M
 {
 	_ASSERT(pManager);
 
+	BOOL def;
 	HRESULT hr = S_OK;
 	struct _stat64 sourceFileStat;
 	ID3D12Device5* pDevice = pManager->m_pDevice;
-	ID3D12GraphicsCommandList* pCommandList = pManager->m_pSingleCommandList;
+	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
 
 	Meshes.reserve(MESH_INFOS.size());
 
@@ -231,7 +194,7 @@ void Model::InitMeshBuffers(ResourceManager* pManager, const MeshInfo& MESH_INFO
 
 void Model::UpdateConstantBuffers()
 {
-	if (bIsVisible == false)
+	if (!bIsVisible)
 	{
 		return;
 	}
@@ -290,7 +253,7 @@ void Model::Render(ResourceManager* pManager, ePipelineStateSetting psoSetting)
 	HRESULT hr = S_OK;
 
 	ID3D12Device5* pDevice = pManager->m_pDevice;
-	ID3D12GraphicsCommandList* pCommandList = pManager->m_pSingleCommandList;
+	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
 	DynamicDescriptorPool* pDynamicDescriptorPool = pManager->m_pDynamicDescriptorPool;
 	const UINT CBV_SRV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
 
@@ -358,7 +321,7 @@ void Model::RenderBoundingBox(ResourceManager* pManager, ePipelineStateSetting p
 	HRESULT hr = S_OK;
 
 	ID3D12Device5* pDevice = pManager->m_pDevice;
-	ID3D12GraphicsCommandList* pCommandList = pManager->m_pSingleCommandList;
+	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
 	ID3D12DescriptorHeap* pCBVSRVHeap = pManager->m_pCBVSRVUAVHeap;
 	DynamicDescriptorPool* pDynamicDescriptorPool = pManager->m_pDynamicDescriptorPool;
 	const UINT CBV_SRV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
@@ -386,6 +349,43 @@ void Model::RenderBoundingBox(ResourceManager* pManager, ePipelineStateSetting p
 	pCommandList->IASetVertexBuffers(0, 1, &m_pBoundingBoxMesh->Vertex.VertexBufferView);
 	pCommandList->IASetIndexBuffer(&m_pBoundingBoxMesh->Index.IndexBufferView);
 	pCommandList->DrawIndexedInstanced(m_pBoundingBoxMesh->Index.Count, 1, 0, 0, 0);
+}
+
+void Model::RenderBoundingSphere(ResourceManager* pManager, ePipelineStateSetting psoSetting)
+{
+	_ASSERT(pManager);
+
+	HRESULT hr = S_OK;
+
+	ID3D12Device5* pDevice = pManager->m_pDevice;
+	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
+	ID3D12DescriptorHeap* pCBVSRVHeap = pManager->m_pCBVSRVUAVHeap;
+	DynamicDescriptorPool* pDynamicDescriptorPool = pManager->m_pDynamicDescriptorPool;
+	const UINT CBV_SRV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable = {};
+	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorTable = {};
+
+	hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 3);
+	BREAK_IF_FAILED(hr);
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_DESCRIPTOR_SIZE);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE nullHandle(pCBVSRVHeap->GetCPUDescriptorHandleForHeapStart(), 14, CBV_SRV_DESCRIPTOR_SIZE);
+
+	// b2, b3
+	pDevice->CopyDescriptorsSimple(1, dstHandle, m_pBoundingSphereMesh->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	dstHandle.Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+	pDevice->CopyDescriptorsSimple(1, dstHandle, m_pBoundingSphereMesh->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	dstHandle.Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+
+	// t6(null)
+	pDevice->CopyDescriptorsSimple(1, dstHandle, nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
+
+	pCommandList->IASetVertexBuffers(0, 1, &m_pBoundingSphereMesh->Vertex.VertexBufferView);
+	pCommandList->IASetIndexBuffer(&m_pBoundingSphereMesh->Index.IndexBufferView);
+	pCommandList->DrawIndexedInstanced(m_pBoundingSphereMesh->Index.Count, 1, 0, 0, 0);
 }
 
 void Model::Clear()
@@ -503,6 +503,21 @@ void Model::SetDescriptorHeap(ResourceManager* pManager)
 	m_pBoundingBoxMesh->MaterialConstant.SetCBVHandle(cbvSrvLastHandle);
 	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 	++(pManager->m_CBVSRVUAVHeapSize);
+
+	// bounding sphere
+	cbvDesc.BufferLocation = m_pBoundingSphereMesh->MeshConstant.GetGPUMemAddr();
+	cbvDesc.SizeInBytes = (UINT)m_pBoundingSphereMesh->MeshConstant.GetBufferSize();
+	pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
+	m_pBoundingSphereMesh->MeshConstant.SetCBVHandle(cbvSrvLastHandle);
+	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+	++(pManager->m_CBVSRVUAVHeapSize);
+
+	cbvDesc.BufferLocation = m_pBoundingSphereMesh->MaterialConstant.GetGPUMemAddr();
+	cbvDesc.SizeInBytes = (UINT)m_pBoundingSphereMesh->MaterialConstant.GetBufferSize();
+	pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
+	m_pBoundingSphereMesh->MaterialConstant.SetCBVHandle(cbvSrvLastHandle);
+	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+	++(pManager->m_CBVSRVUAVHeapSize);
 }
 
 void Model::initBoundingBox(ResourceManager* pManager, const std::vector<MeshInfo>& MESH_INFOS)
@@ -520,7 +535,6 @@ void Model::initBoundingBox(ResourceManager* pManager, const std::vector<MeshInf
 
 	MakeWireBox(&meshData, BoundingBox.Center, Vector3(BoundingBox.Extents) + Vector3(1e-3f));
 	m_pBoundingBoxMesh = new Mesh;
-
 	m_pBoundingBoxMesh->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
 	m_pBoundingBoxMesh->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
 	pMeshConst = (MeshConstant*)m_pBoundingBoxMesh->MeshConstant.pData;
@@ -544,7 +558,8 @@ void Model::initBoundingSphere(ResourceManager* pManager, const std::vector<Mesh
 		}
 	}
 
-	maxRadius += 1e-2f; // 살짝 크게 설정.
+	// maxRadius += 1e-2f; // 살짝 크게 설정.
+	maxRadius -= 1e-2f; // 살짝 작게 설정.
 	BoundingSphere = DirectX::BoundingSphere(BoundingBox.Center, maxRadius);
 
 	MeshInfo meshData = INIT_MESH_INFO;
@@ -553,7 +568,6 @@ void Model::initBoundingSphere(ResourceManager* pManager, const std::vector<Mesh
 
 	MakeWireSphere(&meshData, BoundingSphere.Center, BoundingSphere.Radius);
 	m_pBoundingSphereMesh = new Mesh;
-
 	m_pBoundingSphereMesh->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
 	m_pBoundingSphereMesh->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
 	pMeshConst = (MeshConstant*)m_pBoundingSphereMesh->MeshConstant.pData;

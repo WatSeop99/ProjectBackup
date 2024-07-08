@@ -89,7 +89,17 @@ void Renderer::Render()
 
 void Renderer::Clear()
 {
-	waitForFenceValue();
+	fence();
+	for (UINT i = 0; i < SWAP_CHAIN_FRAME_COUNT; ++i)
+	{
+		waitForFenceValue(m_LastFenceValues[i]);
+	}
+
+	if (m_pResourceManager)
+	{
+		delete m_pResourceManager;
+		m_pResourceManager = nullptr;
+	}
 
 	if (m_hFenceEvent)
 	{
@@ -103,10 +113,29 @@ void Renderer::Clear()
 	m_LightConstant.Clear();
 	m_ReflectionGlobalConstant.Clear();
 
-	if (m_pResourceManager)
+	for (UINT i = 0; i < SWAP_CHAIN_FRAME_COUNT; ++i)
 	{
-		delete m_pResourceManager;
-		m_pResourceManager = nullptr;
+		for (UINT j = 0; j < MAX_RENDER_THREAD_COUNT; ++j)
+		{
+			if (m_ppCommandListPool[i][j])
+			{
+				delete m_ppCommandListPool[i][j];
+				m_ppCommandListPool[i][j] = nullptr;
+			}
+			if (m_ppDescriptorPool[i][j])
+			{
+				delete m_ppDescriptorPool[i][j];
+				m_ppDescriptorPool[i][j] = nullptr;
+			}
+		}
+	}
+	for (UINT i = 0; i < MAX_RENDER_THREAD_COUNT; ++i)
+	{
+		if (m_ppRenderQueue[i])
+		{
+			delete m_ppRenderQueue[i];
+			m_ppRenderQueue[i] = nullptr;
+		}
 	}
 
 	m_PostProcessor.Clear();
@@ -121,8 +150,11 @@ void Renderer::Clear()
 		SAFE_RELEASE(m_pRenderTargets[i]);
 	}
 
-	SAFE_RELEASE(m_pCommandList);
-	SAFE_RELEASE(m_pCommandAllocator);
+	for (UINT i = 0; i < SWAP_CHAIN_FRAME_COUNT; ++i)
+	{
+		SAFE_RELEASE(m_ppCommandList[i]);
+		SAFE_RELEASE(m_ppCommandAllocator[i]);
+	}
 	SAFE_RELEASE(m_pSwapChain);
 	SAFE_RELEASE(m_pCommandQueue);
 
@@ -160,7 +192,7 @@ LRESULT Renderer::MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				fence();
 				for (int i = 0; i < SWAP_CHAIN_FRAME_COUNT; ++i)
 				{
-					waitForFenceValue();
+					waitForFenceValue(m_LastFenceValues[i]);
 				}
 
 				m_ScreenWidth = (UINT)LOWORD(lParam);
@@ -593,19 +625,26 @@ LB_EXIT:
 		m_FrameIndex = m_pSwapChain->GetCurrentBackBufferIndex();
 	}
 
-	// create single command list
+	// create command list
 	{
-		hr = m_pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_pCommandAllocator));
-		BREAK_IF_FAILED(hr);
-		m_pCommandAllocator->SetName(L"CommandAllocator");
+		for (UINT i = 0; i < SWAP_CHAIN_FRAME_COUNT; ++i)
+		{
+			std::wstring debugName;
 
-		hr = m_pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_pCommandAllocator, nullptr, IID_PPV_ARGS(&m_pCommandList));
-		BREAK_IF_FAILED(hr);
-		m_pCommandList->SetName(L"CommandList");
+			hr = m_pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_ppCommandAllocator[i]));
+			BREAK_IF_FAILED(hr);
+			debugName = std::wstring(L"CommandAllocator") + std::to_wstring(i);
+			m_ppCommandAllocator[i]->SetName(debugName.c_str());
 
-		// Command lists are created in the recording state, but there is nothing
-		// to record yet. The main loop expects it to be closed, so close it now.
-		m_pCommandList->Close();
+			hr = m_pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_ppCommandAllocator[i], nullptr, IID_PPV_ARGS(&m_ppCommandList[i]));
+			BREAK_IF_FAILED(hr);
+			debugName = std::wstring(L"CommandList") + std::to_wstring(i);
+			m_ppCommandList[i]->SetName(debugName.c_str());
+
+			// Command lists are created in the recording state, but there is nothing
+			// to record yet. The main loop expects it to be closed, so close it now.
+			m_ppCommandList[i]->Close();
+		}
 	}
 
 	// create fence
@@ -662,7 +701,16 @@ LB_EXIT:
 		m_pPrevBuffer->SetName(L"PrevBuffer");
 	}
 
-	ResourceManager::InitialData initData = { m_pDevice, m_pCommandQueue, m_pCommandAllocator, m_pCommandList, &m_DynamicDescriptorPool };
+	UINT physicalCoreCount = 0;
+	UINT logicalCoreCount = 0;
+	GetPhysicalCoreCount(&physicalCoreCount, &logicalCoreCount);
+	m_RenderThreadCount = physicalCoreCount;
+	if (m_RenderThreadCount > MAX_RENDER_THREAD_COUNT)
+	{
+		m_RenderThreadCount = MAX_RENDER_THREAD_COUNT;
+	}
+
+	ResourceManager::InitialData initData = { m_pDevice, m_pCommandQueue, m_ppCommandAllocator, m_ppCommandList, &m_DynamicDescriptorPool, m_hFenceEvent, m_pFence, &m_FrameIndex, &m_FenceValue, m_LastFenceValues };
 	m_pResourceManager = new ResourceManager;
 	m_pResourceManager->Initialize(&initData);
 	m_pResourceManager->InitRTVDescriptorHeap(16);
@@ -912,7 +960,7 @@ void Renderer::initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceText
 
 			switch (pModel->ModelType)
 			{
-				case DefaultModel: case SkyBoxModel: case MirrorModel:
+				case DefaultModel: case SkyboxModel: case MirrorModel:
 					pModel->SetDescriptorHeap(m_pResourceManager);
 					break;
 
@@ -934,10 +982,10 @@ void Renderer::beginRender()
 {
 	HRESULT hr = S_OK;
 
-	hr = m_pCommandAllocator->Reset();
+	hr = m_ppCommandAllocator[m_FrameIndex]->Reset();
 	BREAK_IF_FAILED(hr);
 
-	hr = m_pCommandList->Reset(m_pCommandAllocator, nullptr);
+	hr = m_ppCommandList[m_FrameIndex]->Reset(m_ppCommandAllocator[m_FrameIndex], nullptr);
 	BREAK_IF_FAILED(hr);
 
 	ID3D12DescriptorHeap* ppDescriptorHeaps[] =
@@ -945,7 +993,7 @@ void Renderer::beginRender()
 		m_DynamicDescriptorPool.GetDescriptorHeap(),
 		m_pResourceManager->m_pSamplerHeap
 	};
-	m_pCommandList->SetDescriptorHeaps(2, ppDescriptorHeaps);
+	m_ppCommandList[m_FrameIndex]->SetDescriptorHeaps(2, ppDescriptorHeaps);
 }
 
 void Renderer::shadowMapRender()
@@ -968,50 +1016,49 @@ void Renderer::objectRender()
 		CD3DX12_RESOURCE_BARRIER::Transition(m_pRenderTargets[m_FrameIndex], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET),
 		CD3DX12_RESOURCE_BARRIER::Transition(m_pFloatBuffer, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET),
 	};
-	m_pCommandList->ResourceBarrier(2, RTV_BEFORE_BARRIERS);
+	m_ppCommandList[m_FrameIndex]->ResourceBarrier(2, RTV_BEFORE_BARRIERS);
 
 	const float COLOR[] = { 0.0f, 0.0f, 1.0f, 1.0f };
-	m_pCommandList->ClearRenderTargetView(rtvHandle, COLOR, 0, nullptr);
-	m_pCommandList->ClearRenderTargetView(floatRtvHandle, COLOR, 0, nullptr);
-	m_pCommandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+	m_ppCommandList[m_FrameIndex]->ClearRenderTargetView(rtvHandle, COLOR, 0, nullptr);
+	m_ppCommandList[m_FrameIndex]->ClearRenderTargetView(floatRtvHandle, COLOR, 0, nullptr);
+	m_ppCommandList[m_FrameIndex]->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 
-	m_pCommandList->RSSetViewports(1, &m_ScreenViewport);
-	m_pCommandList->RSSetScissorRects(1, &m_ScissorRect);
-	m_pCommandList->OMSetRenderTargets(1, &floatRtvHandle, FALSE, &dsvHandle);
+	m_ppCommandList[m_FrameIndex]->RSSetViewports(1, &m_ScreenViewport);
+	m_ppCommandList[m_FrameIndex]->RSSetScissorRects(1, &m_ScissorRect);
+	m_ppCommandList[m_FrameIndex]->OMSetRenderTargets(1, &floatRtvHandle, FALSE, &dsvHandle);
 
 	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
 	{
 		Model* pCurModel = (*m_pRenderObjects)[i];
-		ePipelineStateSetting psoSetting;
 		if (pCurModel->bIsVisible)
 		{
-
 			switch (pCurModel->ModelType)
 			{
-				case DefaultModel:
-					psoSetting = Default;
-					break;
-
-				case SkinnedModel:
-				{
-					SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pCurModel;
-					psoSetting = Skinned;
-					m_pResourceManager->SetCommonState(psoSetting);
-					pCharacter->Render(m_pResourceManager, psoSetting);
-					
-					continue;
-				}
-
-				case SkyBoxModel:
-					psoSetting = Skybox;
-					break;
-
-				default:
-					continue;
+			case DefaultModel:
+			{
+				m_pResourceManager->SetCommonState(Default);
+				pCurModel->Render(m_pResourceManager, Default);
 			}
+			break;
 
-			m_pResourceManager->SetCommonState(psoSetting);
-			pCurModel->Render(m_pResourceManager, psoSetting);
+			case SkinnedModel:
+			{
+				SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pCurModel;
+				m_pResourceManager->SetCommonState(Skinned);
+				pCharacter->Render(m_pResourceManager, Skinned);
+			}
+			break;
+
+			case SkyboxModel:
+			{
+				m_pResourceManager->SetCommonState(Skybox);
+				pCurModel->Render(m_pResourceManager, Skybox);
+			}
+			break;
+
+			default:
+				break;
+			}
 		}
 	}
 }
@@ -1034,35 +1081,35 @@ void Renderer::mirrorRender()
 	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
 	{
 		Model* pCurModel = (*m_pRenderObjects)[i];
-		ePipelineStateSetting psoSetting;
-
 		if (pCurModel->bIsVisible)
 		{
 			switch (pCurModel->ModelType)
 			{
 				case DefaultModel:
-					psoSetting = ReflectionDefault;
-					break;
+				{
+					m_pResourceManager->SetCommonState(ReflectionDefault);
+					pCurModel->Render(m_pResourceManager, ReflectionDefault);
+				}
+				break;
 
 				case SkinnedModel:
 				{
 					SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pCurModel;
 					m_pResourceManager->SetCommonState(ReflectionSkinned);
 					pCharacter->Render(m_pResourceManager, ReflectionSkinned);
-
-					continue;
 				}
+				break;
 
-				case SkyBoxModel:
-					psoSetting = ReflectionSkybox;
-					break;
+				case SkyboxModel:
+				{
+					m_pResourceManager->SetCommonState(ReflectionSkybox);
+					pCurModel->Render(m_pResourceManager, ReflectionSkybox);
+				}
+				break;
 
 				default:
-					continue;
+					break;
 			}
-
-			m_pResourceManager->SetCommonState(psoSetting);
-			pCurModel->Render(m_pResourceManager, psoSetting);
 		}
 	}
 
@@ -1080,13 +1127,14 @@ void Renderer::mirrorRender()
 			switch (pCurModel->ModelType)
 			{
 				case DefaultModel:
-					pCurModel->RenderBoundingBox(m_pResourceManager, Wire);
+					pCurModel->RenderBoundingSphere(m_pResourceManager, Wire);
 					break;
 
 				case SkinnedModel:
 				{
 					SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pCurModel;
-					pCharacter->RenderBoundingBox(m_pResourceManager, Wire);
+					pCharacter->RenderBoundingSphere(m_pResourceManager, Wire);
+					pCharacter->RenderEndEffectorSphere(m_pResourceManager, Wire);
 				}
 					break;
 
@@ -1100,25 +1148,27 @@ void Renderer::mirrorRender()
 void Renderer::postProcess()
 {
 	const CD3DX12_RESOURCE_BARRIER BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(m_pFloatBuffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON);
-	m_pCommandList->ResourceBarrier(1, &BARRIER);
+	m_ppCommandList[m_FrameIndex]->ResourceBarrier(1, &BARRIER);
 	m_PostProcessor.Render(m_pResourceManager, m_FrameIndex);
 }
 
 void Renderer::endRender()
 {
-	_ASSERT(m_pCommandList);
+	_ASSERT(m_ppCommandList[m_FrameIndex]);
 	_ASSERT(m_pCommandQueue);
 
 	const CD3DX12_RESOURCE_BARRIER RTV_AFTER_BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(m_pRenderTargets[m_FrameIndex], D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_PRESENT);
-	m_pCommandList->ResourceBarrier(1, &RTV_AFTER_BARRIER);
-	m_pCommandList->Close();
+	m_ppCommandList[m_FrameIndex]->ResourceBarrier(1, &RTV_AFTER_BARRIER);
+	m_ppCommandList[m_FrameIndex]->Close();
 
-	ID3D12CommandList* ppCommandLists[] = { m_pCommandList };
+	ID3D12CommandList* ppCommandLists[] = { m_ppCommandList[m_FrameIndex] };
 	m_pCommandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 }
 
 void Renderer::present()
 {
+	fence();
+
 	UINT syncInterval = 1;	  // VSync On
 	// UINT syncInterval = 0;  // VSync Off
 	UINT presentFlags = 0;
@@ -1136,9 +1186,7 @@ void Renderer::present()
 
 	// for next frame
 	m_FrameIndex = m_pSwapChain->GetCurrentBackBufferIndex();
-
-	fence();
-	waitForFenceValue();
+	waitForFenceValue(m_LastFenceValues[m_FrameIndex]);
 
 	m_DynamicDescriptorPool.Reset();
 }
@@ -1245,10 +1293,11 @@ void Renderer::processMouseControl()
 			Model* pSelectedModel = pickClosest(CUR_RAY, &dist);
 			if (pSelectedModel)
 			{
+#ifdef _DEBUG
 				OutputDebugStringA("Newly selected model: ");
 				OutputDebugStringA(pSelectedModel->Name.c_str());
 				OutputDebugStringA("\n");
-
+#endif
 				s_pActiveModel = pSelectedModel;
 				m_pPickedModel = pSelectedModel; // GUI 조작용 포인터.
 				pickPoint = CUR_RAY.position + dist * CUR_RAY.direction;
@@ -1311,44 +1360,58 @@ void Renderer::processMouseControl()
 		s_pActiveModel = nullptr;
 	}
 
-	//if (s_pActiveModel != nullptr)
-	//{
-	//	Vector3 translation = s_pActiveModel->World.Translation();
-	//	s_pActiveModel->World.Translation(Vector3(0.0f));
-	//	s_pActiveModel->UpdateWorld(s_pActiveModel->World * Matrix::CreateFromQuaternion(dragRotation) * Matrix::CreateTranslation(dragTranslation + translation));
-	//	s_pActiveModel->BoundingSphere.Center = s_pActiveModel->World.Translation();
+	if (s_pActiveModel)
+	{
+		Vector3 translation = s_pActiveModel->World.Translation();
+		s_pActiveModel->World.Translation(Vector3(0.0f));
+		s_pActiveModel->UpdateWorld(s_pActiveModel->World * Matrix::CreateFromQuaternion(dragRotation) * Matrix::CreateTranslation(dragTranslation + translation));
+		s_pActiveModel->BoundingSphere.Center = s_pActiveModel->World.Translation();
 
-	//	// 충돌 지점에 작은 구 그리기.
-	//	m_pCursorSphere->bIsVisible = true;
-	//	m_pCursorSphere->UpdateWorld(Matrix::CreateTranslation(pickPoint));
-	//}
-	//else
-	//{
-	//	m_pCursorSphere->bIsVisible = false;
-	//}
+		// 충돌 지점에 작은 구 그리기.
+		/*m_pCursorSphere->bIsVisible = true;
+		m_pCursorSphere->UpdateWorld(Matrix::CreateTranslation(pickPoint));*/
+	}
+	else
+	{
+		// m_pCursorSphere->bIsVisible = false;
+	}
 }
 
 Model* Renderer::pickClosest(const DirectX::SimpleMath::Ray& PICKING_RAY, float* pMinDist)
 {
-	return nullptr;
+	*pMinDist = 1e5f;
+	Model* pMinModel = nullptr;
+
+	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
+	{
+		Model* pCurModel = (*m_pRenderObjects)[i];
+		float dist = 0.0f;
+		if (pCurModel->bIsPickable &&
+			PICKING_RAY.Intersects(pCurModel->BoundingSphere, dist) &&
+			dist < *pMinDist)
+		{
+			pMinModel = pCurModel;
+			*pMinDist = dist;
+		}
+	}
+
+	return pMinModel;
 }
 
 UINT64 Renderer::fence()
 {
 	++m_FenceValue;
 	m_pCommandQueue->Signal(m_pFence, m_FenceValue);
-
+	m_LastFenceValues[m_FrameIndex] = m_FenceValue;
 	return m_FenceValue;
 }
 
-void Renderer::waitForFenceValue()
+void Renderer::waitForFenceValue(UINT64 expectedFenceValue)
 {
-	const UINT64 EXPECTED_FENCE_VALUE = m_FenceValue;
-
 	// Wait until the previous frame is finished.
-	if (m_pFence->GetCompletedValue() < EXPECTED_FENCE_VALUE)
+	if (m_pFence->GetCompletedValue() < expectedFenceValue)
 	{
-		m_pFence->SetEventOnCompletion(EXPECTED_FENCE_VALUE, m_hFenceEvent);
+		m_pFence->SetEventOnCompletion(expectedFenceValue, m_hFenceEvent);
 		WaitForSingleObject(m_hFenceEvent, INFINITE);
 	}
 }

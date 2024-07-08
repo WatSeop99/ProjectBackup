@@ -11,7 +11,7 @@ enum eModelType
 {
 	DefaultModel = 0,
 	SkinnedModel,
-	SkyBoxModel,
+	SkyboxModel,
 	MirrorModel,
 	TotalModelType
 };
@@ -29,12 +29,13 @@ public:
 	virtual void Initialize(ResourceManager* pManager) { }
 	virtual void InitMeshBuffers(ResourceManager* pManager, const MeshInfo& MESH_INFO, Mesh* pNewMesh);
 
-	void UpdateConstantBuffers();
+	virtual void UpdateConstantBuffers();
 	void UpdateWorld(const Matrix& WORLD);
 	virtual void UpdateAnimation(int clipID, int frame) { }
 
 	virtual void Render(ResourceManager* pManager, ePipelineStateSetting psoSetting);
 	void RenderBoundingBox(ResourceManager* pManager, ePipelineStateSetting psoSetting);
+	void RenderBoundingSphere(ResourceManager* pManager, ePipelineStateSetting psoSetting);
 
 	virtual void Clear();
 

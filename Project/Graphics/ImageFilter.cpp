@@ -31,7 +31,7 @@ void ImageFilter::BeforeRender(ResourceManager* pManager, ePipelineStateSetting 
 	HRESULT hr = S_OK;
 
 	ID3D12Device5* pDevice = pManager->m_pDevice;
-	ID3D12GraphicsCommandList* pCommandList = pManager->m_pSingleCommandList;
+	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
 	DynamicDescriptorPool* pDynamicDescriptorPool = pManager->m_pDynamicDescriptorPool;
 	const UINT CBV_SRV_UAV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
 
@@ -107,7 +107,7 @@ void ImageFilter::AfterRender(ResourceManager* pManager, ePipelineStateSetting p
 		case BloomDown: case BloomUp:
 		{
 			const CD3DX12_RESOURCE_BARRIER BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(m_RTVHandles[0].pResource, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON);
-			pManager->m_pSingleCommandList->ResourceBarrier(1, &BARRIER);
+			pManager->GetCommandList()->ResourceBarrier(1, &BARRIER);
 		}
 		break;
 

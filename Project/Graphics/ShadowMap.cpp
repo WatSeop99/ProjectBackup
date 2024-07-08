@@ -156,7 +156,7 @@ void ShadowMap::Render(ResourceManager* pManager, std::vector<Model*>* pRenderOb
 {
 	_ASSERT(pManager);
 
-	ID3D12GraphicsCommandList* pCommandList = pManager->m_pSingleCommandList;
+	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
 	const UINT DSV_DESCRIPTOR_SIZE = pManager->m_DSVDescriptorSize;
 	const UINT CBV_SRV_UAV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
 
@@ -185,12 +185,15 @@ void ShadowMap::Render(ResourceManager* pManager, std::vector<Model*>* pRenderOb
 				Model* pModel = (*pRenderObjects)[i];
 				if (pModel->bIsVisible && pModel->bCastShadow)
 				{
-					ePipelineStateSetting psoSetting;
 					switch (pModel->ModelType)
 					{
 						case DefaultModel:
-							psoSetting = DepthOnlyCascadeDefault;
-							break;
+						{
+							pManager->SetCommonState(DepthOnlyCascadeDefault);
+							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
+							pModel->Render(pManager, DepthOnlyCascadeDefault);
+						}
+						break;
 
 						case SkinnedModel:
 						{
@@ -198,9 +201,8 @@ void ShadowMap::Render(ResourceManager* pManager, std::vector<Model*>* pRenderOb
 							pManager->SetCommonState(DepthOnlyCascadeSkinned);
 							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
 							pCharacter->Render(pManager, DepthOnlyCascadeSkinned);
-
-							continue;
 						}
+						break;
 
 						case MirrorModel:
 						{
@@ -208,17 +210,15 @@ void ShadowMap::Render(ResourceManager* pManager, std::vector<Model*>* pRenderOb
 							{
 								continue;
 							}
-							psoSetting = DepthOnlyCascadeDefault;
+							pManager->SetCommonState(DepthOnlyCascadeDefault);
+							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
+							pModel->Render(pManager, DepthOnlyCascadeDefault);
 						}
-							break;
+						break;
 
 						default:
-							continue;
+							break;
 					}
-
-					pManager->SetCommonState(psoSetting);
-					pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
-					pModel->Render(pManager, psoSetting);
 				}
 			}
 		}
@@ -239,12 +239,15 @@ void ShadowMap::Render(ResourceManager* pManager, std::vector<Model*>* pRenderOb
 				Model* pModel = (*pRenderObjects)[i];
 				if (pModel->bIsVisible && pModel->bCastShadow)
 				{
-					ePipelineStateSetting psoSetting;
 					switch (pModel->ModelType)
 					{
 						case DefaultModel:
-							psoSetting = DepthOnlyCubeDefault;
-							break;
+						{
+							pManager->SetCommonState(DepthOnlyCubeDefault);
+							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
+							pModel->Render(pManager, DepthOnlyCubeDefault);
+						}
+						break;
 
 						case SkinnedModel:
 						{
@@ -252,9 +255,8 @@ void ShadowMap::Render(ResourceManager* pManager, std::vector<Model*>* pRenderOb
 							pManager->SetCommonState(DepthOnlyCubeSkinned);
 							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
 							pCharacter->Render(pManager, DepthOnlyCubeSkinned);
-
-							continue;
 						}
+						break;
 
 						case MirrorModel:
 						{
@@ -262,17 +264,15 @@ void ShadowMap::Render(ResourceManager* pManager, std::vector<Model*>* pRenderOb
 							{
 								continue;
 							}
-							psoSetting = DepthOnlyCubeDefault;
+							pManager->SetCommonState(DepthOnlyCubeDefault);
+							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
+							pModel->Render(pManager, DepthOnlyCubeDefault);
 						}
 						break;
 
 						default:
-							continue;
+							break;
 					}
-
-					pManager->SetCommonState(psoSetting);
-					pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
-					pModel->Render(pManager, psoSetting);
 				}
 			}
 		}
@@ -293,12 +293,15 @@ void ShadowMap::Render(ResourceManager* pManager, std::vector<Model*>* pRenderOb
 				Model* pModel = (*pRenderObjects)[i];
 				if (pModel->bIsVisible && pModel->bCastShadow)
 				{
-					ePipelineStateSetting psoSetting;
 					switch (pModel->ModelType)
 					{
 						case DefaultModel:
-							psoSetting = DepthOnlyDefault;
-							break;
+						{
+							pManager->SetCommonState(DepthOnlyDefault);
+							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
+							pModel->Render(pManager, DepthOnlyDefault);
+						}
+						break;
 
 						case SkinnedModel:
 						{
@@ -306,9 +309,8 @@ void ShadowMap::Render(ResourceManager* pManager, std::vector<Model*>* pRenderOb
 							pManager->SetCommonState(DepthOnlySkinned);
 							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
 							pCharacter->Render(pManager, DepthOnlySkinned);
-
-							continue;
 						}
+						break;
 
 						case MirrorModel:
 						{
@@ -316,17 +318,15 @@ void ShadowMap::Render(ResourceManager* pManager, std::vector<Model*>* pRenderOb
 							{
 								continue;
 							}
-							psoSetting = DepthOnlyDefault;
+							pManager->SetCommonState(DepthOnlyDefault);
+							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
+							pModel->Render(pManager, DepthOnlyDefault);
 						}
 						break;
 
 						default:
-							continue;
+							break;
 					}
-
-					pManager->SetCommonState(psoSetting);
-					pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
-					pModel->Render(pManager, psoSetting);
 				}
 			}
 		}

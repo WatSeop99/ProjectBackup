@@ -44,7 +44,7 @@ public:
 
 	void Update(int clipID, int frame);
 
-	inline Matrix Get(int clipID, int boneID, int frame)
+	inline Matrix Get(int clipID, UINT boneID, int frame)
 	{
 		return (DefaultTransform.Invert() * OffsetMatrices[boneID] * BoneTransforms[boneID] * DefaultTransform);
 	}

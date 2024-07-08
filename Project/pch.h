@@ -63,4 +63,5 @@
 		}
 #define ALIGN(size) __declspec(align(size))
 
+
 #endif

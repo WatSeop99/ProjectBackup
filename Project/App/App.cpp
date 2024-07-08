@@ -78,15 +78,35 @@ void App::Update(const float DELTA_TIME)
 	for (UINT64 i = 0, size = m_RenderObjects.size(); i < size; ++i)
 	{
 		Model* pModel = m_RenderObjects[i];
-		pModel->UpdateConstantBuffers();
-	}
 
-	m_pCharacter->UpdateConstantBuffers();
-	updateAnimation(DELTA_TIME);
+		switch (pModel->ModelType)
+		{
+		case DefaultModel:
+			pModel->UpdateConstantBuffers();
+			break;
+
+		case SkinnedModel:
+		{
+			SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pModel;
+			updateAnimation(DELTA_TIME);
+			pCharacter->UpdateConstantBuffers();
+		}
+		break;
+
+		default:
+			break;
+		}
+	}
 }
 
 void App::Clear()
 {
+	fence();
+	for (UINT i = 0; i < SWAP_CHAIN_FRAME_COUNT; ++i)
+	{
+		waitForFenceValue(m_LastFenceValues[i]);
+	}
+
 	for (UINT64 i = 0, size = m_RenderObjects.size(); i < size; ++i)
 	{
 		Model* pModel = m_RenderObjects[i];
@@ -126,7 +146,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		std::reverse(skyboxMeshInfo.Indices.begin(), skyboxMeshInfo.Indices.end());
 		Model* pSkybox = new Model(pResourceManager, { skyboxMeshInfo });
 		pSkybox->Name = "SkyBox";
-		pSkybox->ModelType = SkyBoxModel;
+		pSkybox->ModelType = SkyboxModel;
 		m_RenderObjects.push_back(pSkybox);
 	}
 
@@ -269,6 +289,8 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 			pMeshConst->RoughnessFactor = 0.8f;
 			pMeshConst->MetallicFactor = 0.0f;
 		}
+		m_pCharacter->Name = "MainCharacter";
+		m_pCharacter->bIsPickable = true;
 		m_pCharacter->UpdateWorld(Matrix::CreateScale(1.0f) * Matrix::CreateTranslation(center));
 		m_RenderObjects.push_back((Model*)m_pCharacter);
 	}

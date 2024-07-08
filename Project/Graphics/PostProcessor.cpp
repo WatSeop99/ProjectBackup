@@ -142,7 +142,7 @@ void PostProcessor::Render(ResourceManager* pManager, UINT frameIndex)
 	_ASSERT(pManager);
 
 	ID3D12Device5* pDevice = pManager->m_pDevice;
-	ID3D12GraphicsCommandList* pCommandList = pManager->m_pSingleCommandList;
+	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
 
 	pCommandList->RSSetViewports(1, &m_Viewport);
 	pCommandList->RSSetScissorRects(1, &m_ScissorRect);
@@ -389,7 +389,7 @@ void PostProcessor::renderPostProcessing(ResourceManager* pManager, UINT frameIn
 {
 	_ASSERT(pManager);
 
-	ID3D12GraphicsCommandList* pCommandList = pManager->m_pSingleCommandList;
+	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
 	
 	// bloom pass.
 	pManager->SetCommonState(BloomDown);
@@ -421,7 +421,7 @@ void PostProcessor::renderPostProcessing(ResourceManager* pManager, UINT frameIn
 void PostProcessor::renderImageFilter(ResourceManager* pManager, ImageFilter& imageFilter, ePipelineStateSetting psoSetting, UINT frameIndex)
 {
 	imageFilter.BeforeRender(pManager, psoSetting, frameIndex);
-	pManager->m_pSingleCommandList->DrawIndexedInstanced(m_pScreenMesh->Index.Count, 1, 0, 0, 0);
+	pManager->GetCommandList()->DrawIndexedInstanced(m_pScreenMesh->Index.Count, 1, 0, 0, 0);
 	imageFilter.AfterRender(pManager, psoSetting, frameIndex);
 }
 

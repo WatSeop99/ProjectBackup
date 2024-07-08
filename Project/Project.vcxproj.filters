@@ -105,6 +105,12 @@
     <ClInclude Include="Util\KnM.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\RenderQueue.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\CommandListPool.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Project.cpp">
@@ -174,6 +180,12 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="App\App.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\RenderQueue.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\CommandListPool.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>

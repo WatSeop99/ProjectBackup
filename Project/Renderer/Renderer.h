@@ -9,9 +9,6 @@
 #include "../Model/SkinnedMeshModel.h"
 #include "../Graphics/PostProcessor.h"
 
-const UINT SWAP_CHAIN_FRAME_COUNT = 2;
-const UINT MAX_PENDING_FRAME_NUM = SWAP_CHAIN_FRAME_COUNT - 1;
-
 class Renderer
 {
 public:
@@ -72,10 +69,15 @@ protected:
 	Model* pickClosest(const DirectX::SimpleMath::Ray& PICKING_RAY, float* pMinDist);
 
 	UINT64 fence();
-	void waitForFenceValue();
+	void waitForFenceValue(UINT64 expectedFenceValue);
 
 protected:
 	HWND m_hMainWindow = nullptr;
+
+	HANDLE m_hFenceEvent = nullptr;
+	ID3D12Fence* m_pFence = nullptr;
+	UINT64 m_LastFenceValues[SWAP_CHAIN_FRAME_COUNT] = { 0, };
+	UINT64 m_FenceValue = 0;
 
 	Keyboard m_Keyboard;
 	Mouse m_Mouse;
@@ -107,12 +109,19 @@ private:
 	ID3D12Device5* m_pDevice = nullptr;
 	IDXGISwapChain4* m_pSwapChain = nullptr;
 	ID3D12CommandQueue* m_pCommandQueue = nullptr;
-	ID3D12CommandAllocator* m_pCommandAllocator = nullptr;
-	ID3D12GraphicsCommandList* m_pCommandList = nullptr;
+	ID3D12CommandAllocator* m_ppCommandAllocator[SWAP_CHAIN_FRAME_COUNT] = { nullptr, };
+	ID3D12GraphicsCommandList* m_ppCommandList[SWAP_CHAIN_FRAME_COUNT] = { nullptr, };
 
-	HANDLE m_hFenceEvent = nullptr;
-	ID3D12Fence* m_pFence = nullptr;
-	UINT64 m_FenceValue = 0;
+	// for multithread
+	CommandListPool* m_ppCommandListPool[SWAP_CHAIN_FRAME_COUNT][MAX_RENDER_THREAD_COUNT] = { nullptr, };
+	DynamicDescriptorPool* m_ppDescriptorPool[SWAP_CHAIN_FRAME_COUNT][MAX_RENDER_THREAD_COUNT] = { nullptr, };
+	RenderQueue* m_ppRenderQueue[MAX_RENDER_THREAD_COUNT] = { nullptr, };
+	UINT m_RenderThreadCount = 0;
+	UINT m_CurThreadIndex = 0;
+
+	long volatile m_ActiveThreadCount = 0;
+	HANDLE m_hCompletedEvent = nullptr;
+	/////////////////////////////////////////////
 
 	// main resources.
 	DynamicDescriptorPool m_DynamicDescriptorPool;

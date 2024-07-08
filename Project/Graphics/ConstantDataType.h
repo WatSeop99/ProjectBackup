@@ -1,7 +1,8 @@
 #pragma once
 
 #include <directxtk12/SimpleMath.h>
-#include "../pch.h"
+#include <minwindef.h>
+// #include "../pch.h"
 
 using DirectX::SimpleMath::Vector3;
 using DirectX::SimpleMath::Matrix;

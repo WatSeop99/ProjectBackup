@@ -11,7 +11,7 @@ void Texture::Initialize(ResourceManager* pManager, const WCHAR* pszFileName, bo
 
 	HRESULT hr = S_OK;
 	ID3D12Device* pDevice = pManager->m_pDevice;
-	ID3D12GraphicsCommandList* pCommandList = pManager->m_pSingleCommandList;
+	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
 	std::vector<UCHAR> image;
 	DXGI_FORMAT pixelFormat = (bUseSRGB ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM);
 

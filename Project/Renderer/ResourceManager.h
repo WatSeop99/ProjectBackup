@@ -2,7 +2,9 @@
 
 #include <ctype.h>
 #include "../Graphics/ConstantBuffer.h"
+#include "CommandListPool.h"
 #include "DynamicDescriptorPool.h"
+#include "RenderQueue.h"
 #include "../Graphics/Texture.h"
 
 class ConstantBuffer;
@@ -31,10 +33,9 @@ enum ePipelineStateSetting
 	Wire,
 };
 
-static const int NUM_THREADS = 6;
-static const int LIGHT_THREADS = 3;
-static const int COMMON_COMMANDLIST_COUNT = 2;
-const UINT MAX_DESCRIPTOR_NUM = 256;
+static const UINT SWAP_CHAIN_FRAME_COUNT = 2;
+static const UINT MAX_RENDER_THREAD_COUNT = 6;
+static const UINT MAX_DESCRIPTOR_NUM = 256;
 
 class ResourceManager
 {
@@ -43,9 +44,15 @@ public:
 	{
 		ID3D12Device5* pDevice;
 		ID3D12CommandQueue* pCommandQueue;
-		ID3D12CommandAllocator* pCommandAllocator;
-		ID3D12GraphicsCommandList* pCommandList;
+		ID3D12CommandAllocator** ppCommandAllocator;
+		ID3D12GraphicsCommandList** ppCommandList;
 		DynamicDescriptorPool* pDynamicDescriptorPool;
+
+		HANDLE hFenceEvent;
+		ID3D12Fence* pFence;
+		UINT* pFrameIndex;
+		UINT64* pFenceValue;
+		UINT64* pLastFenceValues;
 	};
 
 public:
@@ -66,7 +73,8 @@ public:
 
 	void SetGlobalConstants(ConstantBuffer* pGlobal, ConstantBuffer* pLight, ConstantBuffer* pReflection);
 	void SetCommonState(ePipelineStateSetting psoState);
-	// void SetCommonState(ID3D12GraphicsCommandList* pCommandList, ePipelineStateSetting psoState);
+	
+	inline ID3D12GraphicsCommandList* GetCommandList() { return m_ppSingleCommandList[*m_pFrameIndex]; }
 
 protected:
 	void initSamplers();
@@ -77,13 +85,13 @@ protected:
 	void initShaders();
 
 	UINT64 fence();
-	void waitForGPU();
+	void waitForGPU(UINT64 expectedFenceValue);
 
 public:
 	ID3D12Device5* m_pDevice = nullptr;
 	ID3D12CommandQueue* m_pCommandQueue = nullptr;
-	ID3D12CommandAllocator* m_pSingleCommandAllocator = nullptr;
-	ID3D12GraphicsCommandList* m_pSingleCommandList = nullptr;
+	ID3D12CommandAllocator** m_ppSingleCommandAllocator = nullptr;
+	ID3D12GraphicsCommandList** m_ppSingleCommandList = nullptr;
 
 	ID3D12DescriptorHeap* m_pRTVHeap = nullptr;
 	ID3D12DescriptorHeap* m_pDSVHeap = nullptr;
@@ -108,7 +116,9 @@ public:
 private:
 	HANDLE m_hFenceEvent = nullptr;
 	ID3D12Fence* m_pFence = nullptr;
-	UINT64 m_FenceValue = 0;
+	UINT* m_pFrameIndex = nullptr;
+	UINT64* m_pFenceValue = nullptr;
+	UINT64* m_pFenceValues = nullptr;
 
 	// root signature.
 	ID3D12RootSignature* m_pDefaultRootSignature = nullptr;

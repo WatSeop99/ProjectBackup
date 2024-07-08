@@ -25,21 +25,14 @@ void ResourceManager::Initialize(InitialData* pInitialData)
 
 	m_pDevice = pInitialData->pDevice;
 	m_pCommandQueue = pInitialData->pCommandQueue;
-	m_pSingleCommandAllocator = pInitialData->pCommandAllocator;
-	m_pSingleCommandList = pInitialData->pCommandList;
+	m_ppSingleCommandAllocator = pInitialData->ppCommandAllocator;
+	m_ppSingleCommandList = pInitialData->ppCommandList;
 	m_pDynamicDescriptorPool = pInitialData->pDynamicDescriptorPool;
-
-	// create fence.
-	{
-		HRESULT hr = S_OK;
-
-		hr = m_pDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_pFence));
-		BREAK_IF_FAILED(hr);
-
-		m_FenceValue = 0;
-
-		m_hFenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-	}
+	m_hFenceEvent = pInitialData->hFenceEvent;
+	m_pFence = pInitialData->pFence;
+	m_pFrameIndex = pInitialData->pFrameIndex;
+	m_pFenceValue = pInitialData->pFenceValue;
+	m_pFenceValues = pInitialData->pLastFenceValues;
 
 	m_RTVDescriptorSize = m_pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	m_DSVDescriptorSize = m_pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
@@ -118,8 +111,8 @@ HRESULT ResourceManager::CreateVertexBuffer(UINT sizePerVertex, UINT numVertex, 
 {
 	_ASSERT(m_pDevice);
 	_ASSERT(m_pCommandQueue);
-	_ASSERT(m_pSingleCommandAllocator);
-	_ASSERT(m_pSingleCommandList);
+	_ASSERT(m_ppSingleCommandAllocator);
+	_ASSERT(m_ppSingleCommandList);
 
 	HRESULT hr = S_OK;
 
@@ -141,10 +134,10 @@ HRESULT ResourceManager::CreateVertexBuffer(UINT sizePerVertex, UINT numVertex, 
 	
 	if (pInitData)
 	{
-		hr = m_pSingleCommandAllocator->Reset();
+		hr = m_ppSingleCommandAllocator[*m_pFrameIndex]->Reset();
 		BREAK_IF_FAILED(hr);
 
-		hr = m_pSingleCommandList->Reset(m_pSingleCommandAllocator, nullptr);
+		hr = m_ppSingleCommandList[*m_pFrameIndex]->Reset(m_ppSingleCommandAllocator[*m_pFrameIndex], nullptr);
 		BREAK_IF_FAILED(hr);
 
 		heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
@@ -169,17 +162,17 @@ HRESULT ResourceManager::CreateVertexBuffer(UINT sizePerVertex, UINT numVertex, 
 
 		const CD3DX12_RESOURCE_BARRIER BEFORE_BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(pVertexBuffer, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
 		const CD3DX12_RESOURCE_BARRIER AFTER_BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(pVertexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-		m_pSingleCommandList->ResourceBarrier(1, &BEFORE_BARRIER);
-		m_pSingleCommandList->CopyBufferRegion(pVertexBuffer, 0, pUploadBuffer, 0, vertexBufferSize);
-		m_pSingleCommandList->ResourceBarrier(1, &AFTER_BARRIER);
+		m_ppSingleCommandList[*m_pFrameIndex]->ResourceBarrier(1, &BEFORE_BARRIER);
+		m_ppSingleCommandList[*m_pFrameIndex]->CopyBufferRegion(pVertexBuffer, 0, pUploadBuffer, 0, vertexBufferSize);
+		m_ppSingleCommandList[*m_pFrameIndex]->ResourceBarrier(1, &AFTER_BARRIER);
 
-		m_pSingleCommandList->Close();
+		m_ppSingleCommandList[*m_pFrameIndex]->Close();
 
-		ID3D12CommandList* ppCommandLists[] = { m_pSingleCommandList };
+		ID3D12CommandList* ppCommandLists[] = { m_ppSingleCommandList[*m_pFrameIndex] };
 		m_pCommandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
 		fence();
-		waitForGPU();
+		waitForGPU(m_pFenceValues[*m_pFrameIndex]);
 
 		SAFE_RELEASE(pUploadBuffer);
 	}
@@ -200,8 +193,8 @@ HRESULT ResourceManager::CreateIndexBuffer(UINT sizePerIndex, UINT numIndex, D3D
 {
 	_ASSERT(m_pDevice);
 	_ASSERT(m_pCommandQueue);
-	_ASSERT(m_pSingleCommandAllocator);
-	_ASSERT(m_pSingleCommandList);
+	_ASSERT(m_ppSingleCommandAllocator);
+	_ASSERT(m_ppSingleCommandList);
 
 	HRESULT hr = S_OK;
 
@@ -223,10 +216,10 @@ HRESULT ResourceManager::CreateIndexBuffer(UINT sizePerIndex, UINT numIndex, D3D
 
 	if (pInitData)
 	{
-		hr = m_pSingleCommandAllocator->Reset();
+		hr = m_ppSingleCommandAllocator[*m_pFrameIndex]->Reset();
 		BREAK_IF_FAILED(hr);
 
-		hr = m_pSingleCommandList->Reset(m_pSingleCommandAllocator, nullptr);
+		hr = m_ppSingleCommandList[*m_pFrameIndex]->Reset(m_ppSingleCommandAllocator[*m_pFrameIndex], nullptr);
 		BREAK_IF_FAILED(hr);
 
 		heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
@@ -251,17 +244,17 @@ HRESULT ResourceManager::CreateIndexBuffer(UINT sizePerIndex, UINT numIndex, D3D
 
 		const CD3DX12_RESOURCE_BARRIER BEFORE_BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(pIndexBuffer, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
 		const CD3DX12_RESOURCE_BARRIER AFTER_BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(pIndexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-		m_pSingleCommandList->ResourceBarrier(1, &BEFORE_BARRIER);
-		m_pSingleCommandList->CopyBufferRegion(pIndexBuffer, 0, pUploadBuffer, 0, indexBufferSize);
-		m_pSingleCommandList->ResourceBarrier(1, &AFTER_BARRIER);
+		m_ppSingleCommandList[*m_pFrameIndex]->ResourceBarrier(1, &BEFORE_BARRIER);
+		m_ppSingleCommandList[*m_pFrameIndex]->CopyBufferRegion(pIndexBuffer, 0, pUploadBuffer, 0, indexBufferSize);
+		m_ppSingleCommandList[*m_pFrameIndex]->ResourceBarrier(1, &AFTER_BARRIER);
 
-		m_pSingleCommandList->Close();
+		m_ppSingleCommandList[*m_pFrameIndex]->Close();
 
-		ID3D12CommandList* ppCommandLists[] = { m_pSingleCommandList };
+		ID3D12CommandList* ppCommandLists[] = { m_ppSingleCommandList[*m_pFrameIndex] };
 		m_pCommandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
 		fence();
-		waitForGPU();
+		waitForGPU(m_pFenceValues[*m_pFrameIndex]);
 
 		SAFE_RELEASE(pUploadBuffer);
 	}
@@ -281,8 +274,8 @@ HRESULT ResourceManager::CreateIndexBuffer(UINT sizePerIndex, UINT numIndex, D3D
 HRESULT ResourceManager::UpdateTexture(ID3D12Resource* pDestResource, ID3D12Resource* pSrcResource, D3D12_RESOURCE_STATES* originalState)
 {
 	_ASSERT(m_pDevice);
-	_ASSERT(m_pSingleCommandAllocator);
-	_ASSERT(m_pSingleCommandList);
+	_ASSERT(m_ppSingleCommandAllocator);
+	_ASSERT(m_ppSingleCommandList);
 
 	const DWORD MAX_SUB_RESOURCE_NUM = 32;
 	D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint[MAX_SUB_RESOURCE_NUM] = {};
@@ -299,16 +292,16 @@ HRESULT ResourceManager::UpdateTexture(ID3D12Resource* pDestResource, ID3D12Reso
 
 	m_pDevice->GetCopyableFootprints(&Desc, 0, Desc.MipLevels, 0, footprint, rows, rowSize, &totalBytes);
 
-	hr = m_pSingleCommandAllocator->Reset();
+	hr = m_ppSingleCommandAllocator[*m_pFrameIndex]->Reset();
 	BREAK_IF_FAILED(hr);
 
-	hr = m_pSingleCommandList->Reset(m_pSingleCommandAllocator, nullptr);
+	hr = m_ppSingleCommandList[*m_pFrameIndex]->Reset(m_ppSingleCommandAllocator[*m_pFrameIndex], nullptr);
 	BREAK_IF_FAILED(hr);
 
 	const CD3DX12_RESOURCE_BARRIER BEFORE_BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(pDestResource, *originalState, D3D12_RESOURCE_STATE_COPY_DEST);
 	const CD3DX12_RESOURCE_BARRIER AFTER_BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(pDestResource, D3D12_RESOURCE_STATE_COPY_DEST, *originalState);
 	
-	m_pSingleCommandList->ResourceBarrier(1, &BEFORE_BARRIER);
+	m_ppSingleCommandList[*m_pFrameIndex]->ResourceBarrier(1, &BEFORE_BARRIER);
 	for (DWORD i = 0; i < Desc.MipLevels; i++)
 	{
 		D3D12_TEXTURE_COPY_LOCATION	destLocation = {};
@@ -322,23 +315,27 @@ HRESULT ResourceManager::UpdateTexture(ID3D12Resource* pDestResource, ID3D12Reso
 		srcLocation.pResource = pSrcResource;
 		srcLocation.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
 
-		m_pSingleCommandList->CopyTextureRegion(&destLocation, 0, 0, 0, &srcLocation, nullptr);
+		m_ppSingleCommandList[*m_pFrameIndex]->CopyTextureRegion(&destLocation, 0, 0, 0, &srcLocation, nullptr);
 	}
-	m_pSingleCommandList->ResourceBarrier(1, &AFTER_BARRIER);
-	m_pSingleCommandList->Close();
+	m_ppSingleCommandList[*m_pFrameIndex]->ResourceBarrier(1, &AFTER_BARRIER);
+	m_ppSingleCommandList[*m_pFrameIndex]->Close();
 
-	ID3D12CommandList* ppCommandLists[] = { m_pSingleCommandList };
+	ID3D12CommandList* ppCommandLists[] = { m_ppSingleCommandList[*m_pFrameIndex] };
 	m_pCommandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
 	fence();
-	waitForGPU();
+	waitForGPU(m_pFenceValues[*m_pFrameIndex]);
 
 	return hr;
 }
 
 void ResourceManager::Clear()
 {
-	waitForGPU();
+	fence();
+	for (UINT i = 0; i < SWAP_CHAIN_FRAME_COUNT; ++i)
+	{
+		waitForGPU(m_pFenceValues[*m_pFrameIndex]);
+	}
 
 	m_pGlobalConstant = nullptr;
 	m_pLightConstant = nullptr;
@@ -356,14 +353,6 @@ void ResourceManager::Clear()
 	m_DSVHeapSize = 0;
 	m_CBVSRVUAVHeapSize = 0;
 	m_SamplerHeapSize = 0;
-
-	if (m_hFenceEvent)
-	{
-		CloseHandle(m_hFenceEvent);
-		m_hFenceEvent = nullptr;
-	}
-	m_FenceValue = 0;
-	SAFE_RELEASE(m_pFence);
 
 	SAFE_RELEASE(m_pDefaultSolidPSO);
 	SAFE_RELEASE(m_pSkinnedSolidPSO);
@@ -424,8 +413,8 @@ void ResourceManager::Clear()
 	SAFE_RELEASE(m_pRTVHeap);
 
 	m_pDynamicDescriptorPool = nullptr;
-	m_pSingleCommandList = nullptr;
-	m_pSingleCommandAllocator = nullptr;
+	m_ppSingleCommandList = nullptr;
+	m_ppSingleCommandAllocator = nullptr;
 	m_pCommandQueue = nullptr;
 	m_pDevice = nullptr;
 }
@@ -440,7 +429,7 @@ void ResourceManager::SetGlobalConstants(ConstantBuffer* pGlobal, ConstantBuffer
 void ResourceManager::SetCommonState(ePipelineStateSetting psoState)
 {
 	_ASSERT(m_pDevice);
-	_ASSERT(m_pSingleCommandList);
+	_ASSERT(m_ppSingleCommandList);
 	_ASSERT(m_pCBVSRVUAVHeap);
 	_ASSERT(m_pSamplerHeap);
 
@@ -528,176 +517,176 @@ void ResourceManager::SetCommonState(ePipelineStateSetting psoState)
 	switch (psoState)
 	{
 	case Default:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pDefaultRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pDefaultSolidPSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(0);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pDefaultRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pDefaultSolidPSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(0);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case Skinned:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pSkinnedRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pSkinnedSolidPSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(0);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pSkinnedRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pSkinnedSolidPSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(0);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case Skybox:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pDefaultRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pSkyboxSolidPSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(0);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pDefaultRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pSkyboxSolidPSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(0);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case StencilMask:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pDepthOnlyRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pStencilMaskPSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(1);
-		m_pSingleCommandList->SetGraphicsRootConstantBufferView(1, m_pGlobalConstant->GetGPUMemAddr());
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pDepthOnlyRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pStencilMaskPSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(1);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootConstantBufferView(1, m_pGlobalConstant->GetGPUMemAddr());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case MirrorBlend:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pDefaultRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pMirrorBlendSolidPSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(1);
-		m_pSingleCommandList->OMSetBlendFactor(BLEND_FECTOR);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pDefaultRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pMirrorBlendSolidPSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(1);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetBlendFactor(BLEND_FECTOR);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case ReflectionDefault:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pDefaultRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pReflectDefaultSolidPSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(1);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pDefaultRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pReflectDefaultSolidPSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(1);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case ReflectionSkinned:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pSkinnedRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pReflectSkinnedSolidPSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(1);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pSkinnedRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pReflectSkinnedSolidPSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(1);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case ReflectionSkybox:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pDefaultRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pReflectSkyboxSolidPSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(1);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pDefaultRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pReflectSkyboxSolidPSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(1);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case DepthOnlyDefault:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pDepthOnlyRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pDepthOnlyPSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(0);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pDepthOnlyRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pDepthOnlyPSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(0);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case DepthOnlySkinned:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pDepthOnlySkinnedRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pDepthOnlySkinnedPSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(0);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pDepthOnlySkinnedRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pDepthOnlySkinnedPSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(0);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case DepthOnlyCubeDefault:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pDepthOnlyAroundRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pDepthOnlyCubePSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(0);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pDepthOnlyAroundRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pDepthOnlyCubePSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(0);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case DepthOnlyCubeSkinned:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pDepthOnlyAroundSkinnedRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pDepthOnlyCubeSkinnedPSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(0);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pDepthOnlyAroundSkinnedRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pDepthOnlyCubeSkinnedPSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(0);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case DepthOnlyCascadeDefault:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pDepthOnlyAroundRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pDepthOnlyCascadePSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(0);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pDepthOnlyAroundRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pDepthOnlyCascadePSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(0);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case DepthOnlyCascadeSkinned:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pDepthOnlyAroundSkinnedRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pDepthOnlyCascadeSkinnedPSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(0);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pDepthOnlyAroundSkinnedRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pDepthOnlyCascadeSkinnedPSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(0);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case Sampling:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pSamplingRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pSamplingPSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(0);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pSamplingRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pSamplingPSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(0);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case BloomDown:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pSamplingRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pBloomDownPSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(0);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pSamplingRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pBloomDownPSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(0);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case BloomUp:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pSamplingRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pBloomUpPSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(0);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pSamplingRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pBloomUpPSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(0);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case Combine:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pCombineRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pCombinePSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_pSingleCommandList->OMSetStencilRef(0);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pCombineRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pCombinePSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(0);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 
 	case Wire:
-		m_pSingleCommandList->SetGraphicsRootSignature(m_pDefaultWireRootSignature);
-		m_pSingleCommandList->SetPipelineState(m_pDefaultWirePSO);
-		m_pSingleCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
-		m_pSingleCommandList->OMSetStencilRef(0);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
-		m_pSingleCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootSignature(m_pDefaultWireRootSignature);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetPipelineState(m_pDefaultWirePSO);
+		m_ppSingleCommandList[*m_pFrameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+		m_ppSingleCommandList[*m_pFrameIndex]->OMSetStencilRef(0);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+		m_ppSingleCommandList[*m_pFrameIndex]->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 		break;
 		break;
 
@@ -1762,20 +1751,18 @@ void ResourceManager::initShaders()
 
 UINT64 ResourceManager::fence()
 {
-	++m_FenceValue;
-	m_pCommandQueue->Signal(m_pFence, m_FenceValue);
-
-	return m_FenceValue;
+	++(*m_pFenceValue);
+	m_pCommandQueue->Signal(m_pFence, *m_pFenceValue);
+	m_pFenceValues[*m_pFrameIndex] = *m_pFenceValue;
+	return *m_pFenceValue;
 }
 
-void ResourceManager::waitForGPU()
+void ResourceManager::waitForGPU(UINT64 expectedFenceValue)
 {
-	const UINT64 EXPECTED_FENCE_VALUE = m_FenceValue;
-
 	// Wait until the previous frame is finished.
-	if (m_pFence->GetCompletedValue() < EXPECTED_FENCE_VALUE)
+	if (m_pFence->GetCompletedValue() < expectedFenceValue)
 	{
-		m_pFence->SetEventOnCompletion(EXPECTED_FENCE_VALUE, m_hFenceEvent);
+		m_pFence->SetEventOnCompletion(expectedFenceValue, m_hFenceEvent);
 		WaitForSingleObject(m_hFenceEvent, INFINITE);
 	}
 }
