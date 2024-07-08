@@ -354,7 +354,7 @@ LRESULT Renderer::MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 						const UINT SRV_DESCRIPTOR_SIZE = m_pResourceManager->m_CBVSRVUAVDescriptorSize;
 						CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(m_pResourceManager->m_pCBVSRVUAVHeap->GetCPUDescriptorHandleForHeapStart(), m_FloatBufferSRVOffset, SRV_DESCRIPTOR_SIZE);
 						CD3DX12_CPU_DESCRIPTOR_HANDLE startSrvHandle(m_pResourceManager->m_pCBVSRVUAVHeap->GetCPUDescriptorHandleForHeapStart());
-						
+
 						D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
 						srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 						srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -971,7 +971,7 @@ void Renderer::initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceText
 					SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pModel;
 					pCharacter->SetDescriptorHeap(m_pResourceManager);
 				}
-					break;
+				break;
 
 				default:
 					break;
@@ -1036,30 +1036,30 @@ void Renderer::objectRender()
 		{
 			switch (pCurModel->ModelType)
 			{
-			case DefaultModel:
-			{
-				m_pResourceManager->SetCommonState(Default);
-				pCurModel->Render(m_pResourceManager, Default);
-			}
-			break;
-
-			case SkinnedModel:
-			{
-				SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pCurModel;
-				m_pResourceManager->SetCommonState(Skinned);
-				pCharacter->Render(m_pResourceManager, Skinned);
-			}
-			break;
-
-			case SkyboxModel:
-			{
-				m_pResourceManager->SetCommonState(Skybox);
-				pCurModel->Render(m_pResourceManager, Skybox);
-			}
-			break;
-
-			default:
+				case DefaultModel:
+				{
+					m_pResourceManager->SetCommonState(Default);
+					pCurModel->Render(m_pResourceManager, Default);
+				}
 				break;
+
+				case SkinnedModel:
+				{
+					SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pCurModel;
+					m_pResourceManager->SetCommonState(Skinned);
+					pCharacter->Render(m_pResourceManager, Skinned);
+				}
+				break;
+
+				case SkyboxModel:
+				{
+					m_pResourceManager->SetCommonState(Skybox);
+					pCurModel->Render(m_pResourceManager, Skybox);
+				}
+				break;
+
+				default:
+					break;
 			}
 		}
 	}
@@ -1139,7 +1139,7 @@ void Renderer::mirrorRender()
 					pCharacter->RenderBoundingSphere(m_pResourceManager, Wire);
 					pCharacter->RenderEndEffectorSphere(m_pResourceManager, Wire);
 				}
-					break;
+				break;
 
 				default:
 					break;

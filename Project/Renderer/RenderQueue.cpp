@@ -20,7 +20,7 @@ bool RenderQueue::Add(const RenderItem* pItem)
 {
 	_ASSERT(pItem);
 
-	bool bResult = false;
+	bool bRet = false;
 	if (m_AllocatedSize + sizeof(RenderItem) > m_MaxBufferSize)
 	{
 		goto LB_RETURN;
@@ -32,11 +32,11 @@ bool RenderQueue::Add(const RenderItem* pItem)
 		memcpy(pDest, pItem, sizeof(RenderItem));
 		m_AllocatedSize += sizeof(RenderItem);
 		++m_RenderObjectCount;
-		bResult = true;
+		bRet = true;
 	}
 
 LB_RETURN:
-	return bResult;
+	return bRet;
 }
 
 UINT RenderQueue::Process(ResourceManager* pManager, UINT threadIndex)
