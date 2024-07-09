@@ -25,7 +25,7 @@ UINT WINAPI RenderThread(void* pArg)
 				goto LB_EXIT;
 
 			default:
-				__debugbreak();
+				// __debugbreak();
 				break;
 		}
 	}

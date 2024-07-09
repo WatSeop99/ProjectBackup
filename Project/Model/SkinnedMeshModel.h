@@ -24,6 +24,9 @@ public:
 
 	void SetDescriptorHeap(ResourceManager* pManager) override;
 
+protected:
+	void updateJointSpheres();
+
 public:
 	NonImageTexture BoneTransforms;
 	AnimationData AnimData;

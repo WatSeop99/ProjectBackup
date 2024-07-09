@@ -307,7 +307,46 @@ void SkinnedMeshModel::UpdateAnimation(int clipID, int frame)
 	}
 	// other parts.
 	{
+		const UINT RIGHT_ARM_ID = AnimData.BoneNameToID["mixamorig:RightArm"];
+		const UINT RIGHT_FORE_ARM_ID = AnimData.BoneNameToID["mixamorig:RightForeArm"];
+		const UINT RIGHT_HAND_ID = AnimData.BoneNameToID["mixamorig:RightHand"];
+		const UINT RIGHT_HAND_MIDDLE_ID = AnimData.BoneNameToID["mixamorig:RightHandMiddle1"];
+		const UINT LEFT_ARM_ID = AnimData.BoneNameToID["mixamorig:LeftArm"];
+		const UINT LEFT_ARM_FORE_ID = AnimData.BoneNameToID["mixamorig:LeftForeArm"];
+		const UINT LEFT_HAND_ID = AnimData.BoneNameToID["mixamorig:LeftHand"];
+		const UINT LEFT_HAND_MIDDLE_ID = AnimData.BoneNameToID["mixamorig:LeftHandMiddle1"];
+		const UINT RIGHT_UP_LEG_ID = AnimData.BoneNameToID["mixamorig:RightUpLeg"];
+		const UINT RIGHT_LEG_ID = AnimData.BoneNameToID["mixamorig:RightLeg"];
+		const UINT RIGHT_FOOT_ID = AnimData.BoneNameToID["mixamorig:RightFoot"];
+		const UINT RIGHT_TOE_ID = AnimData.BoneNameToID["mixamorig:RightToeBase"];
+		const UINT LEFT_UP_LEG_ID = AnimData.BoneNameToID["mixamorig:LeftUpLeg"];
+		const UINT LEFT_LEG_ID = AnimData.BoneNameToID["mixamorig:LeftLeg"];
+		const UINT LEFT_FOOT_ID = AnimData.BoneNameToID["mixamorig:LeftFoot"];
+		const UINT LEFT_TOE_ID = AnimData.BoneNameToID["mixamorig:LeftToeBase"];
 
+		const Matrix RIGHT_ARM_TRANSFORM = AnimData.Get(clipID, RIGHT_ARM_ID, frame);
+		const Matrix RIGHT_FORE_ARM_TRANSFORM = AnimData.Get(clipID, RIGHT_FORE_ARM_ID, frame);
+		const Matrix RIGHT_HAND_TRANSFORM = AnimData.Get(clipID, RIGHT_HAND_ID, frame);
+		const Matrix RIGHT_HAND_MIDDLE_TRANSFORM = AnimData.Get(clipID, RIGHT_HAND_MIDDLE_ID, frame);
+		const Matrix LEFT_ARM_TRANSFORM = AnimData.Get(clipID, LEFT_ARM_ID, frame);
+		const Matrix LEFT_FORE_ARM_TRANSFORM = AnimData.Get(clipID, LEFT_ARM_FORE_ID, frame);
+		const Matrix LEFT_HAND_TRANSFORM = AnimData.Get(clipID, LEFT_HAND_ID, frame);
+		const Matrix LEFT_HAND_MIDDLE_TRANSFORM = AnimData.Get(clipID, LEFT_HAND_MIDDLE_ID, frame);
+		const Matrix RIGHT_UP_LEG_TRANSFORM = AnimData.Get(clipID, RIGHT_UP_LEG_ID, frame);
+		const Matrix RIGHT_LEG_TRANSFORM = AnimData.Get(clipID, RIGHT_LEG_ID, frame);
+		const Matrix RIGHT_FOOT_TRANSFORM = AnimData.Get(clipID, RIGHT_FOOT_ID, frame);
+		const Matrix RIGHT_TOE_TRANSFORM = AnimData.Get(clipID, RIGHT_TOE_ID, frame);
+		const Matrix LEFT_UP_LEG_TRANSFORM = AnimData.Get(clipID, LEFT_UP_LEG_ID, frame);
+		const Matrix LEFT_LEG_TRANSFORM = AnimData.Get(clipID, LEFT_LEG_ID, frame);
+		const Matrix LEFT_FOOT_TRANSFORM = AnimData.Get(clipID, LEFT_FOOT_ID, frame);
+		const Matrix LEFT_TOE_TRANSFORM = AnimData.Get(clipID, LEFT_TOE_ID, frame);
+
+		const Matrix CORRECTION = Matrix::CreateTranslation(Vector3(0.0f, 0.0f, 0.0f));
+
+		MeshConstant* pRightArmSphere = (MeshConstant*)m_ppRightArm[0]->MeshConstant.pData;
+
+		pRightArmSphere->World = (CORRECTION * RIGHT_ARM_TRANSFORM * World).Transpose();
+		LeftToe.Center = pRightArmSphere->World.Transpose().Translation();
 	}
 }
 
@@ -756,4 +795,9 @@ void SkinnedMeshModel::SetDescriptorHeap(ResourceManager* pManager)
 		cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 		++(pManager->m_CBVSRVUAVHeapSize);
 	}
+}
+
+void SkinnedMeshModel::updateJointSpheres()
+{
+
 }
