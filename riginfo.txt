@@ -1,0 +1,8 @@
+right hand --> 손목
+right hand index1 --> 검지 시작부분
+right hand middle --> 중지 시작부분
+right hand pinky1 --> 새끼손가락 시작부분
+right hand ring1 --> 약지 시작부분
+right hand thumb1 --> 엄지 시작부분
+
+end-effector은 right hand middle이 좋아 보임.
