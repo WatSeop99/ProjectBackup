@@ -16,7 +16,7 @@ void App::Initialize()
 
 		&m_EnvTexture, &m_IrradianceTexture, &m_SpecularTexture, &m_BRDFTexture,
 
-		m_pMirror, m_pPickedModel, &m_MirrorPlane,
+		m_pMirror, &m_MirrorPlane,
 	};
 	Renderer::Initizlie(&initData);
 }
@@ -118,7 +118,6 @@ void App::Clear()
 
 	m_pCharacter = nullptr;
 	m_pMirror = nullptr;
-	m_pPickedModel = nullptr;
 }
 
 void App::initExternalData(UINT64* pTotalRenderObjectCount)

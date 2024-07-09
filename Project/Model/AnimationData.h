@@ -36,6 +36,39 @@ struct AnimationClip
 	double TicksPerSec;					 // Frames per second.
 };
 
+class Joint
+{
+public:
+	Joint() = default;
+	~Joint() = default;
+
+	void Update(float deltaX, float deltaY, float deltaZ);
+
+	void JacobianX(Vector3* pOutput, Vector3& TARGET);
+	void JacobianY(Vector3* pOutput, Vector3& TARGET);
+	void JacobianZ(Vector3* pOutput, Vector3& TARGET);
+
+public:
+	UINT BoneID = 0xffffffff;
+	Matrix World = Matrix(); // World Matrix.
+	Matrix Offset = Matrix();
+	Matrix JointTransform = Matrix(); // 순수 bone transform.
+	Matrix Correction = Matrix(); // world를 위한 보정값.
+};
+
+class Chain
+{
+public:
+	Chain() = default;
+	~Chain() = default;
+
+	void Update(Vector3 targetPos);
+
+public:
+	std::vector<Joint> BodyChain; // root to child.
+	std::string BodyName;
+};
+
 class AnimationData
 {
 public:

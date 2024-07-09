@@ -11,7 +11,6 @@ class ConstantBuffer;
 
 enum ePipelineStateSetting
 {
-	None = 0,
 	Default,
 	Skinned,
 	Skybox,
@@ -31,6 +30,7 @@ enum ePipelineStateSetting
 	BloomUp,
 	Combine,
 	Wire,
+	PipelineStateCount,
 };
 
 static const UINT SWAP_CHAIN_FRAME_COUNT = 2;

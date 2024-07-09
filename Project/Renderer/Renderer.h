@@ -6,8 +6,19 @@
 #include "../Util/KnM.h"
 #include "../Graphics/Light.h"
 #include "../Model/Model.h"
+#include "RenderThread.h"
 #include "../Model/SkinnedMeshModel.h"
 #include "../Graphics/PostProcessor.h"
+
+enum eRenderPass
+{
+	Shadow = 0,
+	Object,
+	Mirror,
+	Collider,
+	Post,
+	RenderPassCount,
+};
 
 class Renderer
 {
@@ -24,7 +35,6 @@ public:
 		Texture* pBRDFTexture;
 
 		Model* pMirror;
-		Model* pPickedModel;
 		DirectX::SimpleMath::Plane* pMirrorPlane;
 	};
 
@@ -37,6 +47,7 @@ public:
 	void Update(const float DELTA_TIME);
 
 	void Render();
+	void ProcessByThread(UINT threadIndex);
 
 	void Clear();
 
@@ -113,6 +124,7 @@ private:
 	ID3D12GraphicsCommandList* m_ppCommandList[SWAP_CHAIN_FRAME_COUNT] = { nullptr, };
 
 	// for multithread
+	ID3D12CommandQueue* m_ppCommandQueue[RenderPassCount] = { nullptr, };
 	CommandListPool* m_ppCommandListPool[SWAP_CHAIN_FRAME_COUNT][MAX_RENDER_THREAD_COUNT] = { nullptr, };
 	DynamicDescriptorPool* m_ppDescriptorPool[SWAP_CHAIN_FRAME_COUNT][MAX_RENDER_THREAD_COUNT] = { nullptr, };
 	RenderQueue* m_ppRenderQueue[MAX_RENDER_THREAD_COUNT] = { nullptr, };

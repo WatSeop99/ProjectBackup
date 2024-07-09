@@ -32,7 +32,6 @@ void Renderer::Initizlie(InitialData* pIntialData)
 	m_pLightSpheres = pIntialData->pLightSpheres;
 
 	m_pMirror = pIntialData->pMirror;
-	m_pPickedModel = pIntialData->pPickedModel;
 	m_pMirrorPlane = pIntialData->pMirrorPlane;
 
 	initScene();
@@ -85,6 +84,55 @@ void Renderer::Render()
 	endRender();
 
 	present();
+}
+
+void Renderer::ProcessByThread(UINT threadIndex)
+{
+	_ASSERT(threadIndex >= 0 && threadIndex < m_RenderThreadCount);
+
+	for (int renderPass = Shadow; renderPass < RenderPassCount; ++renderPass)
+	{
+		ID3D12CommandQueue* pCommandQueue = m_ppCommandQueue[renderPass];
+
+		switch (renderPass)
+		{
+			case Shadow:
+			{
+
+			}
+			break;
+
+			case Object:
+			{
+			}
+			break;
+
+			case Mirror:
+			{
+			}
+			break;
+
+			case Collider:
+			{
+			}
+			break;
+
+			case Post:
+			{
+			}
+			break;
+
+			default:
+				__debugbreak();
+				break;
+		}
+	}
+
+	long curActiveThreadCount = _InterlockedDecrement(&m_ActiveThreadCount);
+	if (curActiveThreadCount == 0)
+	{
+		SetEvent(m_hCompletedEvent);
+	}
 }
 
 void Renderer::Clear()
@@ -1166,6 +1214,41 @@ void Renderer::endRender()
 
 	ID3D12CommandList* ppCommandLists[] = { m_ppCommandList[m_FrameIndex] };
 	m_pCommandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+
+#ifdef MULTI_THREAD
+	// shadow pass.
+	m_ActiveThreadCount = m_RenderThreadCount;
+	for (UINT i = 0; i < m_RenderThreadCount; ++i)
+	{
+		SetEvent();
+	}
+	WaitForSingleObject();
+
+	// default render pass.
+	m_ActiveThreadCount = m_RenderThreadCount;
+	for (UINT i = 0; i < m_RenderThreadCount; ++i)
+	{
+		SetEvent();
+	}
+	WaitForSingleObject();
+
+	// mirror pass.
+	// stencil process.
+	m_ActiveThreadCount = m_RenderThreadCount;
+	for (UINT i = 0; i < m_RenderThreadCount; ++i)
+	{
+		SetEvent();
+	}
+	WaitForSingleObject();
+
+	// postprocessing pass.
+	m_ActiveThreadCount = m_RenderThreadCount;
+	for (UINT i = 0; i < m_RenderThreadCount; ++i)
+	{
+		SetEvent();
+	}
+	WaitForSingleObject();
+#endif
 }
 
 void Renderer::present()
@@ -1248,8 +1331,8 @@ void Renderer::onMouseMove(const int MOUSE_X, const int MOUSE_Y)
 	m_Mouse.MouseNDCY = (float)(-MOUSE_Y) * 2.0f / (float)m_ScreenHeight + 1.0f;
 
 	// 커서가 화면 밖으로 나갔을 경우 범위 조절.
-	/*m_MouseNDCX = Clamp(m_MouseNDCX, -1.0f, 1.0f);
-	m_MouseNDCY = Clamp(m_MouseNDCY, -1.0f, 1.0f);*/
+	/*m_Mouse.MouseNDCX = Clamp(m_Mouse.MouseNDCX, -1.0f, 1.0f);
+	m_Mouse.MouseNDCY = Clamp(m_Mouse.MouseNDCY, -1.0f, 1.0f);*/
 
 	// 카메라 시점 회전.
 	m_Camera.UpdateMouse(m_Mouse.MouseNDCX, m_Mouse.MouseNDCY);
@@ -1289,11 +1372,11 @@ void Renderer::processMouseControl()
 		const Vector3 WORLD_FAR = Vector3::Transform(NDC_FAR, INV_PROJECTION_VIEW);
 		Vector3 dir = WORLD_FAR - WORLD_NEAR;
 		dir.Normalize();
-		const DirectX::SimpleMath::Ray CUR_RAY = DirectX::SimpleMath::Ray(WORLD_NEAR, dir);
+		const DirectX::SimpleMath::Ray PICKING_RAY = DirectX::SimpleMath::Ray(WORLD_NEAR, dir);
 
 		if (!s_pActiveModel) // 이전 프레임에서 아무 물체도 선택되지 않았을 경우에는 새로 선택.
 		{
-			Model* pSelectedModel = pickClosest(CUR_RAY, &dist);
+			Model* pSelectedModel = pickClosest(PICKING_RAY, &dist);
 			if (pSelectedModel)
 			{
 #ifdef _DEBUG
@@ -1303,7 +1386,7 @@ void Renderer::processMouseControl()
 #endif
 				s_pActiveModel = pSelectedModel;
 				m_pPickedModel = pSelectedModel; // GUI 조작용 포인터.
-				pickPoint = CUR_RAY.position + dist * CUR_RAY.direction;
+				pickPoint = PICKING_RAY.position + dist * PICKING_RAY.direction;
 				if (m_Mouse.bMouseLeftButton) // 왼쪽 버튼 회전 준비.
 				{
 					s_PrevVector = pickPoint - s_pActiveModel->BoundingSphere.Center;
@@ -1321,9 +1404,9 @@ void Renderer::processMouseControl()
 		{
 			if (m_Mouse.bMouseLeftButton) // 왼쪽 버튼으로 계속 회전.
 			{
-				if (CUR_RAY.Intersects(s_pActiveModel->BoundingSphere, dist))
+				if (PICKING_RAY.Intersects(s_pActiveModel->BoundingSphere, dist))
 				{
-					pickPoint = CUR_RAY.position + dist * CUR_RAY.direction;
+					pickPoint = PICKING_RAY.position + dist * PICKING_RAY.direction;
 				}
 				else // 바운딩 스피어에 가장 가까운 점을 찾기.
 				{

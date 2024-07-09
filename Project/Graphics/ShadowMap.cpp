@@ -206,10 +206,6 @@ void ShadowMap::Render(ResourceManager* pManager, std::vector<Model*>* pRenderOb
 
 						case MirrorModel:
 						{
-							if (!pModel->bCastShadow)
-							{
-								continue;
-							}
 							pManager->SetCommonState(DepthOnlyCascadeDefault);
 							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
 							pModel->Render(pManager, DepthOnlyCascadeDefault);
@@ -260,10 +256,6 @@ void ShadowMap::Render(ResourceManager* pManager, std::vector<Model*>* pRenderOb
 
 						case MirrorModel:
 						{
-							if (!pModel->bCastShadow)
-							{
-								continue;
-							}
 							pManager->SetCommonState(DepthOnlyCubeDefault);
 							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
 							pModel->Render(pManager, DepthOnlyCubeDefault);
@@ -314,10 +306,6 @@ void ShadowMap::Render(ResourceManager* pManager, std::vector<Model*>* pRenderOb
 
 						case MirrorModel:
 						{
-							if (!pModel->bCastShadow)
-							{
-								continue;
-							}
 							pManager->SetCommonState(DepthOnlyDefault);
 							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
 							pModel->Render(pManager, DepthOnlyDefault);

@@ -11,6 +11,7 @@ public:
 
 	void Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& MESH_INFOS, const AnimationData& ANIM_DATA);
 	void InitMeshBuffers(ResourceManager* pManager, const MeshInfo& MESH_INFO, Mesh* pNewMesh) override;
+	void InitMeshBuffers(ResourceManager* pManager, const MeshInfo& MESH_INFO, Mesh** ppNewMesh);
 	void InitAnimationData(ResourceManager* pManager, const AnimationData& ANIM_DATA);
 
 	void UpdateConstantBuffers() override;
@@ -23,21 +24,29 @@ public:
 
 	void SetDescriptorHeap(ResourceManager* pManager) override;
 
-protected:
-	
-
 public:
 	NonImageTexture BoneTransforms;
 	AnimationData AnimData;
 
 	DirectX::BoundingSphere RightHand;
 	DirectX::BoundingSphere LeftHand;
-	DirectX::BoundingSphere RightFoot;
-	DirectX::BoundingSphere LeftFoot;
+	DirectX::BoundingSphere RightToe;
+	DirectX::BoundingSphere LeftToe;
 
 private:
 	Mesh* m_pRightHand = nullptr;
 	Mesh* m_pLeftHand = nullptr;
-	Mesh* m_pRightFoot = nullptr;
-	Mesh* m_pLeftFoot = nullptr;
+	Mesh* m_pRightToe = nullptr;
+	Mesh* m_pLeftToe = nullptr;
+
+	Mesh* m_ppRightArm[3] = { nullptr, }; // right arm - right fore arm - right hand.
+	Mesh* m_ppLeftArm[3] = { nullptr, }; // left arm - left fore arm - left hand.
+	Mesh* m_ppRightLeg[3] = { nullptr, }; // right up leg - right leg - right foot.
+	Mesh* m_ppLeftLeg[3] = { nullptr, }; // left up leg - left leg - left foot.
+
+	// InitAnimationData()에서 초기화 필요.
+	Chain m_RightArm;
+	Chain m_LeftArm;
+	Chain m_RightLeg;
+	Chain m_LeftLeg;
 };

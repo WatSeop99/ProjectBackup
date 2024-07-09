@@ -30,10 +30,10 @@ HRESULT DynamicDescriptorPool::AllocDescriptorTable(D3D12_CPU_DESCRIPTOR_HANDLE*
 		return E_FAIL;
 	}
 
-//#ifdef _DEBUG
-//	std::wstring debugStr = std::wstring(L"Before:") + std::to_wstring(m_AllocatedDescriptorCount) + std::wstring(L" DescriptorCount:") + std::to_wstring(descriptorCount) + std::wstring(L" After:") + std::to_wstring(m_AllocatedDescriptorCount + descriptorCount) + L"\n";
-//	OutputDebugString(debugStr.c_str());
-//#endif
+#ifdef _DEBUG
+	std::wstring debugStr = std::wstring(L"Before:") + std::to_wstring(m_AllocatedDescriptorCount) + std::wstring(L" DescriptorCount:") + std::to_wstring(descriptorCount) + std::wstring(L" After:") + std::to_wstring(m_AllocatedDescriptorCount + descriptorCount) + L"\n";
+	OutputDebugString(debugStr.c_str());
+#endif
 
 	*pCPUDescriptor = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_CPUDescriptorHandle, m_AllocatedDescriptorCount, m_CBVSRVUAVDescriptorSize);
 	*pGPUDescriptorHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_GPUDescriptorHandle, m_AllocatedDescriptorCount, m_CBVSRVUAVDescriptorSize);

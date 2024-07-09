@@ -34,12 +34,12 @@ bool RenderQueue::Add(const RenderItem* pItem)
 		++m_RenderObjectCount;
 		bRet = true;
 	}
-
+	
 LB_RETURN:
 	return bRet;
 }
 
-UINT RenderQueue::Process(ResourceManager* pManager, UINT threadIndex)
+UINT RenderQueue::Process(UINT threadIndex, CommandListPool* pCommandListPool, ResourceManager* pManager)
 {
 	_ASSERT(pManager);
 	_ASSERT(threadIndex >= 0 && threadIndex < MAX_RENDER_THREAD_COUNT);

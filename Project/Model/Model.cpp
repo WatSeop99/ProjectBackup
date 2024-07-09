@@ -26,7 +26,6 @@ void Model::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& M
 {
 	_ASSERT(pManager);
 
-	BOOL def;
 	HRESULT hr = S_OK;
 	struct _stat64 sourceFileStat;
 	ID3D12Device5* pDevice = pManager->m_pDevice;

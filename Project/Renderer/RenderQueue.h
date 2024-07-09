@@ -24,7 +24,7 @@ public:
 
 	bool Add(const RenderItem* pItem);
 
-	UINT Process(ResourceManager* pManager, UINT threadIndex);
+	UINT Process(UINT threadIndex, CommandListPool* pCommandListPool, ResourceManager* pManager);
 
 	void Reset();
 
