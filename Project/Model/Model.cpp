@@ -552,8 +552,8 @@ void Model::initBoundingSphere(ResourceManager* pManager, const std::vector<Mesh
 		}
 	}
 
-	// maxRadius += 1e-2f; // 살짝 크게 설정.
-	maxRadius -= 1e-2f; // 살짝 작게 설정.
+	 maxRadius += 1e-2f; // 살짝 크게 설정.
+	// maxRadius -= 1e-2f; // 살짝 작게 설정.
 	BoundingSphere = DirectX::BoundingSphere(BoundingBox.Center, maxRadius);
 
 	MeshInfo meshData = INIT_MESH_INFO;

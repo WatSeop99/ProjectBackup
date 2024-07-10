@@ -16,6 +16,7 @@ public:
 
 	void UpdateConstantBuffers() override;
 	void UpdateAnimation(int clipID, int frame) override;
+	void UpdateJointSpheres();
 
 	void Render(ResourceManager* pManager, ePipelineStateSetting psoSetting) override;
 	void RenderEndEffectorSphere(ResourceManager* pManager, ePipelineStateSetting psoSetting);
@@ -24,8 +25,13 @@ public:
 
 	void SetDescriptorHeap(ResourceManager* pManager) override;
 
+	inline Mesh** GetRightArmsMesh() { return m_ppRightArm; }
+	inline Mesh** GetLeftArmsMesh() { return m_ppLeftArm; }
+	inline Mesh** GetRightLegsMesh() { return m_ppRightLeg; }
+	inline Mesh** GetLeftLegsMesh() { return m_ppLeftLeg; }
+
 protected:
-	void updateJointSpheres();
+	void updateJointSpheres(int clipID, int frame);
 
 public:
 	NonImageTexture BoneTransforms;

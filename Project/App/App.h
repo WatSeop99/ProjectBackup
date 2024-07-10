@@ -24,7 +24,7 @@ public:
 protected:
 	void initExternalData(UINT64* pTotalRenderObjectCount);
 
-	void updateAnimation(const float DELTA_TIME);
+	void updateAnimationState(const float DELTA_TIME);
 
 private:
 	Timer m_Timer;

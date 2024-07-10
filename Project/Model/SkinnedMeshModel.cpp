@@ -22,7 +22,15 @@ void SkinnedMeshModel::Initialize(ResourceManager* pManager, const std::vector<M
 	// for chain debugging.
 	{
 		meshData = INIT_MESH_INFO;
-		MakeWireSphere(&meshData, BoundingSphere.Center, 0.02f);
+		MakeWireSphere(&meshData, BoundingSphere.Center, 0.01f);
+		RightHandMiddle.Radius = 0.01f + 1e-2f;
+		LeftHandMiddle.Radius = 0.01f + 1e-2f;
+		RightToe.Radius = 0.01f + 1e-2f;
+		LeftToe.Radius = 0.01f + 1e-2f;
+		/*RightHandMiddle.Radius = 0.4f;
+		LeftHandMiddle.Radius = 0.4f;
+		RightToe.Radius = 0.4f;
+		LeftToe.Radius = 0.4f;*/
 
 		for (int i = 0; i < 4; ++i)
 		{
@@ -197,114 +205,13 @@ void SkinnedMeshModel::UpdateAnimation(int clipID, int frame)
 	}
 	BoneTransforms.Upload();
 
-	// root bone transform을 통해 bounding box 업데이트.
-	// 캐릭터는 world 상 고정된 좌표에서 bone transform을 통해 애니메이션하고 있으므로,
-	// world를 바꿔주게 되면 캐릭터 자체가 시야에서 없어져버림.
-	// 현재, Model에서는 bounding box와 bounding sphere를 world에 맞춰 이동시키는데,
-	// 캐릭터에서는 이를 방지하기 위해 bounding object만 따로 변환시킴.
-	const UINT ROOT_BONE_ID = AnimData.BoneNameToID["mixamorig:Hips"];
-	const Matrix ROOT_BONE_TRANSFORM = AnimData.Get(clipID, ROOT_BONE_ID, frame);
-	const Matrix CORRECTION_CENTER = Matrix::CreateTranslation(Vector3(0.2f, 0.0f, 0.0f));
-	MeshConstant* pBoxMeshConst = (MeshConstant*)m_pBoundingBoxMesh->MeshConstant.pData;
-	MeshConstant* pSphereMeshConst = (MeshConstant*)m_pBoundingSphereMesh->MeshConstant.pData;
+	updateJointSpheres(clipID, frame);
+}
 
-	pBoxMeshConst->World = (CORRECTION_CENTER * ROOT_BONE_TRANSFORM * World).Transpose();
-	pSphereMeshConst->World = pBoxMeshConst->World;
-	BoundingBox.Center = pBoxMeshConst->World.Transpose().Translation();
-	BoundingSphere.Center = BoundingBox.Center;
-
-	// update debugging sphere for chain.
-	{
-		const UINT RIGHT_ARM_ID = AnimData.BoneNameToID["mixamorig:RightArm"];
-		const UINT RIGHT_FORE_ARM_ID = AnimData.BoneNameToID["mixamorig:RightForeArm"];
-		const UINT RIGHT_HAND_ID = AnimData.BoneNameToID["mixamorig:RightHand"];
-		const UINT RIGHT_HAND_MIDDLE_ID = AnimData.BoneNameToID["mixamorig:RightHandMiddle1"];
-		const UINT LEFT_ARM_ID = AnimData.BoneNameToID["mixamorig:LeftArm"];
-		const UINT LEFT_ARM_FORE_ID = AnimData.BoneNameToID["mixamorig:LeftForeArm"];
-		const UINT LEFT_HAND_ID = AnimData.BoneNameToID["mixamorig:LeftHand"];
-		const UINT LEFT_HAND_MIDDLE_ID = AnimData.BoneNameToID["mixamorig:LeftHandMiddle1"];
-		const UINT RIGHT_UP_LEG_ID = AnimData.BoneNameToID["mixamorig:RightUpLeg"];
-		const UINT RIGHT_LEG_ID = AnimData.BoneNameToID["mixamorig:RightLeg"];
-		const UINT RIGHT_FOOT_ID = AnimData.BoneNameToID["mixamorig:RightFoot"];
-		const UINT RIGHT_TOE_ID = AnimData.BoneNameToID["mixamorig:RightToeBase"];
-		const UINT LEFT_UP_LEG_ID = AnimData.BoneNameToID["mixamorig:LeftUpLeg"];
-		const UINT LEFT_LEG_ID = AnimData.BoneNameToID["mixamorig:LeftLeg"];
-		const UINT LEFT_FOOT_ID = AnimData.BoneNameToID["mixamorig:LeftFoot"];
-		const UINT LEFT_TOE_ID = AnimData.BoneNameToID["mixamorig:LeftToeBase"];
-
-		const Matrix RIGHT_ARM_TRANSFORM = AnimData.Get(clipID, RIGHT_ARM_ID, frame);
-		const Matrix RIGHT_FORE_ARM_TRANSFORM = AnimData.Get(clipID, RIGHT_FORE_ARM_ID, frame);
-		const Matrix RIGHT_HAND_TRANSFORM = AnimData.Get(clipID, RIGHT_HAND_ID, frame);
-		const Matrix RIGHT_HAND_MIDDLE_TRANSFORM = AnimData.Get(clipID, RIGHT_HAND_MIDDLE_ID, frame);
-		const Matrix LEFT_ARM_TRANSFORM = AnimData.Get(clipID, LEFT_ARM_ID, frame);
-		const Matrix LEFT_FORE_ARM_TRANSFORM = AnimData.Get(clipID, LEFT_ARM_FORE_ID, frame);
-		const Matrix LEFT_HAND_TRANSFORM = AnimData.Get(clipID, LEFT_HAND_ID, frame);
-		const Matrix LEFT_HAND_MIDDLE_TRANSFORM = AnimData.Get(clipID, LEFT_HAND_MIDDLE_ID, frame);
-		const Matrix RIGHT_UP_LEG_TRANSFORM = AnimData.Get(clipID, RIGHT_UP_LEG_ID, frame);
-		const Matrix RIGHT_LEG_TRANSFORM = AnimData.Get(clipID, RIGHT_LEG_ID, frame);
-		const Matrix RIGHT_FOOT_TRANSFORM = AnimData.Get(clipID, RIGHT_FOOT_ID, frame);
-		const Matrix RIGHT_TOE_TRANSFORM = AnimData.Get(clipID, RIGHT_TOE_ID, frame);
-		const Matrix LEFT_UP_LEG_TRANSFORM = AnimData.Get(clipID, LEFT_UP_LEG_ID, frame);
-		const Matrix LEFT_LEG_TRANSFORM = AnimData.Get(clipID, LEFT_LEG_ID, frame);
-		const Matrix LEFT_FOOT_TRANSFORM = AnimData.Get(clipID, LEFT_FOOT_ID, frame);
-		const Matrix LEFT_TOE_TRANSFORM = AnimData.Get(clipID, LEFT_TOE_ID, frame);
-
-		const Matrix CORRECTION_RIGHT_ARM = Matrix::CreateTranslation(Vector3(0.085f, 0.33f, 0.06f));
-		const Matrix CORRECTION_RIGHT_FORE_ARM = Matrix::CreateTranslation(Vector3(-0.04f, 0.32f, 0.06f));
-		const Matrix CORRECTION_RIGHT_HAND = Matrix::CreateTranslation(Vector3(-0.18f, 0.32f, 0.06f));
-		const Matrix CORRECTION_RIGHT_HAND_MIDDLE = Matrix::CreateTranslation(Vector3(-0.235f, 0.32f, 0.055f));
-		const Matrix CORRECTION_LEFT_ARM = Matrix::CreateTranslation(Vector3(0.32f, 0.34f, 0.05f));
-		const Matrix CORRECTION_LEFT_FORE_ARM = Matrix::CreateTranslation(Vector3(0.45f, 0.32f, 0.05f));
-		const Matrix CORRECTION_LEFT_HAND = Matrix::CreateTranslation(Vector3(0.59f, 0.32f, 0.05f));
-		const Matrix CORRECTION_LEFT_HAND_MIDDLE = Matrix::CreateTranslation(Vector3(0.65f, 0.32f, 0.05f));
-		const Matrix CORRECTION_RIGHT_UP_LEG = Matrix::CreateTranslation(Vector3(0.16f, 0.02f, 0.04f));
-		const Matrix CORRECTION_RIGHT_LEG = Matrix::CreateTranslation(Vector3(0.15f, -0.17f, 0.04f));
-		const Matrix CORRECTION_RIGHT_FOOT = Matrix::CreateTranslation(Vector3(0.16f, -0.39f, 0.05f));
-		const Matrix CORRECTION_RIGHT_TOE = Matrix::CreateTranslation(Vector3(0.15f, -0.42f, 0.0f));
-		const Matrix CORRECTION_LEFT_UP_LEG = Matrix::CreateTranslation(Vector3(0.26f, 0.025f, 0.05f));
-		const Matrix CORRECTION_LEFT_LEG = Matrix::CreateTranslation(Vector3(0.26f, -0.165f, 0.05f));
-		const Matrix CORRECTION_LEFT_FOOT = Matrix::CreateTranslation(Vector3(0.25f, -0.38f, 0.05f));
-		const Matrix CORRECTION_LEFT_TOE = Matrix::CreateTranslation(Vector3(0.26f, -0.42f, 0.0f));
-
-		MeshConstant* pRightArmSphere = (MeshConstant*)m_ppRightArm[0]->MeshConstant.pData;
-		MeshConstant* pRightForeArmSphere = (MeshConstant*)m_ppRightArm[1]->MeshConstant.pData;
-		MeshConstant* pRightHandSphere = (MeshConstant*)m_ppRightArm[2]->MeshConstant.pData;
-		MeshConstant* pRightHandMiddleSphere = (MeshConstant*)m_ppRightArm[3]->MeshConstant.pData;
-		MeshConstant* pLeftArmSphere = (MeshConstant*)m_ppLeftArm[0]->MeshConstant.pData;
-		MeshConstant* pLeftForeArmSphere = (MeshConstant*)m_ppLeftArm[1]->MeshConstant.pData;
-		MeshConstant* pLeftHandSphere = (MeshConstant*)m_ppLeftArm[2]->MeshConstant.pData;
-		MeshConstant* pLeftHandMiddleSphere = (MeshConstant*)m_ppLeftArm[3]->MeshConstant.pData;
-		MeshConstant* pRightUpLegSphere = (MeshConstant*)m_ppRightLeg[0]->MeshConstant.pData;
-		MeshConstant* pRightLegSphere = (MeshConstant*)m_ppRightLeg[1]->MeshConstant.pData;
-		MeshConstant* pRightFootSphere = (MeshConstant*)m_ppRightLeg[2]->MeshConstant.pData;
-		MeshConstant* pRightToeSphere = (MeshConstant*)m_ppRightLeg[3]->MeshConstant.pData;
-		MeshConstant* pLeftUpLegSphere = (MeshConstant*)m_ppLeftLeg[0]->MeshConstant.pData;
-		MeshConstant* pLeftLegSphere = (MeshConstant*)m_ppLeftLeg[1]->MeshConstant.pData;
-		MeshConstant* pLeftFootSphere = (MeshConstant*)m_ppLeftLeg[2]->MeshConstant.pData;
-		MeshConstant* pLeftToeSphere = (MeshConstant*)m_ppLeftLeg[3]->MeshConstant.pData;
-
-		pRightArmSphere->World = (CORRECTION_RIGHT_ARM * RIGHT_ARM_TRANSFORM * World).Transpose();
-		pRightForeArmSphere->World = (CORRECTION_RIGHT_FORE_ARM * RIGHT_FORE_ARM_TRANSFORM * World).Transpose();
-		pRightHandSphere->World = (CORRECTION_RIGHT_HAND * RIGHT_HAND_TRANSFORM * World).Transpose();
-		pRightHandMiddleSphere->World = (CORRECTION_RIGHT_HAND_MIDDLE * RIGHT_HAND_MIDDLE_TRANSFORM * World).Transpose();
-		pLeftArmSphere->World = (CORRECTION_LEFT_ARM * LEFT_ARM_TRANSFORM * World).Transpose();
-		pLeftForeArmSphere->World = (CORRECTION_LEFT_FORE_ARM * LEFT_FORE_ARM_TRANSFORM * World).Transpose();
-		pLeftHandSphere->World = (CORRECTION_LEFT_HAND * LEFT_HAND_TRANSFORM * World).Transpose();
-		pLeftHandMiddleSphere->World = (CORRECTION_LEFT_HAND_MIDDLE * LEFT_HAND_MIDDLE_TRANSFORM * World).Transpose();
-		pRightUpLegSphere->World = (CORRECTION_RIGHT_UP_LEG * RIGHT_UP_LEG_TRANSFORM * World).Transpose();
-		pRightLegSphere->World = (CORRECTION_RIGHT_LEG * RIGHT_LEG_TRANSFORM * World).Transpose();
-		pRightFootSphere->World = (CORRECTION_RIGHT_FOOT * RIGHT_FOOT_TRANSFORM * World).Transpose();
-		pRightToeSphere->World = (CORRECTION_RIGHT_TOE * RIGHT_TOE_TRANSFORM * World).Transpose();
-		pLeftUpLegSphere->World = (CORRECTION_LEFT_UP_LEG * LEFT_UP_LEG_TRANSFORM * World).Transpose();
-		pLeftLegSphere->World = (CORRECTION_LEFT_LEG * LEFT_LEG_TRANSFORM * World).Transpose();
-		pLeftFootSphere->World = (CORRECTION_LEFT_FOOT * LEFT_FOOT_TRANSFORM * World).Transpose();
-		pLeftToeSphere->World = (CORRECTION_LEFT_TOE * LEFT_TOE_TRANSFORM * World).Transpose();
-		
-		RightHandMiddle.Center = pRightHandMiddleSphere->World.Transpose().Translation();
-		LeftHandMiddle.Center = pLeftHandMiddleSphere->World.Transpose().Translation();
-		RightToe.Center = pRightToeSphere->World.Transpose().Translation();
-		LeftToe.Center = pLeftToeSphere->World.Transpose().Translation();
-	}
+void SkinnedMeshModel::UpdateJointSpheres()
+{
+	AnimData.Update(0, 0);
+	updateJointSpheres(0, 0);
 }
 
 void SkinnedMeshModel::Render(ResourceManager* pManager, ePipelineStateSetting psoSetting)
@@ -395,83 +302,6 @@ void SkinnedMeshModel::RenderEndEffectorSphere(ResourceManager* pManager, ePipel
 	ID3D12DescriptorHeap* pCBVSRVHeap = pManager->m_pCBVSRVUAVHeap;
 	DynamicDescriptorPool* pDynamicDescriptorPool = pManager->m_pDynamicDescriptorPool;
 	const UINT CBV_SRV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
-
-	//CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable[4];
-	//CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorTable[4];
-	//CD3DX12_CPU_DESCRIPTOR_HANDLE nullHandle(pCBVSRVHeap->GetCPUDescriptorHandleForHeapStart(), 14, CBV_SRV_DESCRIPTOR_SIZE);
-	//
-	//// alloc descriptor handles for end-effector spheres.
-	//for (int i = 0; i < 4; ++i)
-	//{
-	//	hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable[i], &gpuDescriptorTable[i], 3);
-	//	BREAK_IF_FAILED(hr);
-	//}
-
-	//// right hand -> left hand -> right toe -> left toe.
-	//{
-	//	// b2, b3
-	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[0], m_pRightHand->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	//	cpuDescriptorTable[0].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
-	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[0], m_pRightHand->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	//	cpuDescriptorTable[0].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
-
-	//	// t6(null)
-	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[0], nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-	//	pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable[0]);
-
-	//	pCommandList->IASetVertexBuffers(0, 1, &m_pRightHand->Vertex.VertexBufferView);
-	//	pCommandList->IASetIndexBuffer(&m_pRightHand->Index.IndexBufferView);
-	//	pCommandList->DrawIndexedInstanced(m_pRightHand->Index.Count, 1, 0, 0, 0);
-	//}
-	//{
-	//	// b2, b3
-	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[1], m_pLeftHand->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	//	cpuDescriptorTable[1].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
-	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[1], m_pLeftHand->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	//	cpuDescriptorTable[1].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
-
-	//	// t6(null)
-	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[1], nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-	//	pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable[1]);
-
-	//	pCommandList->IASetVertexBuffers(0, 1, &m_pLeftHand->Vertex.VertexBufferView);
-	//	pCommandList->IASetIndexBuffer(&m_pLeftHand->Index.IndexBufferView);
-	//	pCommandList->DrawIndexedInstanced(m_pLeftHand->Index.Count, 1, 0, 0, 0);
-	//}
-	//{
-	//	// b2, b3
-	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[2], m_pRightToe->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	//	cpuDescriptorTable[2].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
-	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[2], m_pRightToe->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	//	cpuDescriptorTable[2].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
-
-	//	// t6(null)
-	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[2], nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-	//	pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable[2]);
-
-	//	pCommandList->IASetVertexBuffers(0, 1, &m_pRightToe->Vertex.VertexBufferView);
-	//	pCommandList->IASetIndexBuffer(&m_pRightToe->Index.IndexBufferView);
-	//	pCommandList->DrawIndexedInstanced(m_pRightToe->Index.Count, 1, 0, 0, 0);
-	//}
-	//{
-	//	// b2, b3
-	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[3], m_pLeftToe->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	//	cpuDescriptorTable[3].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
-	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[3], m_pLeftToe->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	//	cpuDescriptorTable[3].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
-
-	//	// t6(null)
-	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[3], nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-	//	pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable[3]);
-
-	//	pCommandList->IASetVertexBuffers(0, 1, &m_pLeftToe->Vertex.VertexBufferView);
-	//	pCommandList->IASetIndexBuffer(&m_pLeftToe->Index.IndexBufferView);
-	//	pCommandList->DrawIndexedInstanced(m_pLeftToe->Index.Count, 1, 0, 0, 0);
-	//}
 	
 	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable[16];
 	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorTable[16];
@@ -483,7 +313,7 @@ void SkinnedMeshModel::RenderEndEffectorSphere(ResourceManager* pManager, ePipel
 		BREAK_IF_FAILED(hr);
 	}
 
-	// other parts.
+	// render all chain spheres.
 	{
 		int descriptorTableIndex = 0;
 		for (int i = 0; i < 4; ++i)
@@ -784,7 +614,148 @@ void SkinnedMeshModel::SetDescriptorHeap(ResourceManager* pManager)
 	}
 }
 
-void SkinnedMeshModel::updateJointSpheres()
+void SkinnedMeshModel::updateJointSpheres(int clipID, int frame)
 {
+	// root bone transform을 통해 bounding box 업데이트.
+	// 캐릭터는 world 상 고정된 좌표에서 bone transform을 통해 애니메이션하고 있으므로,
+	// world를 바꿔주게 되면 캐릭터 자체가 시야에서 없어져버림.
+	// 현재, Model에서는 bounding box와 bounding sphere를 world에 맞춰 이동시키는데,
+	// 캐릭터에서는 이를 방지하기 위해 bounding object만 따로 변환시킴.
+	const UINT ROOT_BONE_ID = AnimData.BoneNameToID["mixamorig:Hips"];
+	const Matrix ROOT_BONE_TRANSFORM = AnimData.Get(clipID, ROOT_BONE_ID, frame);
+	const Matrix CORRECTION_CENTER = Matrix::CreateTranslation(Vector3(0.2f, 0.0f, 0.0f));
+	MeshConstant* pBoxMeshConst = (MeshConstant*)m_pBoundingBoxMesh->MeshConstant.pData;
+	MeshConstant* pSphereMeshConst = (MeshConstant*)m_pBoundingSphereMesh->MeshConstant.pData;
 
+	pBoxMeshConst->World = (CORRECTION_CENTER * ROOT_BONE_TRANSFORM * World).Transpose();
+	pSphereMeshConst->World = pBoxMeshConst->World;
+	BoundingBox.Center = pBoxMeshConst->World.Transpose().Translation();
+	BoundingSphere.Center = BoundingBox.Center;
+
+	// update debugging sphere for chain.
+	{
+		const UINT RIGHT_ARM_ID = AnimData.BoneNameToID["mixamorig:RightArm"];
+		const UINT RIGHT_FORE_ARM_ID = AnimData.BoneNameToID["mixamorig:RightForeArm"];
+		const UINT RIGHT_HAND_ID = AnimData.BoneNameToID["mixamorig:RightHand"];
+		const UINT RIGHT_HAND_MIDDLE_ID = AnimData.BoneNameToID["mixamorig:RightHandMiddle1"];
+		const UINT LEFT_ARM_ID = AnimData.BoneNameToID["mixamorig:LeftArm"];
+		const UINT LEFT_ARM_FORE_ID = AnimData.BoneNameToID["mixamorig:LeftForeArm"];
+		const UINT LEFT_HAND_ID = AnimData.BoneNameToID["mixamorig:LeftHand"];
+		const UINT LEFT_HAND_MIDDLE_ID = AnimData.BoneNameToID["mixamorig:LeftHandMiddle1"];
+		const UINT RIGHT_UP_LEG_ID = AnimData.BoneNameToID["mixamorig:RightUpLeg"];
+		const UINT RIGHT_LEG_ID = AnimData.BoneNameToID["mixamorig:RightLeg"];
+		const UINT RIGHT_FOOT_ID = AnimData.BoneNameToID["mixamorig:RightFoot"];
+		const UINT RIGHT_TOE_ID = AnimData.BoneNameToID["mixamorig:RightToeBase"];
+		const UINT LEFT_UP_LEG_ID = AnimData.BoneNameToID["mixamorig:LeftUpLeg"];
+		const UINT LEFT_LEG_ID = AnimData.BoneNameToID["mixamorig:LeftLeg"];
+		const UINT LEFT_FOOT_ID = AnimData.BoneNameToID["mixamorig:LeftFoot"];
+		const UINT LEFT_TOE_ID = AnimData.BoneNameToID["mixamorig:LeftToeBase"];
+
+		const Matrix RIGHT_ARM_TRANSFORM = AnimData.Get(clipID, RIGHT_ARM_ID, frame);
+		const Matrix RIGHT_FORE_ARM_TRANSFORM = AnimData.Get(clipID, RIGHT_FORE_ARM_ID, frame);
+		const Matrix RIGHT_HAND_TRANSFORM = AnimData.Get(clipID, RIGHT_HAND_ID, frame);
+		const Matrix RIGHT_HAND_MIDDLE_TRANSFORM = AnimData.Get(clipID, RIGHT_HAND_MIDDLE_ID, frame);
+		const Matrix LEFT_ARM_TRANSFORM = AnimData.Get(clipID, LEFT_ARM_ID, frame);
+		const Matrix LEFT_FORE_ARM_TRANSFORM = AnimData.Get(clipID, LEFT_ARM_FORE_ID, frame);
+		const Matrix LEFT_HAND_TRANSFORM = AnimData.Get(clipID, LEFT_HAND_ID, frame);
+		const Matrix LEFT_HAND_MIDDLE_TRANSFORM = AnimData.Get(clipID, LEFT_HAND_MIDDLE_ID, frame);
+		const Matrix RIGHT_UP_LEG_TRANSFORM = AnimData.Get(clipID, RIGHT_UP_LEG_ID, frame);
+		const Matrix RIGHT_LEG_TRANSFORM = AnimData.Get(clipID, RIGHT_LEG_ID, frame);
+		const Matrix RIGHT_FOOT_TRANSFORM = AnimData.Get(clipID, RIGHT_FOOT_ID, frame);
+		const Matrix RIGHT_TOE_TRANSFORM = AnimData.Get(clipID, RIGHT_TOE_ID, frame);
+		const Matrix LEFT_UP_LEG_TRANSFORM = AnimData.Get(clipID, LEFT_UP_LEG_ID, frame);
+		const Matrix LEFT_LEG_TRANSFORM = AnimData.Get(clipID, LEFT_LEG_ID, frame);
+		const Matrix LEFT_FOOT_TRANSFORM = AnimData.Get(clipID, LEFT_FOOT_ID, frame);
+		const Matrix LEFT_TOE_TRANSFORM = AnimData.Get(clipID, LEFT_TOE_ID, frame);
+
+		/*const Matrix CORRECTION_RIGHT_ARM = Matrix::CreateTranslation(Vector3(0.085f, 0.33f, 0.06f));
+		const Matrix CORRECTION_RIGHT_FORE_ARM = Matrix::CreateTranslation(Vector3(-0.04f, 0.32f, 0.06f));
+		const Matrix CORRECTION_RIGHT_HAND = Matrix::CreateTranslation(Vector3(-0.18f, 0.32f, 0.06f));
+		const Matrix CORRECTION_RIGHT_HAND_MIDDLE = Matrix::CreateTranslation(Vector3(-0.235f, 0.32f, 0.055f));
+		const Matrix CORRECTION_LEFT_ARM = Matrix::CreateTranslation(Vector3(0.32f, 0.34f, 0.05f));
+		const Matrix CORRECTION_LEFT_FORE_ARM = Matrix::CreateTranslation(Vector3(0.45f, 0.32f, 0.05f));
+		const Matrix CORRECTION_LEFT_HAND = Matrix::CreateTranslation(Vector3(0.59f, 0.32f, 0.05f));
+		const Matrix CORRECTION_LEFT_HAND_MIDDLE = Matrix::CreateTranslation(Vector3(0.65f, 0.32f, 0.05f));
+		const Matrix CORRECTION_RIGHT_UP_LEG = Matrix::CreateTranslation(Vector3(0.16f, 0.02f, 0.04f));
+		const Matrix CORRECTION_RIGHT_LEG = Matrix::CreateTranslation(Vector3(0.15f, -0.17f, 0.04f));
+		const Matrix CORRECTION_RIGHT_FOOT = Matrix::CreateTranslation(Vector3(0.16f, -0.39f, 0.05f));
+		const Matrix CORRECTION_RIGHT_TOE = Matrix::CreateTranslation(Vector3(0.15f, -0.42f, 0.0f));
+		const Matrix CORRECTION_LEFT_UP_LEG = Matrix::CreateTranslation(Vector3(0.26f, 0.025f, 0.05f));
+		const Matrix CORRECTION_LEFT_LEG = Matrix::CreateTranslation(Vector3(0.26f, -0.165f, 0.05f));
+		const Matrix CORRECTION_LEFT_FOOT = Matrix::CreateTranslation(Vector3(0.25f, -0.38f, 0.05f));
+		const Matrix CORRECTION_LEFT_TOE = Matrix::CreateTranslation(Vector3(0.26f, -0.42f, 0.0f));*/
+		const Matrix CORRECTION_RIGHT_ARM = Matrix::CreateTranslation(Vector3(0.09f, 0.52f, 0.048f));
+		const Matrix CORRECTION_RIGHT_FORE_ARM = Matrix::CreateTranslation(Vector3(-0.18f, 0.51f, 0.048f));
+		const Matrix CORRECTION_RIGHT_HAND = Matrix::CreateTranslation(Vector3(-0.32f, 0.52f, 0.048f));
+		const Matrix CORRECTION_RIGHT_HAND_MIDDLE = Matrix::CreateTranslation(Vector3(-0.44f, 0.52f, 0.048f));
+		const Matrix CORRECTION_LEFT_ARM = Matrix::CreateTranslation(Vector3(0.32f, 0.5125f, 0.048f));
+		const Matrix CORRECTION_LEFT_FORE_ARM = Matrix::CreateTranslation(Vector3(0.61f, 0.5f, 0.048f));
+		const Matrix CORRECTION_LEFT_HAND = Matrix::CreateTranslation(Vector3(0.74f, 0.5f, 0.048f));
+		const Matrix CORRECTION_LEFT_HAND_MIDDLE = Matrix::CreateTranslation(Vector3(0.87f, 0.5f, 0.05f));
+		const Matrix CORRECTION_RIGHT_UP_LEG = Matrix::CreateTranslation(Vector3(0.16f, 0.02f, 0.04f));
+		const Matrix CORRECTION_RIGHT_LEG = Matrix::CreateTranslation(Vector3(0.15f, -0.17f, 0.04f));
+		const Matrix CORRECTION_RIGHT_FOOT = Matrix::CreateTranslation(Vector3(0.16f, -0.39f, 0.05f));
+		const Matrix CORRECTION_RIGHT_TOE = Matrix::CreateTranslation(Vector3(0.15f, -0.42f, 0.0f));
+		const Matrix CORRECTION_LEFT_UP_LEG = Matrix::CreateTranslation(Vector3(0.26f, 0.025f, 0.05f));
+		const Matrix CORRECTION_LEFT_LEG = Matrix::CreateTranslation(Vector3(0.26f, -0.165f, 0.05f));
+		const Matrix CORRECTION_LEFT_FOOT = Matrix::CreateTranslation(Vector3(0.25f, -0.38f, 0.05f));
+		const Matrix CORRECTION_LEFT_TOE = Matrix::CreateTranslation(Vector3(0.26f, -0.42f, 0.0f));
+
+		const Matrix CORRECTION = Matrix::CreateTranslation(Vector3(100.0f, 0.0f, 0.0f));
+
+		MeshConstant* pRightArmSphere = (MeshConstant*)m_ppRightArm[0]->MeshConstant.pData;
+		MeshConstant* pRightForeArmSphere = (MeshConstant*)m_ppRightArm[1]->MeshConstant.pData;
+		MeshConstant* pRightHandSphere = (MeshConstant*)m_ppRightArm[2]->MeshConstant.pData;
+		MeshConstant* pRightHandMiddleSphere = (MeshConstant*)m_ppRightArm[3]->MeshConstant.pData;
+		MeshConstant* pLeftArmSphere = (MeshConstant*)m_ppLeftArm[0]->MeshConstant.pData;
+		MeshConstant* pLeftForeArmSphere = (MeshConstant*)m_ppLeftArm[1]->MeshConstant.pData;
+		MeshConstant* pLeftHandSphere = (MeshConstant*)m_ppLeftArm[2]->MeshConstant.pData;
+		MeshConstant* pLeftHandMiddleSphere = (MeshConstant*)m_ppLeftArm[3]->MeshConstant.pData;
+		MeshConstant* pRightUpLegSphere = (MeshConstant*)m_ppRightLeg[0]->MeshConstant.pData;
+		MeshConstant* pRightLegSphere = (MeshConstant*)m_ppRightLeg[1]->MeshConstant.pData;
+		MeshConstant* pRightFootSphere = (MeshConstant*)m_ppRightLeg[2]->MeshConstant.pData;
+		MeshConstant* pRightToeSphere = (MeshConstant*)m_ppRightLeg[3]->MeshConstant.pData;
+		MeshConstant* pLeftUpLegSphere = (MeshConstant*)m_ppLeftLeg[0]->MeshConstant.pData;
+		MeshConstant* pLeftLegSphere = (MeshConstant*)m_ppLeftLeg[1]->MeshConstant.pData;
+		MeshConstant* pLeftFootSphere = (MeshConstant*)m_ppLeftLeg[2]->MeshConstant.pData;
+		MeshConstant* pLeftToeSphere = (MeshConstant*)m_ppLeftLeg[3]->MeshConstant.pData;
+
+		/*pRightArmSphere->World = (CORRECTION_RIGHT_ARM * RIGHT_ARM_TRANSFORM * World).Transpose();
+		pRightForeArmSphere->World = (CORRECTION_RIGHT_FORE_ARM * RIGHT_FORE_ARM_TRANSFORM * World).Transpose();
+		pRightHandSphere->World = (CORRECTION_RIGHT_HAND * RIGHT_HAND_TRANSFORM * World).Transpose();
+		pRightHandMiddleSphere->World = (CORRECTION_RIGHT_HAND_MIDDLE * RIGHT_HAND_MIDDLE_TRANSFORM * World).Transpose();
+		pLeftArmSphere->World = (CORRECTION_LEFT_ARM * LEFT_ARM_TRANSFORM * World).Transpose();
+		pLeftForeArmSphere->World = (CORRECTION_LEFT_FORE_ARM * LEFT_FORE_ARM_TRANSFORM * World).Transpose();
+		pLeftHandSphere->World = (CORRECTION_LEFT_HAND * LEFT_HAND_TRANSFORM * World).Transpose();
+		pLeftHandMiddleSphere->World = (CORRECTION_LEFT_HAND_MIDDLE * LEFT_HAND_MIDDLE_TRANSFORM * World).Transpose();
+		pRightUpLegSphere->World = (CORRECTION_RIGHT_UP_LEG * RIGHT_UP_LEG_TRANSFORM * World).Transpose();
+		pRightLegSphere->World = (CORRECTION_RIGHT_LEG * RIGHT_LEG_TRANSFORM * World).Transpose();
+		pRightFootSphere->World = (CORRECTION_RIGHT_FOOT * RIGHT_FOOT_TRANSFORM * World).Transpose();
+		pRightToeSphere->World = (CORRECTION_RIGHT_TOE * RIGHT_TOE_TRANSFORM * World).Transpose();
+		pLeftUpLegSphere->World = (CORRECTION_LEFT_UP_LEG * LEFT_UP_LEG_TRANSFORM * World).Transpose();
+		pLeftLegSphere->World = (CORRECTION_LEFT_LEG * LEFT_LEG_TRANSFORM * World).Transpose();
+		pLeftFootSphere->World = (CORRECTION_LEFT_FOOT * LEFT_FOOT_TRANSFORM * World).Transpose();
+		pLeftToeSphere->World = (CORRECTION_LEFT_TOE * LEFT_TOE_TRANSFORM * World).Transpose();*/
+		pRightArmSphere->World = (CORRECTION_RIGHT_ARM * RIGHT_ARM_TRANSFORM * World).Transpose();
+		pRightForeArmSphere->World = (CORRECTION_RIGHT_FORE_ARM * RIGHT_FORE_ARM_TRANSFORM * World).Transpose();
+		pRightHandSphere->World = (CORRECTION_RIGHT_HAND * RIGHT_HAND_TRANSFORM * World).Transpose();
+		pRightHandMiddleSphere->World = (CORRECTION_RIGHT_HAND_MIDDLE * RIGHT_HAND_MIDDLE_TRANSFORM * World).Transpose();
+		pLeftArmSphere->World = (CORRECTION_LEFT_ARM * LEFT_ARM_TRANSFORM * World).Transpose();
+		pLeftForeArmSphere->World = (CORRECTION_LEFT_FORE_ARM * LEFT_FORE_ARM_TRANSFORM * World).Transpose();
+		pLeftHandSphere->World = (CORRECTION_LEFT_HAND * LEFT_HAND_TRANSFORM * World).Transpose();
+		pLeftHandMiddleSphere->World = (CORRECTION_LEFT_HAND_MIDDLE * LEFT_HAND_MIDDLE_TRANSFORM * World).Transpose();
+		pRightUpLegSphere->World = (CORRECTION * RIGHT_UP_LEG_TRANSFORM * World).Transpose();
+		pRightLegSphere->World = (CORRECTION * RIGHT_LEG_TRANSFORM * World).Transpose();
+		pRightFootSphere->World = (CORRECTION * RIGHT_FOOT_TRANSFORM * World).Transpose();
+		pRightToeSphere->World = (CORRECTION * RIGHT_TOE_TRANSFORM * World).Transpose();
+		pLeftUpLegSphere->World = (CORRECTION * LEFT_UP_LEG_TRANSFORM * World).Transpose();
+		pLeftLegSphere->World = (CORRECTION * LEFT_LEG_TRANSFORM * World).Transpose();
+		pLeftFootSphere->World = (CORRECTION * LEFT_FOOT_TRANSFORM * World).Transpose();
+		pLeftToeSphere->World = (CORRECTION * LEFT_TOE_TRANSFORM * World).Transpose();
+
+		RightHandMiddle.Center = pRightHandMiddleSphere->World.Transpose().Translation();
+		LeftHandMiddle.Center = pLeftHandMiddleSphere->World.Transpose().Translation();
+		RightToe.Center = pRightToeSphere->World.Transpose().Translation();
+		LeftToe.Center = pLeftToeSphere->World.Transpose().Translation();
+	}
 }

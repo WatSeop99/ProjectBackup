@@ -462,20 +462,20 @@ void ShadowMap::setShadowViewport(ID3D12GraphicsCommandList* pCommandList)
 	{
 		case LIGHT_DIRECTIONAL:
 		{
-			D3D12_VIEWPORT pViewports[4] =
+			const D3D12_VIEWPORT VIEWPORTS[4] =
 			{
 				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
 				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
 				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
 				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
 			};
-			pCommandList->RSSetViewports(4, pViewports);
+			pCommandList->RSSetViewports(4, VIEWPORTS);
 		}
 		break;
 
 		case LIGHT_POINT:
 		{
-			D3D12_VIEWPORT pViewports[6] =
+			const D3D12_VIEWPORT VIEWPORTS[6] =
 			{
 				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
 				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
@@ -484,7 +484,7 @@ void ShadowMap::setShadowViewport(ID3D12GraphicsCommandList* pCommandList)
 				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
 				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
 			};
-			pCommandList->RSSetViewports(6, pViewports);
+			pCommandList->RSSetViewports(6, VIEWPORTS);
 		}
 		break;
 
@@ -515,20 +515,20 @@ void ShadowMap::setShadowScissorRect(ID3D12GraphicsCommandList* pCommandList)
 	{
 		case LIGHT_DIRECTIONAL:
 		{
-			D3D12_RECT pScissorRects[4] =
+			const D3D12_RECT SCISSOR_RECTS[4] =
 			{
 				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
 				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
 				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
 				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
 			};
-			pCommandList->RSSetScissorRects(4, pScissorRects);
+			pCommandList->RSSetScissorRects(4, SCISSOR_RECTS);
 		}
 		break;
 
 		case LIGHT_POINT:
 		{
-			D3D12_RECT pScissorRects[6] =
+			const D3D12_RECT SCISSOR_RECTS[6] =
 			{
 				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
 				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
@@ -537,7 +537,7 @@ void ShadowMap::setShadowScissorRect(ID3D12GraphicsCommandList* pCommandList)
 				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
 				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
 			};
-			pCommandList->RSSetScissorRects(6, pScissorRects);
+			pCommandList->RSSetScissorRects(6, SCISSOR_RECTS);
 		}
 		break;
 
@@ -564,33 +564,33 @@ void ShadowMap::calculateCascadeLightViewProjection(Vector3* pPosition, Matrix* 
 	_ASSERT(pView);
 	_ASSERT(pProjection);
 
-	static const float s_FRUSTUM_Zs[5] = { 0.01f, 10.0f, 40.0f, 80.0f, 500.0f }; // 고정 값들로 우선 설정.
+	const float FRUSTUM_Zs[5] = { 0.01f, 10.0f, 40.0f, 80.0f, 500.0f }; // 고정 값들로 우선 설정.
 	Matrix inverseView = VIEW.Invert();
 	Vector3 frustumCenter(0.0f);
 	float boundingSphereRadius = 0.0f;
 
 	float fov = 45.0f;
 	float aspectRatio = 1270.0f / 720.0f;
-	float nearZ = s_FRUSTUM_Zs[0];
-	float farZ = s_FRUSTUM_Zs[4];
+	float nearZ = FRUSTUM_Zs[0];
+	float farZ = FRUSTUM_Zs[4];
 	float tanHalfVFov = tanf(DirectX::XMConvertToRadians(fov * 0.5f)); // 수직 시야각.
 	float tanHalfHFov = tanHalfVFov * aspectRatio; // 수평 시야각.
 
-	float xn = s_FRUSTUM_Zs[cascadeIndex] * tanHalfHFov;
-	float xf = s_FRUSTUM_Zs[cascadeIndex + 1] * tanHalfHFov;
-	float yn = s_FRUSTUM_Zs[cascadeIndex] * tanHalfVFov;
-	float yf = s_FRUSTUM_Zs[cascadeIndex + 1] * tanHalfVFov;
+	float xn = FRUSTUM_Zs[cascadeIndex] * tanHalfHFov;
+	float xf = FRUSTUM_Zs[cascadeIndex + 1] * tanHalfHFov;
+	float yn = FRUSTUM_Zs[cascadeIndex] * tanHalfVFov;
+	float yf = FRUSTUM_Zs[cascadeIndex + 1] * tanHalfVFov;
 
 	Vector3 frustumCorners[8] =
 	{
-		Vector3(xn, yn, s_FRUSTUM_Zs[cascadeIndex]),
-		Vector3(-xn, yn, s_FRUSTUM_Zs[cascadeIndex]),
-		Vector3(xn, -yn, s_FRUSTUM_Zs[cascadeIndex]),
-		Vector3(-xn, -yn, s_FRUSTUM_Zs[cascadeIndex]),
-		Vector3(xf, yf, s_FRUSTUM_Zs[cascadeIndex + 1]),
-		Vector3(-xf, yf, s_FRUSTUM_Zs[cascadeIndex + 1]),
-		Vector3(xf, -yf, s_FRUSTUM_Zs[cascadeIndex + 1]),
-		Vector3(-xf, -yf, s_FRUSTUM_Zs[cascadeIndex + 1]),
+		Vector3(xn, yn, FRUSTUM_Zs[cascadeIndex]),
+		Vector3(-xn, yn, FRUSTUM_Zs[cascadeIndex]),
+		Vector3(xn, -yn, FRUSTUM_Zs[cascadeIndex]),
+		Vector3(-xn, -yn, FRUSTUM_Zs[cascadeIndex]),
+		Vector3(xf, yf, FRUSTUM_Zs[cascadeIndex + 1]),
+		Vector3(-xf, yf, FRUSTUM_Zs[cascadeIndex + 1]),
+		Vector3(xf, -yf, FRUSTUM_Zs[cascadeIndex + 1]),
+		Vector3(-xf, -yf, FRUSTUM_Zs[cascadeIndex + 1]),
 	};
 
 	for (int i = 0; i < 8; ++i)

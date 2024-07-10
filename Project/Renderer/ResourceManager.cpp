@@ -1454,6 +1454,7 @@ void ResourceManager::initPipelineStates()
 
 	psoDesc.pRootSignature = m_pDepthOnlyAroundRootSignature;
 	psoDesc.VS = { (BYTE*)m_pDepthOnlyCubeVS->GetBufferPointer(), m_pDepthOnlyCubeVS->GetBufferSize() };
+	// psoDesc.VS = { (BYTE*)m_pDepthOnlyVS->GetBufferPointer(), m_pDepthOnlyVS->GetBufferSize() };
 	psoDesc.PS = { (BYTE*)m_pDepthOnlyCubePS->GetBufferPointer(), m_pDepthOnlyCubePS->GetBufferSize() };
 	psoDesc.GS = { (BYTE*)m_pDepthOnlyCubeGS->GetBufferPointer(), m_pDepthOnlyCubeGS->GetBufferSize() };
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
@@ -1475,6 +1476,7 @@ void ResourceManager::initPipelineStates()
 
 	psoDesc.pRootSignature = m_pDepthOnlyAroundSkinnedRootSignature;
 	psoDesc.VS = { (BYTE*)m_pDepthOnlyCubeSkinnedVS->GetBufferPointer(), m_pDepthOnlyCubeSkinnedVS->GetBufferSize() };
+	// psoDesc.VS = { (BYTE*)m_pDepthOnlySkinnedVS->GetBufferPointer(), m_pDepthOnlySkinnedVS->GetBufferSize() };
 	psoDesc.PS = { (BYTE*)m_pDepthOnlyCubePS->GetBufferPointer(), m_pDepthOnlyCubePS->GetBufferSize() };
 	psoDesc.GS = { (BYTE*)m_pDepthOnlyCubeGS->GetBufferPointer(), m_pDepthOnlyCubeGS->GetBufferSize() };
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
@@ -1496,6 +1498,7 @@ void ResourceManager::initPipelineStates()
 
 	psoDesc.pRootSignature = m_pDepthOnlyAroundRootSignature;
 	psoDesc.VS = { (BYTE*)m_pDepthOnlyCascadeVS->GetBufferPointer(), m_pDepthOnlyCascadeVS->GetBufferSize() };
+	// psoDesc.VS = { (BYTE*)m_pDepthOnlyVS->GetBufferPointer(), m_pDepthOnlyVS->GetBufferSize() };
 	psoDesc.PS = { (BYTE*)m_pDepthOnlyCascadePS->GetBufferPointer(), m_pDepthOnlyCascadePS->GetBufferSize() };
 	psoDesc.GS = { (BYTE*)m_pDepthOnlyCascadeGS->GetBufferPointer(), m_pDepthOnlyCascadeGS->GetBufferSize() };
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
@@ -1517,6 +1520,7 @@ void ResourceManager::initPipelineStates()
 
 	psoDesc.pRootSignature = m_pDepthOnlyAroundSkinnedRootSignature;
 	psoDesc.VS = { (BYTE*)m_pDepthOnlyCascadeSkinnedVS->GetBufferPointer(), m_pDepthOnlyCascadeSkinnedVS->GetBufferSize() };
+	// psoDesc.VS = { (BYTE*)m_pDepthOnlySkinnedVS->GetBufferPointer(), m_pDepthOnlySkinnedVS->GetBufferSize() };
 	psoDesc.PS = { (BYTE*)m_pDepthOnlyCascadePS->GetBufferPointer(), m_pDepthOnlyCascadePS->GetBufferSize() };
 	psoDesc.GS = { (BYTE*)m_pDepthOnlyCascadeGS->GetBufferPointer(), m_pDepthOnlyCascadeGS->GetBufferSize() };
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);

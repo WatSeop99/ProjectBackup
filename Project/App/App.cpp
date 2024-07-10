@@ -70,10 +70,10 @@ void App::Update(const float DELTA_TIME)
 {
 	Renderer::Update(DELTA_TIME);
 
-	if (m_pMirror)
+	/*if (m_pMirror)
 	{
 		m_pMirror->UpdateConstantBuffers();
-	}
+	}*/
 
 	for (UINT64 i = 0, size = m_RenderObjects.size(); i < size; ++i)
 	{
@@ -81,20 +81,28 @@ void App::Update(const float DELTA_TIME)
 
 		switch (pModel->ModelType)
 		{
-		case DefaultModel:
-			pModel->UpdateConstantBuffers();
+			case DefaultModel: 
+			case MirrorModel:
+				pModel->UpdateConstantBuffers();
+				break;
+
+			case SkinnedModel:
+			{
+				SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pModel;
+				if (pCharacter->AnimData.Clips.size() > 1)
+				{
+					updateAnimationState(DELTA_TIME);
+				}
+				else
+				{
+					pCharacter->UpdateJointSpheres();
+				}
+				pCharacter->UpdateConstantBuffers();
+			}
 			break;
 
-		case SkinnedModel:
-		{
-			SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pModel;
-			updateAnimation(DELTA_TIME);
-			pCharacter->UpdateConstantBuffers();
-		}
-		break;
-
-		default:
-			break;
+			default:
+				break;
 		}
 	}
 }
@@ -253,32 +261,40 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 			L"CatwalkIdleTwistR.fbx", L"CatwalkIdleToWalkForward.fbx",
 			L"CatwalkWalkForward.fbx", L"CatwalkWalkStop.fbx",
 		};
-		AnimationData aniData;
+		AnimationData animationData;
 
 		std::wstring filename = L"Remy.fbx";
 		std::vector<MeshInfo> characterMeshInfo;
 		AnimationData characterDefaultAnimData;
 		ReadAnimationFromFile(characterMeshInfo, characterDefaultAnimData, path, filename);
 
-		for (UINT64 i = 0, size = clipNames.size(); i < size; ++i)
+		/*for (UINT64 i = 0, size = clipNames.size(); i < size; ++i)
 		{
 			std::wstring& name = clipNames[i];
 			std::vector<MeshInfo> animationMeshInfo;
-			AnimationData animationData;
-			ReadAnimationFromFile(animationMeshInfo, animationData, path, name);
+			AnimationData animDataInClip;
+			ReadAnimationFromFile(animationMeshInfo, animDataInClip, path, name);
 
-			if (aniData.Clips.empty())
+			if (animationData.Clips.empty())
 			{
-				aniData = animationData;
+				animationData = animDataInClip;
 			}
 			else
 			{
-				aniData.Clips.push_back(animationData.Clips[0]);
+				animationData.Clips.push_back(animDataInClip.Clips[0]);
 			}
+		}*/
+		
+		if (animationData.Clips.size() > 0)
+		{
+			m_pCharacter = new SkinnedMeshModel(pResourceManager, characterMeshInfo, animationData);
+		}
+		else
+		{
+			m_pCharacter = new SkinnedMeshModel(pResourceManager, characterMeshInfo, characterDefaultAnimData);
 		}
 
 		Vector3 center(0.0f, 0.0f, 2.0f);
-		m_pCharacter = new SkinnedMeshModel(pResourceManager, characterMeshInfo, aniData);
 		for (UINT64 i = 0, size = m_pCharacter->Meshes.size(); i < size; ++i)
 		{
 			Mesh* pCurMesh = m_pCharacter->Meshes[i];
@@ -295,7 +311,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 	}
 }
 
-void App::updateAnimation(const float DELTA_TIME)
+void App::updateAnimationState(const float DELTA_TIME)
 {
 	static int s_FrameCount = 0;
 

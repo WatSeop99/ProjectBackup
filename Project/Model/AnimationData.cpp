@@ -27,7 +27,6 @@ void AnimationData::Update(int clipID, int frame)
 			{
 				Vector3 temp = AccumulatedRootTransform.Translation();
 				temp.y = key.Position.y;
-
 				AccumulatedRootTransform.Translation(temp);
 			}
 

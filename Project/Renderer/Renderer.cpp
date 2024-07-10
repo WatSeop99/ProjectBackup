@@ -1350,6 +1350,7 @@ void Renderer::onMouseClick(const int MOUSE_X, const int MOUSE_Y)
 void Renderer::processMouseControl()
 {
 	static Model* s_pActiveModel = nullptr;
+	static Mesh* s_pEndEffector = nullptr;
 	static float s_PrevRatio = 0.0f;
 	static Vector3 s_PrevPos(0.0f);
 	static Vector3 s_PrevVector(0.0f);
@@ -1372,11 +1373,13 @@ void Renderer::processMouseControl()
 		const Vector3 WORLD_FAR = Vector3::Transform(NDC_FAR, INV_PROJECTION_VIEW);
 		Vector3 dir = WORLD_FAR - WORLD_NEAR;
 		dir.Normalize();
-		const DirectX::SimpleMath::Ray PICKING_RAY = DirectX::SimpleMath::Ray(WORLD_NEAR, dir);
+
+		const DirectX::SimpleMath::Ray PICKING_RAY(WORLD_NEAR, dir);
 
 		if (!s_pActiveModel) // 이전 프레임에서 아무 물체도 선택되지 않았을 경우에는 새로 선택.
 		{
-			Model* pSelectedModel = pickClosest(PICKING_RAY, &dist);
+			Mesh* pEndEffector = nullptr;
+			Model* pSelectedModel = pickClosest(PICKING_RAY, &dist, &pEndEffector);
 			if (pSelectedModel)
 			{
 #ifdef _DEBUG
@@ -1385,58 +1388,90 @@ void Renderer::processMouseControl()
 				OutputDebugStringA("\n");
 #endif
 				s_pActiveModel = pSelectedModel;
+				s_pEndEffector = pEndEffector;
 				m_pPickedModel = pSelectedModel; // GUI 조작용 포인터.
 				pickPoint = PICKING_RAY.position + dist * PICKING_RAY.direction;
-				if (m_Mouse.bMouseLeftButton) // 왼쪽 버튼 회전 준비.
+
+				if (s_pEndEffector)
 				{
-					s_PrevVector = pickPoint - s_pActiveModel->BoundingSphere.Center;
-					s_PrevVector.Normalize();
+					// 이동만 처리.
+					if (m_Mouse.bMouseRightButton)
+					{
+						m_Mouse.bMouseDragStartFlag = false;
+						s_PrevRatio = dist / (WORLD_FAR - WORLD_NEAR).Length();
+						s_PrevPos = pickPoint;
+					}
 				}
 				else
-				{ // 오른쪽 버튼 이동 준비
-					m_Mouse.bMouseDragStartFlag = false;
-					s_PrevRatio = dist / (WORLD_FAR - WORLD_NEAR).Length();
-					s_PrevPos = pickPoint;
+				{
+					if (m_Mouse.bMouseLeftButton) // 왼쪽 버튼 회전 준비.
+					{
+						s_PrevVector = pickPoint - s_pActiveModel->BoundingSphere.Center;
+						s_PrevVector.Normalize();
+					}
+					else
+					{ // 오른쪽 버튼 이동 준비
+						m_Mouse.bMouseDragStartFlag = false;
+						s_PrevRatio = dist / (WORLD_FAR - WORLD_NEAR).Length();
+						s_PrevPos = pickPoint;
+					}
 				}
 			}
 		}
 		else // 이미 선택된 물체가 있었던 경우.
 		{
-			if (m_Mouse.bMouseLeftButton) // 왼쪽 버튼으로 계속 회전.
+			if (s_pEndEffector)
 			{
-				if (PICKING_RAY.Intersects(s_pActiveModel->BoundingSphere, dist))
+				// 이동만 처리.
+				if (m_Mouse.bMouseRightButton)
 				{
-					pickPoint = PICKING_RAY.position + dist * PICKING_RAY.direction;
+					Vector3 newPos = WORLD_NEAR + s_PrevRatio * (WORLD_FAR - WORLD_NEAR);
+					if ((newPos - s_PrevPos).Length() > 1e-3)
+					{
+						dragTranslation = newPos - s_PrevPos;
+						s_PrevPos = newPos;
+					}
+					pickPoint = newPos; // Cursor sphere 그려질 위치.
 				}
-				else // 바운딩 스피어에 가장 가까운 점을 찾기.
-				{
-					Vector3 c = s_pActiveModel->BoundingSphere.Center - WORLD_NEAR;
-					Vector3 centerToRay = dir.Dot(c) * dir - c;
-					pickPoint = c + centerToRay * Clamp(s_pActiveModel->BoundingSphere.Radius / centerToRay.Length(), 0.0f, 1.0f);
-					pickPoint += WORLD_NEAR;
-				}
-
-				Vector3 currentVector = pickPoint - s_pActiveModel->BoundingSphere.Center;
-				currentVector.Normalize();
-				float theta = acos(s_PrevVector.Dot(currentVector));
-				if (theta > DirectX::XM_PI / 180.0f * 3.0f)
-				{
-					Vector3 axis = s_PrevVector.Cross(currentVector);
-					axis.Normalize();
-					dragRotation = DirectX::SimpleMath::Quaternion::CreateFromAxisAngle(axis, theta);
-					s_PrevVector = currentVector;
-				}
-
 			}
-			else // 오른쪽 버튼으로 계속 이동.
+			else
 			{
-				Vector3 newPos = WORLD_NEAR + s_PrevRatio * (WORLD_FAR - WORLD_NEAR);
-				if ((newPos - s_PrevPos).Length() > 1e-3)
+				if (m_Mouse.bMouseLeftButton) // 왼쪽 버튼으로 계속 회전.
 				{
-					dragTranslation = newPos - s_PrevPos;
-					s_PrevPos = newPos;
+					if (PICKING_RAY.Intersects(s_pActiveModel->BoundingSphere, dist))
+					{
+						pickPoint = PICKING_RAY.position + dist * PICKING_RAY.direction;
+					}
+					else // 바운딩 스피어에 가장 가까운 점을 찾기.
+					{
+						Vector3 c = s_pActiveModel->BoundingSphere.Center - WORLD_NEAR;
+						Vector3 centerToRay = dir.Dot(c) * dir - c;
+						pickPoint = c + centerToRay * Clamp(s_pActiveModel->BoundingSphere.Radius / centerToRay.Length(), 0.0f, 1.0f);
+						pickPoint += WORLD_NEAR;
+					}
+
+					Vector3 currentVector = pickPoint - s_pActiveModel->BoundingSphere.Center;
+					currentVector.Normalize();
+					float theta = acos(s_PrevVector.Dot(currentVector));
+					if (theta > DirectX::XM_PI / 180.0f * 3.0f)
+					{
+						Vector3 axis = s_PrevVector.Cross(currentVector);
+						axis.Normalize();
+						dragRotation = DirectX::SimpleMath::Quaternion::CreateFromAxisAngle(axis, theta);
+						s_PrevVector = currentVector;
+					}
+
 				}
-				pickPoint = newPos; // Cursor sphere 그려질 위치.
+				else // 오른쪽 버튼으로 계속 이동.
+				{
+					Vector3 newPos = WORLD_NEAR + s_PrevRatio * (WORLD_FAR - WORLD_NEAR);
+					if ((newPos - s_PrevPos).Length() > 1e-3)
+					{
+						dragTranslation = newPos - s_PrevPos;
+						s_PrevPos = newPos;
+					}
+					pickPoint = newPos; // Cursor sphere 그려질 위치.
+				}
 			}
 		}
 	}
@@ -1444,14 +1479,26 @@ void Renderer::processMouseControl()
 	{
 		// 버튼에서 손을 땠을 경우에는 움직일 모델은 nullptr로 설정.
 		s_pActiveModel = nullptr;
+		s_pEndEffector = nullptr;
 	}
 
 	if (s_pActiveModel)
 	{
-		Vector3 translation = s_pActiveModel->World.Translation();
-		s_pActiveModel->World.Translation(Vector3(0.0f));
-		s_pActiveModel->UpdateWorld(s_pActiveModel->World * Matrix::CreateFromQuaternion(dragRotation) * Matrix::CreateTranslation(dragTranslation + translation));
-		s_pActiveModel->BoundingSphere.Center = s_pActiveModel->World.Translation();
+		Vector3 translation;
+		if (s_pEndEffector)
+		{
+			MeshConstant* pMeshConstant = (MeshConstant*)s_pEndEffector->MeshConstant.pData;
+			translation = pMeshConstant->World.Translation();
+			// update world.
+			pMeshConstant->World = (Matrix::CreateTranslation(dragTranslation + translation)).Transpose();
+		}
+		else
+		{
+			translation = s_pActiveModel->World.Translation();
+			s_pActiveModel->World.Translation(Vector3(0.0f));
+			s_pActiveModel->UpdateWorld(s_pActiveModel->World* Matrix::CreateFromQuaternion(dragRotation)* Matrix::CreateTranslation(dragTranslation + translation));
+			s_pActiveModel->BoundingSphere.Center = s_pActiveModel->World.Translation();
+		}
 
 		// 충돌 지점에 작은 구 그리기.
 		/*m_pCursorSphere->bIsVisible = true;
@@ -1463,7 +1510,7 @@ void Renderer::processMouseControl()
 	}
 }
 
-Model* Renderer::pickClosest(const DirectX::SimpleMath::Ray& PICKING_RAY, float* pMinDist)
+Model* Renderer::pickClosest(const DirectX::SimpleMath::Ray& PICKING_RAY, float* pMinDist, Mesh** ppEndEffector)
 {
 	*pMinDist = 1e5f;
 	Model* pMinModel = nullptr;
@@ -1495,28 +1542,33 @@ Model* Renderer::pickClosest(const DirectX::SimpleMath::Ray& PICKING_RAY, float*
 				{
 					pMinModel = pCurModel;
 					*pMinDist = dist;
+					dist = FLT_MAX;
 
 					// 4개 end-effector 중 어디에 해당되는 지 확인.
 					SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pCurModel;
 					if (PICKING_RAY.Intersects(pCharacter->RightHandMiddle, dist) &&
 						dist < *pMinDist)
 					{
-
+						*ppEndEffector = *(pCharacter->GetRightArmsMesh() + 3);
+						*pMinDist = dist;
 					}
 					if (PICKING_RAY.Intersects(pCharacter->LeftHandMiddle, dist) &&
 						dist < *pMinDist)
 					{
-
+						*ppEndEffector = *(pCharacter->GetLeftArmsMesh() + 3);
+						*pMinDist = dist;
 					}
 					if (PICKING_RAY.Intersects(pCharacter->RightToe, dist) &&
 						dist < *pMinDist)
 					{
-
+						*ppEndEffector = *(pCharacter->GetRightLegsMesh() + 3);
+						*pMinDist = dist;
 					}
 					if (PICKING_RAY.Intersects(pCharacter->LeftToe, dist) &&
 						dist < *pMinDist)
 					{
-
+						*ppEndEffector = *(pCharacter->GetLeftLegsMesh() + 3);
+						*pMinDist = dist;
 					}
 				}
 			}
