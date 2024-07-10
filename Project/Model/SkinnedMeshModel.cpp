@@ -692,14 +692,14 @@ void SkinnedMeshModel::updateJointSpheres(int clipID, int frame)
 		const Matrix CORRECTION_LEFT_FORE_ARM = Matrix::CreateTranslation(Vector3(0.61f, 0.5f, 0.048f));
 		const Matrix CORRECTION_LEFT_HAND = Matrix::CreateTranslation(Vector3(0.74f, 0.5f, 0.048f));
 		const Matrix CORRECTION_LEFT_HAND_MIDDLE = Matrix::CreateTranslation(Vector3(0.87f, 0.5f, 0.05f));
-		const Matrix CORRECTION_RIGHT_UP_LEG = Matrix::CreateTranslation(Vector3(0.16f, 0.02f, 0.04f));
-		const Matrix CORRECTION_RIGHT_LEG = Matrix::CreateTranslation(Vector3(0.15f, -0.17f, 0.04f));
-		const Matrix CORRECTION_RIGHT_FOOT = Matrix::CreateTranslation(Vector3(0.16f, -0.39f, 0.05f));
-		const Matrix CORRECTION_RIGHT_TOE = Matrix::CreateTranslation(Vector3(0.15f, -0.42f, 0.0f));
-		const Matrix CORRECTION_LEFT_UP_LEG = Matrix::CreateTranslation(Vector3(0.26f, 0.025f, 0.05f));
-		const Matrix CORRECTION_LEFT_LEG = Matrix::CreateTranslation(Vector3(0.26f, -0.165f, 0.05f));
+		const Matrix CORRECTION_RIGHT_UP_LEG = Matrix::CreateTranslation(Vector3(0.165f, 0.05f, 0.04f));
+		const Matrix CORRECTION_RIGHT_LEG = Matrix::CreateTranslation(Vector3(0.155f, -0.18f, 0.05f));
+		const Matrix CORRECTION_RIGHT_FOOT = Matrix::CreateTranslation(Vector3(0.16f, -0.38f, 0.05f));
+		const Matrix CORRECTION_RIGHT_TOE = Matrix::CreateTranslation(Vector3(0.14f, -0.43f, -0.09f));
+		const Matrix CORRECTION_LEFT_UP_LEG = Matrix::CreateTranslation(Vector3(0.26f, 0.05f, 0.04f));
+		const Matrix CORRECTION_LEFT_LEG = Matrix::CreateTranslation(Vector3(0.26f, -0.18f, 0.05f));
 		const Matrix CORRECTION_LEFT_FOOT = Matrix::CreateTranslation(Vector3(0.25f, -0.38f, 0.05f));
-		const Matrix CORRECTION_LEFT_TOE = Matrix::CreateTranslation(Vector3(0.26f, -0.42f, 0.0f));
+		const Matrix CORRECTION_LEFT_TOE = Matrix::CreateTranslation(Vector3(0.26f, -0.43f, -0.09f));
 
 		const Matrix CORRECTION = Matrix::CreateTranslation(Vector3(100.0f, 0.0f, 0.0f));
 
@@ -744,14 +744,14 @@ void SkinnedMeshModel::updateJointSpheres(int clipID, int frame)
 		pLeftForeArmSphere->World = (CORRECTION_LEFT_FORE_ARM * LEFT_FORE_ARM_TRANSFORM * World).Transpose();
 		pLeftHandSphere->World = (CORRECTION_LEFT_HAND * LEFT_HAND_TRANSFORM * World).Transpose();
 		pLeftHandMiddleSphere->World = (CORRECTION_LEFT_HAND_MIDDLE * LEFT_HAND_MIDDLE_TRANSFORM * World).Transpose();
-		pRightUpLegSphere->World = (CORRECTION * RIGHT_UP_LEG_TRANSFORM * World).Transpose();
-		pRightLegSphere->World = (CORRECTION * RIGHT_LEG_TRANSFORM * World).Transpose();
-		pRightFootSphere->World = (CORRECTION * RIGHT_FOOT_TRANSFORM * World).Transpose();
-		pRightToeSphere->World = (CORRECTION * RIGHT_TOE_TRANSFORM * World).Transpose();
-		pLeftUpLegSphere->World = (CORRECTION * LEFT_UP_LEG_TRANSFORM * World).Transpose();
-		pLeftLegSphere->World = (CORRECTION * LEFT_LEG_TRANSFORM * World).Transpose();
-		pLeftFootSphere->World = (CORRECTION * LEFT_FOOT_TRANSFORM * World).Transpose();
-		pLeftToeSphere->World = (CORRECTION * LEFT_TOE_TRANSFORM * World).Transpose();
+		pRightUpLegSphere->World = (CORRECTION_RIGHT_UP_LEG * RIGHT_UP_LEG_TRANSFORM * World).Transpose();
+		pRightLegSphere->World = (CORRECTION_RIGHT_LEG * RIGHT_LEG_TRANSFORM * World).Transpose();
+		pRightFootSphere->World = (CORRECTION_RIGHT_FOOT * RIGHT_FOOT_TRANSFORM * World).Transpose();
+		pRightToeSphere->World = (CORRECTION_RIGHT_TOE * RIGHT_TOE_TRANSFORM * World).Transpose();
+		pLeftUpLegSphere->World = (CORRECTION_LEFT_UP_LEG * LEFT_UP_LEG_TRANSFORM * World).Transpose();
+		pLeftLegSphere->World = (CORRECTION_LEFT_LEG * LEFT_LEG_TRANSFORM * World).Transpose();
+		pLeftFootSphere->World = (CORRECTION_LEFT_FOOT * LEFT_FOOT_TRANSFORM * World).Transpose();
+		pLeftToeSphere->World = (CORRECTION_LEFT_TOE * LEFT_TOE_TRANSFORM * World).Transpose();
 
 		RightHandMiddle.Center = pRightHandMiddleSphere->World.Transpose().Translation();
 		LeftHandMiddle.Center = pLeftHandMiddleSphere->World.Transpose().Translation();
