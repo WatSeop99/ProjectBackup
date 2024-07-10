@@ -1472,12 +1472,58 @@ Model* Renderer::pickClosest(const DirectX::SimpleMath::Ray& PICKING_RAY, float*
 	{
 		Model* pCurModel = (*m_pRenderObjects)[i];
 		float dist = 0.0f;
-		if (pCurModel->bIsPickable &&
-			PICKING_RAY.Intersects(pCurModel->BoundingSphere, dist) &&
-			dist < *pMinDist)
+
+		switch (pCurModel->ModelType)
 		{
-			pMinModel = pCurModel;
-			*pMinDist = dist;
+			case DefaultModel:
+			{
+				if (pCurModel->bIsPickable &&
+					PICKING_RAY.Intersects(pCurModel->BoundingSphere, dist) &&
+					dist < *pMinDist)
+				{
+					pMinModel = pCurModel;
+					*pMinDist = dist;
+				}
+			}
+				break;
+
+			case SkinnedModel:
+			{
+				if (pCurModel->bIsPickable &&
+					PICKING_RAY.Intersects(pCurModel->BoundingSphere, dist) &&
+					dist < *pMinDist)
+				{
+					pMinModel = pCurModel;
+					*pMinDist = dist;
+
+					// 4개 end-effector 중 어디에 해당되는 지 확인.
+					SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pCurModel;
+					if (PICKING_RAY.Intersects(pCharacter->RightHandMiddle, dist) &&
+						dist < *pMinDist)
+					{
+
+					}
+					if (PICKING_RAY.Intersects(pCharacter->LeftHandMiddle, dist) &&
+						dist < *pMinDist)
+					{
+
+					}
+					if (PICKING_RAY.Intersects(pCharacter->RightToe, dist) &&
+						dist < *pMinDist)
+					{
+
+					}
+					if (PICKING_RAY.Intersects(pCharacter->LeftToe, dist) &&
+						dist < *pMinDist)
+					{
+
+					}
+				}
+			}
+				break;
+
+			default:
+				break;
 		}
 	}
 

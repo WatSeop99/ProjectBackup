@@ -31,21 +31,16 @@ public:
 	NonImageTexture BoneTransforms;
 	AnimationData AnimData;
 
-	DirectX::BoundingSphere RightHand;
-	DirectX::BoundingSphere LeftHand;
+	DirectX::BoundingSphere RightHandMiddle;
+	DirectX::BoundingSphere LeftHandMiddle;
 	DirectX::BoundingSphere RightToe;
 	DirectX::BoundingSphere LeftToe;
 
 private:
-	Mesh* m_pRightHand = nullptr;
-	Mesh* m_pLeftHand = nullptr;
-	Mesh* m_pRightToe = nullptr;
-	Mesh* m_pLeftToe = nullptr;
-
-	Mesh* m_ppRightArm[3] = { nullptr, }; // right arm - right fore arm - right hand.
-	Mesh* m_ppLeftArm[3] = { nullptr, }; // left arm - left fore arm - left hand.
-	Mesh* m_ppRightLeg[3] = { nullptr, }; // right up leg - right leg - right foot.
-	Mesh* m_ppLeftLeg[3] = { nullptr, }; // left up leg - left leg - left foot.
+	Mesh* m_ppRightArm[4] = { nullptr, }; // right arm - right fore arm - right hand - right hand middle.
+	Mesh* m_ppLeftArm[4] = { nullptr, }; // left arm - left fore arm - left hand - left hand middle.
+	Mesh* m_ppRightLeg[4] = { nullptr, }; // right up leg - right leg - right foot - right toe.
+	Mesh* m_ppLeftLeg[4] = { nullptr, }; // left up leg - left leg - left foot - left toe.
 
 	// InitAnimationData()에서 초기화 필요.
 	Chain m_RightArm;

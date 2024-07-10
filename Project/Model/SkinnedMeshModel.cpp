@@ -18,76 +18,18 @@ void SkinnedMeshModel::Initialize(ResourceManager* pManager, const std::vector<M
 	MeshInfo meshData;
 	MeshConstant* pMeshConst = nullptr;
 	MaterialConstant* pMaterialConst = nullptr;
-	
-	// right hand bounding sphere
-	{
-		RightHand = DirectX::BoundingSphere(BoundingSphere.Center, 0.08f);
-		meshData = INIT_MESH_INFO;
-
-		MakeWireSphere(&meshData, RightHand.Center, RightHand.Radius);
-		m_pRightHand = new Mesh;
-		m_pRightHand->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
-		m_pRightHand->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
-		pMeshConst = (MeshConstant*)m_pRightHand->MeshConstant.pData;
-		pMeshConst->World = Matrix();
-
-		InitMeshBuffers(pManager, meshData, m_pRightHand);
-	}
-	// left hand bounding sphere
-	{
-		LeftHand = DirectX::BoundingSphere(BoundingSphere.Center, 0.08f);
-		meshData = INIT_MESH_INFO;
-
-		MakeWireSphere(&meshData, LeftHand.Center, LeftHand.Radius);
-		m_pLeftHand = new Mesh;
-		m_pLeftHand->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
-		m_pLeftHand->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
-		pMeshConst = (MeshConstant*)m_pLeftHand->MeshConstant.pData;
-		pMeshConst->World = Matrix();
-
-		InitMeshBuffers(pManager, meshData, m_pLeftHand);
-	}
-	// right toe bounding sphere
-	{
-		RightToe = DirectX::BoundingSphere(BoundingSphere.Center, 0.08f);
-		meshData = INIT_MESH_INFO;
-
-		MakeWireSphere(&meshData, RightToe.Center, RightToe.Radius);
-		m_pRightToe = new Mesh;
-		m_pRightToe->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
-		m_pRightToe->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
-		pMeshConst = (MeshConstant*)m_pRightToe->MeshConstant.pData;
-		pMeshConst->World = Matrix();
-
-		InitMeshBuffers(pManager, meshData, m_pRightToe);
-	}
-	// left toe bounding sphere
-	{
-		LeftToe = DirectX::BoundingSphere(BoundingSphere.Center, 0.08f);
-		meshData = INIT_MESH_INFO;
-
-		MakeWireSphere(&meshData, LeftHand.Center, LeftHand.Radius);
-		m_pLeftToe = new Mesh;
-		m_pLeftToe->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
-		m_pLeftToe->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
-		pMeshConst = (MeshConstant*)m_pLeftToe->MeshConstant.pData;
-		pMeshConst->World = Matrix();
-
-		InitMeshBuffers(pManager, meshData, m_pLeftToe);
-	}
 
 	// for chain debugging.
 	{
 		meshData = INIT_MESH_INFO;
+		MakeWireSphere(&meshData, BoundingSphere.Center, 0.02f);
 
-		for (int i = 0; i < 3; ++i)
+		for (int i = 0; i < 4; ++i)
 		{
 			Mesh** ppRightArmPart = &m_ppRightArm[i];
 			Mesh** ppLeftArmPart = &m_ppLeftArm[i];
 			Mesh** ppRightLegPart = &m_ppRightLeg[i];
 			Mesh** ppLeftLegPart = &m_ppLeftLeg[i];
-
-			MakeWireSphere(&meshData, BoundingSphere.Center, 0.08f);
 
 			*ppRightArmPart = new Mesh;
 			*ppLeftArmPart = new Mesh;
@@ -233,10 +175,13 @@ void SkinnedMeshModel::InitAnimationData(ResourceManager* pManager, const Animat
 void SkinnedMeshModel::UpdateConstantBuffers()
 {
 	Model::UpdateConstantBuffers();
-	m_pRightHand->MeshConstant.Upload();
-	m_pLeftHand->MeshConstant.Upload();
-	m_pRightToe->MeshConstant.Upload();
-	m_pLeftToe->MeshConstant.Upload();
+	for (int i = 0; i < 4; ++i)
+	{
+		m_ppRightArm[i]->MeshConstant.Upload();
+		m_ppLeftArm[i]->MeshConstant.Upload();
+		m_ppRightLeg[i]->MeshConstant.Upload();
+		m_ppLeftLeg[i]->MeshConstant.Upload();
+	}
 }
 
 void SkinnedMeshModel::UpdateAnimation(int clipID, int frame)
@@ -268,44 +213,7 @@ void SkinnedMeshModel::UpdateAnimation(int clipID, int frame)
 	BoundingBox.Center = pBoxMeshConst->World.Transpose().Translation();
 	BoundingSphere.Center = BoundingBox.Center;
 
-	// end-effector update. right hand, left hand, right toe, left toe.
-	{
-		const UINT RIGHT_HAND_ID = AnimData.BoneNameToID["mixamorig:RightHand"];
-		const Matrix RIGHT_HAND_TRANSFORM = AnimData.Get(clipID, RIGHT_HAND_ID, frame);
-		const Matrix CORRECTION_ENDEFFECTOR_HAND = Matrix::CreateTranslation(Vector3(-0.2f, 0.32f, 0.06f));
-		MeshConstant* pRightHandSphere = (MeshConstant*)m_pRightHand->MeshConstant.pData;
-		
-		pRightHandSphere->World = (CORRECTION_ENDEFFECTOR_HAND * RIGHT_HAND_TRANSFORM * World).Transpose();
-		RightHand.Center = pRightHandSphere->World.Transpose().Translation();
-	}
-	{
-		const UINT LEFT_HAND_ID = AnimData.BoneNameToID["mixamorig:LeftHand"];
-		const Matrix LEFT_HAND_TRANSFORM = AnimData.Get(clipID, LEFT_HAND_ID, frame);
-		const Matrix CORRECTION_ENDEFFECTOR_HAND = Matrix::CreateTranslation(Vector3(0.6f, 0.33f, 0.05f));
-		MeshConstant* pLeftHandSphere = (MeshConstant*)m_pLeftHand->MeshConstant.pData;
-
-		pLeftHandSphere->World = (CORRECTION_ENDEFFECTOR_HAND * LEFT_HAND_TRANSFORM * World).Transpose();
-		LeftHand.Center = pLeftHandSphere->World.Transpose().Translation();
-	}
-	{
-		const UINT RIGHT_TOE = AnimData.BoneNameToID["mixamorig:RightToeBase"];
-		const Matrix RIGHT_TOE_TRANSFORM = AnimData.Get(clipID, RIGHT_TOE, frame);
-		const Matrix CORRECTION_ENDEFFECTOR_TOE = Matrix::CreateTranslation(Vector3(0.15f, -0.45f, 0.0f));
-		MeshConstant* pRightFootSphere = (MeshConstant*)m_pRightToe->MeshConstant.pData;
-
-		pRightFootSphere->World = (CORRECTION_ENDEFFECTOR_TOE * RIGHT_TOE_TRANSFORM * World).Transpose();
-		RightToe.Center = pRightFootSphere->World.Transpose().Translation();
-	}
-	{
-		const UINT LEFT_TOE_ID = AnimData.BoneNameToID["mixamorig:LeftToeBase"];
-		const Matrix LEFT_TOE_TRANSFORM = AnimData.Get(clipID, LEFT_TOE_ID, frame);
-		const Matrix CORRECTION_ENDEFFECTOR_TOE = Matrix::CreateTranslation(Vector3(0.25f, -0.45f, 0.0f));
-		MeshConstant* pLeftFootSphere = (MeshConstant*)m_pLeftToe->MeshConstant.pData;
-
-		pLeftFootSphere->World = (CORRECTION_ENDEFFECTOR_TOE * LEFT_TOE_TRANSFORM * World).Transpose();
-		LeftToe.Center = pLeftFootSphere->World.Transpose().Translation();
-	}
-	// other parts.
+	// update debugging sphere for chain.
 	{
 		const UINT RIGHT_ARM_ID = AnimData.BoneNameToID["mixamorig:RightArm"];
 		const UINT RIGHT_FORE_ARM_ID = AnimData.BoneNameToID["mixamorig:RightForeArm"];
@@ -341,12 +249,61 @@ void SkinnedMeshModel::UpdateAnimation(int clipID, int frame)
 		const Matrix LEFT_FOOT_TRANSFORM = AnimData.Get(clipID, LEFT_FOOT_ID, frame);
 		const Matrix LEFT_TOE_TRANSFORM = AnimData.Get(clipID, LEFT_TOE_ID, frame);
 
-		const Matrix CORRECTION = Matrix::CreateTranslation(Vector3(0.0f, 0.0f, 0.0f));
+		const Matrix CORRECTION_RIGHT_ARM = Matrix::CreateTranslation(Vector3(0.085f, 0.33f, 0.06f));
+		const Matrix CORRECTION_RIGHT_FORE_ARM = Matrix::CreateTranslation(Vector3(-0.04f, 0.32f, 0.06f));
+		const Matrix CORRECTION_RIGHT_HAND = Matrix::CreateTranslation(Vector3(-0.18f, 0.32f, 0.06f));
+		const Matrix CORRECTION_RIGHT_HAND_MIDDLE = Matrix::CreateTranslation(Vector3(-0.235f, 0.32f, 0.055f));
+		const Matrix CORRECTION_LEFT_ARM = Matrix::CreateTranslation(Vector3(0.32f, 0.34f, 0.05f));
+		const Matrix CORRECTION_LEFT_FORE_ARM = Matrix::CreateTranslation(Vector3(0.45f, 0.32f, 0.05f));
+		const Matrix CORRECTION_LEFT_HAND = Matrix::CreateTranslation(Vector3(0.59f, 0.32f, 0.05f));
+		const Matrix CORRECTION_LEFT_HAND_MIDDLE = Matrix::CreateTranslation(Vector3(0.65f, 0.32f, 0.05f));
+		const Matrix CORRECTION_RIGHT_UP_LEG = Matrix::CreateTranslation(Vector3(0.16f, 0.02f, 0.04f));
+		const Matrix CORRECTION_RIGHT_LEG = Matrix::CreateTranslation(Vector3(0.15f, -0.17f, 0.04f));
+		const Matrix CORRECTION_RIGHT_FOOT = Matrix::CreateTranslation(Vector3(0.16f, -0.39f, 0.05f));
+		const Matrix CORRECTION_RIGHT_TOE = Matrix::CreateTranslation(Vector3(0.15f, -0.42f, 0.0f));
+		const Matrix CORRECTION_LEFT_UP_LEG = Matrix::CreateTranslation(Vector3(0.26f, 0.025f, 0.05f));
+		const Matrix CORRECTION_LEFT_LEG = Matrix::CreateTranslation(Vector3(0.26f, -0.165f, 0.05f));
+		const Matrix CORRECTION_LEFT_FOOT = Matrix::CreateTranslation(Vector3(0.25f, -0.38f, 0.05f));
+		const Matrix CORRECTION_LEFT_TOE = Matrix::CreateTranslation(Vector3(0.26f, -0.42f, 0.0f));
 
 		MeshConstant* pRightArmSphere = (MeshConstant*)m_ppRightArm[0]->MeshConstant.pData;
+		MeshConstant* pRightForeArmSphere = (MeshConstant*)m_ppRightArm[1]->MeshConstant.pData;
+		MeshConstant* pRightHandSphere = (MeshConstant*)m_ppRightArm[2]->MeshConstant.pData;
+		MeshConstant* pRightHandMiddleSphere = (MeshConstant*)m_ppRightArm[3]->MeshConstant.pData;
+		MeshConstant* pLeftArmSphere = (MeshConstant*)m_ppLeftArm[0]->MeshConstant.pData;
+		MeshConstant* pLeftForeArmSphere = (MeshConstant*)m_ppLeftArm[1]->MeshConstant.pData;
+		MeshConstant* pLeftHandSphere = (MeshConstant*)m_ppLeftArm[2]->MeshConstant.pData;
+		MeshConstant* pLeftHandMiddleSphere = (MeshConstant*)m_ppLeftArm[3]->MeshConstant.pData;
+		MeshConstant* pRightUpLegSphere = (MeshConstant*)m_ppRightLeg[0]->MeshConstant.pData;
+		MeshConstant* pRightLegSphere = (MeshConstant*)m_ppRightLeg[1]->MeshConstant.pData;
+		MeshConstant* pRightFootSphere = (MeshConstant*)m_ppRightLeg[2]->MeshConstant.pData;
+		MeshConstant* pRightToeSphere = (MeshConstant*)m_ppRightLeg[3]->MeshConstant.pData;
+		MeshConstant* pLeftUpLegSphere = (MeshConstant*)m_ppLeftLeg[0]->MeshConstant.pData;
+		MeshConstant* pLeftLegSphere = (MeshConstant*)m_ppLeftLeg[1]->MeshConstant.pData;
+		MeshConstant* pLeftFootSphere = (MeshConstant*)m_ppLeftLeg[2]->MeshConstant.pData;
+		MeshConstant* pLeftToeSphere = (MeshConstant*)m_ppLeftLeg[3]->MeshConstant.pData;
 
-		pRightArmSphere->World = (CORRECTION * RIGHT_ARM_TRANSFORM * World).Transpose();
-		LeftToe.Center = pRightArmSphere->World.Transpose().Translation();
+		pRightArmSphere->World = (CORRECTION_RIGHT_ARM * RIGHT_ARM_TRANSFORM * World).Transpose();
+		pRightForeArmSphere->World = (CORRECTION_RIGHT_FORE_ARM * RIGHT_FORE_ARM_TRANSFORM * World).Transpose();
+		pRightHandSphere->World = (CORRECTION_RIGHT_HAND * RIGHT_HAND_TRANSFORM * World).Transpose();
+		pRightHandMiddleSphere->World = (CORRECTION_RIGHT_HAND_MIDDLE * RIGHT_HAND_MIDDLE_TRANSFORM * World).Transpose();
+		pLeftArmSphere->World = (CORRECTION_LEFT_ARM * LEFT_ARM_TRANSFORM * World).Transpose();
+		pLeftForeArmSphere->World = (CORRECTION_LEFT_FORE_ARM * LEFT_FORE_ARM_TRANSFORM * World).Transpose();
+		pLeftHandSphere->World = (CORRECTION_LEFT_HAND * LEFT_HAND_TRANSFORM * World).Transpose();
+		pLeftHandMiddleSphere->World = (CORRECTION_LEFT_HAND_MIDDLE * LEFT_HAND_MIDDLE_TRANSFORM * World).Transpose();
+		pRightUpLegSphere->World = (CORRECTION_RIGHT_UP_LEG * RIGHT_UP_LEG_TRANSFORM * World).Transpose();
+		pRightLegSphere->World = (CORRECTION_RIGHT_LEG * RIGHT_LEG_TRANSFORM * World).Transpose();
+		pRightFootSphere->World = (CORRECTION_RIGHT_FOOT * RIGHT_FOOT_TRANSFORM * World).Transpose();
+		pRightToeSphere->World = (CORRECTION_RIGHT_TOE * RIGHT_TOE_TRANSFORM * World).Transpose();
+		pLeftUpLegSphere->World = (CORRECTION_LEFT_UP_LEG * LEFT_UP_LEG_TRANSFORM * World).Transpose();
+		pLeftLegSphere->World = (CORRECTION_LEFT_LEG * LEFT_LEG_TRANSFORM * World).Transpose();
+		pLeftFootSphere->World = (CORRECTION_LEFT_FOOT * LEFT_FOOT_TRANSFORM * World).Transpose();
+		pLeftToeSphere->World = (CORRECTION_LEFT_TOE * LEFT_TOE_TRANSFORM * World).Transpose();
+		
+		RightHandMiddle.Center = pRightHandMiddleSphere->World.Transpose().Translation();
+		LeftHandMiddle.Center = pLeftHandMiddleSphere->World.Transpose().Translation();
+		RightToe.Center = pRightToeSphere->World.Transpose().Translation();
+		LeftToe.Center = pLeftToeSphere->World.Transpose().Translation();
 	}
 }
 
@@ -439,85 +396,168 @@ void SkinnedMeshModel::RenderEndEffectorSphere(ResourceManager* pManager, ePipel
 	DynamicDescriptorPool* pDynamicDescriptorPool = pManager->m_pDynamicDescriptorPool;
 	const UINT CBV_SRV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
 
-	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable[4];
-	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorTable[4];
-	CD3DX12_CPU_DESCRIPTOR_HANDLE nullHandle(pCBVSRVHeap->GetCPUDescriptorHandleForHeapStart(), 14, CBV_SRV_DESCRIPTOR_SIZE);
+	//CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable[4];
+	//CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorTable[4];
+	//CD3DX12_CPU_DESCRIPTOR_HANDLE nullHandle(pCBVSRVHeap->GetCPUDescriptorHandleForHeapStart(), 14, CBV_SRV_DESCRIPTOR_SIZE);
+	//
+	//// alloc descriptor handles for end-effector spheres.
+	//for (int i = 0; i < 4; ++i)
+	//{
+	//	hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable[i], &gpuDescriptorTable[i], 3);
+	//	BREAK_IF_FAILED(hr);
+	//}
+
+	//// right hand -> left hand -> right toe -> left toe.
+	//{
+	//	// b2, b3
+	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[0], m_pRightHand->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	//	cpuDescriptorTable[0].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[0], m_pRightHand->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	//	cpuDescriptorTable[0].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+
+	//	// t6(null)
+	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[0], nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	//	pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable[0]);
+
+	//	pCommandList->IASetVertexBuffers(0, 1, &m_pRightHand->Vertex.VertexBufferView);
+	//	pCommandList->IASetIndexBuffer(&m_pRightHand->Index.IndexBufferView);
+	//	pCommandList->DrawIndexedInstanced(m_pRightHand->Index.Count, 1, 0, 0, 0);
+	//}
+	//{
+	//	// b2, b3
+	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[1], m_pLeftHand->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	//	cpuDescriptorTable[1].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[1], m_pLeftHand->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	//	cpuDescriptorTable[1].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+
+	//	// t6(null)
+	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[1], nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	//	pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable[1]);
+
+	//	pCommandList->IASetVertexBuffers(0, 1, &m_pLeftHand->Vertex.VertexBufferView);
+	//	pCommandList->IASetIndexBuffer(&m_pLeftHand->Index.IndexBufferView);
+	//	pCommandList->DrawIndexedInstanced(m_pLeftHand->Index.Count, 1, 0, 0, 0);
+	//}
+	//{
+	//	// b2, b3
+	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[2], m_pRightToe->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	//	cpuDescriptorTable[2].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[2], m_pRightToe->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	//	cpuDescriptorTable[2].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+
+	//	// t6(null)
+	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[2], nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	//	pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable[2]);
+
+	//	pCommandList->IASetVertexBuffers(0, 1, &m_pRightToe->Vertex.VertexBufferView);
+	//	pCommandList->IASetIndexBuffer(&m_pRightToe->Index.IndexBufferView);
+	//	pCommandList->DrawIndexedInstanced(m_pRightToe->Index.Count, 1, 0, 0, 0);
+	//}
+	//{
+	//	// b2, b3
+	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[3], m_pLeftToe->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	//	cpuDescriptorTable[3].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[3], m_pLeftToe->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	//	cpuDescriptorTable[3].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+
+	//	// t6(null)
+	//	pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[3], nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	//	pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable[3]);
+
+	//	pCommandList->IASetVertexBuffers(0, 1, &m_pLeftToe->Vertex.VertexBufferView);
+	//	pCommandList->IASetIndexBuffer(&m_pLeftToe->Index.IndexBufferView);
+	//	pCommandList->DrawIndexedInstanced(m_pLeftToe->Index.Count, 1, 0, 0, 0);
+	//}
 	
-	// alloc descriptor handles for end-effector spheres.
-	for (int i = 0; i < 4; ++i)
+	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable[16];
+	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorTable[16];
+	CD3DX12_CPU_DESCRIPTOR_HANDLE nullHandle(pCBVSRVHeap->GetCPUDescriptorHandleForHeapStart(), 14, CBV_SRV_DESCRIPTOR_SIZE);
+
+	for (int i = 0; i < 16; ++i)
 	{
 		hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable[i], &gpuDescriptorTable[i], 3);
 		BREAK_IF_FAILED(hr);
 	}
 
-	// right hand -> left hand -> right toe -> left toe.
-	{
-		// b2, b3
-		pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[0], m_pRightHand->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		cpuDescriptorTable[0].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
-		pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[0], m_pRightHand->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		cpuDescriptorTable[0].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
-
-		// t6(null)
-		pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[0], nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-		pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable[0]);
-
-		pCommandList->IASetVertexBuffers(0, 1, &m_pRightHand->Vertex.VertexBufferView);
-		pCommandList->IASetIndexBuffer(&m_pRightHand->Index.IndexBufferView);
-		pCommandList->DrawIndexedInstanced(m_pRightHand->Index.Count, 1, 0, 0, 0);
-	}
-	{
-		// b2, b3
-		pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[1], m_pLeftHand->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		cpuDescriptorTable[1].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
-		pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[1], m_pLeftHand->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		cpuDescriptorTable[1].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
-
-		// t6(null)
-		pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[1], nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-		pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable[1]);
-
-		pCommandList->IASetVertexBuffers(0, 1, &m_pLeftHand->Vertex.VertexBufferView);
-		pCommandList->IASetIndexBuffer(&m_pLeftHand->Index.IndexBufferView);
-		pCommandList->DrawIndexedInstanced(m_pLeftHand->Index.Count, 1, 0, 0, 0);
-	}
-	{
-		// b2, b3
-		pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[2], m_pRightToe->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		cpuDescriptorTable[2].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
-		pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[2], m_pRightToe->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		cpuDescriptorTable[2].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
-
-		// t6(null)
-		pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[2], nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-		pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable[2]);
-
-		pCommandList->IASetVertexBuffers(0, 1, &m_pRightToe->Vertex.VertexBufferView);
-		pCommandList->IASetIndexBuffer(&m_pRightToe->Index.IndexBufferView);
-		pCommandList->DrawIndexedInstanced(m_pRightToe->Index.Count, 1, 0, 0, 0);
-	}
-	{
-		// b2, b3
-		pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[3], m_pLeftToe->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		cpuDescriptorTable[3].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
-		pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[3], m_pLeftToe->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		cpuDescriptorTable[3].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
-
-		// t6(null)
-		pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[3], nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-		pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable[3]);
-
-		pCommandList->IASetVertexBuffers(0, 1, &m_pLeftToe->Vertex.VertexBufferView);
-		pCommandList->IASetIndexBuffer(&m_pLeftToe->Index.IndexBufferView);
-		pCommandList->DrawIndexedInstanced(m_pLeftToe->Index.Count, 1, 0, 0, 0);
-	}
 	// other parts.
 	{
+		int descriptorTableIndex = 0;
+		for (int i = 0; i < 4; ++i)
+		{
+			// b2, b3
+			pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[descriptorTableIndex], m_ppRightArm[i]->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			cpuDescriptorTable[descriptorTableIndex].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+			pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[descriptorTableIndex], m_ppRightArm[i]->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			cpuDescriptorTable[descriptorTableIndex].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
 
+			// t6(null)
+			pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[descriptorTableIndex], nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+			pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable[descriptorTableIndex]);
+
+			pCommandList->IASetVertexBuffers(0, 1, &m_ppRightArm[i]->Vertex.VertexBufferView);
+			pCommandList->IASetIndexBuffer(&m_ppRightArm[i]->Index.IndexBufferView);
+			pCommandList->DrawIndexedInstanced(m_ppRightArm[i]->Index.Count, 1, 0, 0, 0);
+			++descriptorTableIndex;
+		}
+		for (int i = 0; i < 4; ++i)
+		{
+			// b2, b3
+			pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[descriptorTableIndex], m_ppLeftArm[i]->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			cpuDescriptorTable[descriptorTableIndex].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+			pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[descriptorTableIndex], m_ppLeftArm[i]->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			cpuDescriptorTable[descriptorTableIndex].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+
+			// t6(null)
+			pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[descriptorTableIndex], nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+			pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable[descriptorTableIndex]);
+
+			pCommandList->IASetVertexBuffers(0, 1, &m_ppLeftArm[i]->Vertex.VertexBufferView);
+			pCommandList->IASetIndexBuffer(&m_ppLeftArm[i]->Index.IndexBufferView);
+			pCommandList->DrawIndexedInstanced(m_ppLeftArm[i]->Index.Count, 1, 0, 0, 0);
+			++descriptorTableIndex;
+		}
+		for (int i = 0; i < 4; ++i)
+		{
+			// b2, b3
+			pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[descriptorTableIndex], m_ppRightLeg[i]->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			cpuDescriptorTable[descriptorTableIndex].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+			pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[descriptorTableIndex], m_ppRightLeg[i]->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			cpuDescriptorTable[descriptorTableIndex].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+
+			// t6(null)
+			pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[descriptorTableIndex], nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+			pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable[descriptorTableIndex]);
+
+			pCommandList->IASetVertexBuffers(0, 1, &m_ppRightLeg[i]->Vertex.VertexBufferView);
+			pCommandList->IASetIndexBuffer(&m_ppRightLeg[i]->Index.IndexBufferView);
+			pCommandList->DrawIndexedInstanced(m_ppRightLeg[i]->Index.Count, 1, 0, 0, 0);
+			++descriptorTableIndex;
+		}
+		for (int i = 0; i < 4; ++i)
+		{
+			// b2, b3
+			pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[descriptorTableIndex], m_ppLeftLeg[i]->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			cpuDescriptorTable[descriptorTableIndex].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+			pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[descriptorTableIndex], m_ppLeftLeg[i]->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			cpuDescriptorTable[descriptorTableIndex].Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+
+			// t6(null)
+			pDevice->CopyDescriptorsSimple(1, cpuDescriptorTable[descriptorTableIndex], nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+			pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable[descriptorTableIndex]);
+
+			pCommandList->IASetVertexBuffers(0, 1, &m_ppLeftLeg[i]->Vertex.VertexBufferView);
+			pCommandList->IASetIndexBuffer(&m_ppLeftLeg[i]->Index.IndexBufferView);
+			pCommandList->DrawIndexedInstanced(m_ppLeftLeg[i]->Index.Count, 1, 0, 0, 0);
+			++descriptorTableIndex;
+		}
 	}
 }
 
@@ -525,27 +565,7 @@ void SkinnedMeshModel::Clear()
 {
 	BoneTransforms.Clear();
 
-	if (m_pRightHand)
-	{
-		delete m_pRightHand;
-		m_pRightHand = nullptr;
-	}
-	if (m_pLeftHand)
-	{
-		delete m_pLeftHand;
-		m_pLeftHand = nullptr;
-	}
-	if (m_pRightToe)
-	{
-		delete m_pRightToe;
-		m_pRightToe = nullptr;
-	}
-	if (m_pLeftToe)
-	{
-		delete m_pLeftToe;
-		m_pLeftToe = nullptr;
-	}
-	for (int i = 0; i < 3; ++i)
+	for (int i = 0; i < 4; ++i)
 	{
 		if (m_ppRightArm[i])
 		{
@@ -698,69 +718,8 @@ void SkinnedMeshModel::SetDescriptorHeap(ResourceManager* pManager)
 	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 	++(pManager->m_CBVSRVUAVHeapSize);
 
-	// end-effector sphere.
-	// right hand.
-	cbvDesc.BufferLocation = m_pRightHand->MeshConstant.GetGPUMemAddr();
-	cbvDesc.SizeInBytes = (UINT)m_pRightHand->MeshConstant.GetBufferSize();
-	pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
-	m_pRightHand->MeshConstant.SetCBVHandle(cbvSrvLastHandle);
-	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-	++(pManager->m_CBVSRVUAVHeapSize);
-
-	cbvDesc.BufferLocation = m_pRightHand->MaterialConstant.GetGPUMemAddr();
-	cbvDesc.SizeInBytes = (UINT)m_pRightHand->MaterialConstant.GetBufferSize();
-	pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
-	m_pRightHand->MaterialConstant.SetCBVHandle(cbvSrvLastHandle);
-	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-	++(pManager->m_CBVSRVUAVHeapSize);
-
-	// left hand.
-	cbvDesc.BufferLocation = m_pLeftHand->MeshConstant.GetGPUMemAddr();
-	cbvDesc.SizeInBytes = (UINT)m_pLeftHand->MeshConstant.GetBufferSize();
-	pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
-	m_pLeftHand->MeshConstant.SetCBVHandle(cbvSrvLastHandle);
-	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-	++(pManager->m_CBVSRVUAVHeapSize);
-
-	cbvDesc.BufferLocation = m_pLeftHand->MaterialConstant.GetGPUMemAddr();
-	cbvDesc.SizeInBytes = (UINT)m_pLeftHand->MaterialConstant.GetBufferSize();
-	pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
-	m_pLeftHand->MaterialConstant.SetCBVHandle(cbvSrvLastHandle);
-	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-	++(pManager->m_CBVSRVUAVHeapSize);
-
-	// right toe.
-	cbvDesc.BufferLocation = m_pRightToe->MeshConstant.GetGPUMemAddr();
-	cbvDesc.SizeInBytes = (UINT)m_pRightToe->MeshConstant.GetBufferSize();
-	pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
-	m_pRightToe->MeshConstant.SetCBVHandle(cbvSrvLastHandle);
-	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-	++(pManager->m_CBVSRVUAVHeapSize);
-
-	cbvDesc.BufferLocation = m_pRightToe->MaterialConstant.GetGPUMemAddr();
-	cbvDesc.SizeInBytes = (UINT)m_pRightToe->MaterialConstant.GetBufferSize();
-	pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
-	m_pRightToe->MaterialConstant.SetCBVHandle(cbvSrvLastHandle);
-	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-	++(pManager->m_CBVSRVUAVHeapSize);
-
-	// left toe.
-	cbvDesc.BufferLocation = m_pLeftToe->MeshConstant.GetGPUMemAddr();
-	cbvDesc.SizeInBytes = (UINT)m_pLeftToe->MeshConstant.GetBufferSize();
-	pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
-	m_pLeftToe->MeshConstant.SetCBVHandle(cbvSrvLastHandle);
-	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-	++(pManager->m_CBVSRVUAVHeapSize);
-
-	cbvDesc.BufferLocation = m_pLeftToe->MaterialConstant.GetGPUMemAddr();
-	cbvDesc.SizeInBytes = (UINT)m_pLeftToe->MaterialConstant.GetBufferSize();
-	pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
-	m_pLeftToe->MaterialConstant.SetCBVHandle(cbvSrvLastHandle);
-	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
-	++(pManager->m_CBVSRVUAVHeapSize);
-
-	// other parts.
-	for (int i = 0; i < 3; ++i)
+	// all chains.
+	for (int i = 0; i < 4; ++i)
 	{
 		Mesh** ppRightArmPart = &m_ppRightArm[i];
 		Mesh** ppLeftArmPart = &m_ppLeftArm[i];
@@ -774,10 +733,24 @@ void SkinnedMeshModel::SetDescriptorHeap(ResourceManager* pManager)
 		cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 		++(pManager->m_CBVSRVUAVHeapSize);
 
+		cbvDesc.BufferLocation = (*ppRightArmPart)->MaterialConstant.GetGPUMemAddr();
+		cbvDesc.SizeInBytes = (UINT)(*ppRightArmPart)->MaterialConstant.GetBufferSize();
+		pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
+		(*ppRightArmPart)->MaterialConstant.SetCBVHandle(cbvSrvLastHandle);
+		cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+		++(pManager->m_CBVSRVUAVHeapSize);
+
 		cbvDesc.BufferLocation = (*ppLeftArmPart)->MeshConstant.GetGPUMemAddr();
 		cbvDesc.SizeInBytes = (UINT)(*ppLeftArmPart)->MeshConstant.GetBufferSize();
 		pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
 		(*ppLeftArmPart)->MeshConstant.SetCBVHandle(cbvSrvLastHandle);
+		cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+		++(pManager->m_CBVSRVUAVHeapSize);
+
+		cbvDesc.BufferLocation = (*ppLeftArmPart)->MaterialConstant.GetGPUMemAddr();
+		cbvDesc.SizeInBytes = (UINT)(*ppLeftArmPart)->MaterialConstant.GetBufferSize();
+		pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
+		(*ppLeftArmPart)->MaterialConstant.SetCBVHandle(cbvSrvLastHandle);
 		cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 		++(pManager->m_CBVSRVUAVHeapSize);
 
@@ -788,10 +761,24 @@ void SkinnedMeshModel::SetDescriptorHeap(ResourceManager* pManager)
 		cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 		++(pManager->m_CBVSRVUAVHeapSize);
 
+		cbvDesc.BufferLocation = (*ppRightLegPart)->MaterialConstant.GetGPUMemAddr();
+		cbvDesc.SizeInBytes = (UINT)(*ppRightLegPart)->MaterialConstant.GetBufferSize();
+		pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
+		(*ppRightLegPart)->MaterialConstant.SetCBVHandle(cbvSrvLastHandle);
+		cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+		++(pManager->m_CBVSRVUAVHeapSize);
+
 		cbvDesc.BufferLocation = (*ppLeftLegPart)->MeshConstant.GetGPUMemAddr();
 		cbvDesc.SizeInBytes = (UINT)(*ppLeftLegPart)->MeshConstant.GetBufferSize();
 		pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
 		(*ppLeftLegPart)->MeshConstant.SetCBVHandle(cbvSrvLastHandle);
+		cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+		++(pManager->m_CBVSRVUAVHeapSize);
+
+		cbvDesc.BufferLocation = (*ppLeftLegPart)->MaterialConstant.GetGPUMemAddr();
+		cbvDesc.SizeInBytes = (UINT)(*ppLeftLegPart)->MaterialConstant.GetBufferSize();
+		pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
+		(*ppLeftLegPart)->MaterialConstant.SetCBVHandle(cbvSrvLastHandle);
 		cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 		++(pManager->m_CBVSRVUAVHeapSize);
 	}
