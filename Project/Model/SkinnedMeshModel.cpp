@@ -14,62 +14,8 @@ void SkinnedMeshModel::Initialize(ResourceManager* pManager, const std::vector<M
 {
 	Model::Initialize(pManager, MESH_INFOS);
 	InitAnimationData(pManager, ANIM_DATA);
-
-	MeshInfo meshData;
-	MeshConstant* pMeshConst = nullptr;
-	MaterialConstant* pMaterialConst = nullptr;
-
-	// for chain debugging.
-	{
-		meshData = INIT_MESH_INFO;
-		MakeWireSphere(&meshData, BoundingSphere.Center, 0.01f);
-		RightHandMiddle.Radius = 0.01f + 1e-2f;
-		LeftHandMiddle.Radius = 0.01f + 1e-2f;
-		RightToe.Radius = 0.01f + 1e-2f;
-		LeftToe.Radius = 0.01f + 1e-2f;
-		/*RightHandMiddle.Radius = 0.4f;
-		LeftHandMiddle.Radius = 0.4f;
-		RightToe.Radius = 0.4f;
-		LeftToe.Radius = 0.4f;*/
-
-		for (int i = 0; i < 4; ++i)
-		{
-			Mesh** ppRightArmPart = &m_ppRightArm[i];
-			Mesh** ppLeftArmPart = &m_ppLeftArm[i];
-			Mesh** ppRightLegPart = &m_ppRightLeg[i];
-			Mesh** ppLeftLegPart = &m_ppLeftLeg[i];
-
-			*ppRightArmPart = new Mesh;
-			*ppLeftArmPart = new Mesh;
-			*ppRightLegPart = new Mesh;
-			*ppLeftLegPart = new Mesh;
-
-			(*ppRightArmPart)->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
-			(*ppLeftArmPart)->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
-			(*ppRightLegPart)->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
-			(*ppLeftLegPart)->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
-
-			(*ppRightArmPart)->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
-			(*ppLeftArmPart)->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
-			(*ppRightLegPart)->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
-			(*ppLeftLegPart)->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
-			
-			pMeshConst = (MeshConstant*)(*ppRightArmPart)->MeshConstant.pData;
-			pMeshConst->World = Matrix();
-			pMeshConst = (MeshConstant*)(*ppLeftArmPart)->MeshConstant.pData;
-			pMeshConst->World = Matrix();
-			pMeshConst = (MeshConstant*)(*ppRightLegPart)->MeshConstant.pData;
-			pMeshConst->World = Matrix();
-			pMeshConst = (MeshConstant*)(*ppLeftLegPart)->MeshConstant.pData;
-			pMeshConst->World = Matrix();
-
-			// need to be for pp ver.
-			InitMeshBuffers(pManager, meshData, ppRightArmPart);
-			InitMeshBuffers(pManager, meshData, ppLeftArmPart);
-			InitMeshBuffers(pManager, meshData, ppRightLegPart);
-			InitMeshBuffers(pManager, meshData, ppLeftLegPart);
-		}
-	}
+	initJointSpheres(pManager);
+	initChain();
 }
 
 void SkinnedMeshModel::InitMeshBuffers(ResourceManager* pManager, const MeshInfo& MESH_INFO, Mesh* pNewMesh)
@@ -201,16 +147,57 @@ void SkinnedMeshModel::UpdateAnimation(int clipID, int frame)
 	Matrix* pBoneTransformConstData = (Matrix*)BoneTransforms.pData;
 	for (UINT64 i = 0, size = BoneTransforms.ElementCount; i < size; ++i)
 	{
-		pBoneTransformConstData[i] = AnimData.Get(clipID, (UINT)i, frame).Transpose();
+		pBoneTransformConstData[i] = AnimData.Get((int)i).Transpose();
 	}
 	BoneTransforms.Upload();
 
 	updateJointSpheres(clipID, frame);
 }
 
-void SkinnedMeshModel::UpdateJointSpheres()
+void SkinnedMeshModel::UpdateCharacter()
 {
-	AnimData.Update(0, 0);
+	updateJointSpheres(0, 0);
+}
+
+void SkinnedMeshModel::UpdateCharacter(Vector3& target, int chainPart)
+{
+	// AnimData.Update(0, 0);
+	
+	switch (chainPart)
+	{
+		// right arm.
+		case 0:
+			RightArm.Update(target, 0, 0);
+			break;
+
+		// left arm.
+		case 1:
+			LeftArm.Update(target, 0, 0);
+			break;
+
+		// right leg.
+		case 2:
+			RightLeg.Update(target, 0, 0);
+			break;
+
+		// left leg.
+		case 3:
+			LeftLeg.Update(target, 0, 0);
+			break;
+			
+		default:
+			__debugbreak();
+			break;
+	}
+
+	// 버퍼 업데이트.
+	Matrix* pBoneTransformConstData = (Matrix*)BoneTransforms.pData;
+	for (UINT64 i = 0, size = BoneTransforms.ElementCount; i < size; ++i)
+	{
+		pBoneTransformConstData[i] = AnimData.Get((int)i).Transpose();
+	}
+	BoneTransforms.Upload();
+
 	updateJointSpheres(0, 0);
 }
 
@@ -614,6 +601,192 @@ void SkinnedMeshModel::SetDescriptorHeap(ResourceManager* pManager)
 	}
 }
 
+void SkinnedMeshModel::initJointSpheres(ResourceManager* pManager)
+{
+	_ASSERT(pManager);
+
+	MeshInfo meshData;
+	MeshConstant* pMeshConst = nullptr;
+	MaterialConstant* pMaterialConst = nullptr;
+
+	// for chain debugging.
+	meshData = INIT_MESH_INFO;
+	MakeWireSphere(&meshData, BoundingSphere.Center, 0.05f);
+	RightHandMiddle.Radius = 0.05f + 1e-3f;
+	LeftHandMiddle.Radius = 0.05f + 1e-3f;
+	RightToe.Radius = 0.05f + 1e-3f;
+	LeftToe.Radius = 0.05f + 1e-3f;
+
+	for (int i = 0; i < 4; ++i)
+	{
+		Mesh** ppRightArmPart = &m_ppRightArm[i];
+		Mesh** ppLeftArmPart = &m_ppLeftArm[i];
+		Mesh** ppRightLegPart = &m_ppRightLeg[i];
+		Mesh** ppLeftLegPart = &m_ppLeftLeg[i];
+
+		*ppRightArmPart = new Mesh;
+		*ppLeftArmPart = new Mesh;
+		*ppRightLegPart = new Mesh;
+		*ppLeftLegPart = new Mesh;
+
+		(*ppRightArmPart)->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
+		(*ppLeftArmPart)->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
+		(*ppRightLegPart)->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
+		(*ppLeftLegPart)->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
+
+		(*ppRightArmPart)->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
+		(*ppLeftArmPart)->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
+		(*ppRightLegPart)->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
+		(*ppLeftLegPart)->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
+
+		pMeshConst = (MeshConstant*)(*ppRightArmPart)->MeshConstant.pData;
+		pMeshConst->World = Matrix();
+		pMeshConst = (MeshConstant*)(*ppLeftArmPart)->MeshConstant.pData;
+		pMeshConst->World = Matrix();
+		pMeshConst = (MeshConstant*)(*ppRightLegPart)->MeshConstant.pData;
+		pMeshConst->World = Matrix();
+		pMeshConst = (MeshConstant*)(*ppLeftLegPart)->MeshConstant.pData;
+		pMeshConst->World = Matrix();
+
+		// need to be for pp ver.
+		InitMeshBuffers(pManager, meshData, ppRightArmPart);
+		InitMeshBuffers(pManager, meshData, ppLeftArmPart);
+		InitMeshBuffers(pManager, meshData, ppRightLegPart);
+		InitMeshBuffers(pManager, meshData, ppLeftLegPart);
+	}
+}
+
+void SkinnedMeshModel::initChain()
+{
+	const Matrix BONE_CORRECTION_TRANSFORM[16] = 
+	{
+		Matrix::CreateTranslation(Vector3(0.09f, 0.52f, 0.048f)),
+		Matrix::CreateTranslation(Vector3(-0.18f, 0.51f, 0.048f)),
+		Matrix::CreateTranslation(Vector3(-0.32f, 0.52f, 0.048f)),
+		Matrix::CreateTranslation(Vector3(-0.44f, 0.52f, 0.048f)),
+
+		Matrix::CreateTranslation(Vector3(0.32f, 0.5125f, 0.048f)),
+		Matrix::CreateTranslation(Vector3(0.61f, 0.5f, 0.048f)),
+		Matrix::CreateTranslation(Vector3(0.74f, 0.5f, 0.048f)),
+		Matrix::CreateTranslation(Vector3(0.87f, 0.5f, 0.05f)),
+
+		Matrix::CreateTranslation(Vector3(0.165f, 0.05f, 0.04f)),
+		Matrix::CreateTranslation(Vector3(0.155f, -0.18f, 0.05f)),
+		Matrix::CreateTranslation(Vector3(0.16f, -0.38f, 0.05f)),
+		Matrix::CreateTranslation(Vector3(0.14f, -0.43f, -0.09f)),
+
+		Matrix::CreateTranslation(Vector3(0.26f, 0.05f, 0.04f)),
+		Matrix::CreateTranslation(Vector3(0.26f, -0.18f, 0.05f)),
+		Matrix::CreateTranslation(Vector3(0.25f, -0.38f, 0.05f)),
+		Matrix::CreateTranslation(Vector3(0.26f, -0.43f, -0.09f)),
+	};
+	const char* BONE_NAME[16] = 
+	{
+		"mixamorig:RightArm",
+		"mixamorig:RightForeArm",
+		"mixamorig:RightHand",
+		"mixamorig:RightHandMiddle1",
+
+		"mixamorig:LeftArm",
+		"mixamorig:LeftForeArm",
+		"mixamorig:LeftHand",
+		"mixamorig:LeftHandMiddle1",
+
+		"mixamorig:RightUpLeg",
+		"mixamorig:RightLeg",
+		"mixamorig:RightFoot",
+		"mixamorig:RightToeBase",
+
+		"mixamorig:LeftUpLeg",
+		"mixamorig:LeftLeg",
+		"mixamorig:LeftFoot",
+		"mixamorig:LeftToeBase",
+	};
+
+	RightArm.BodyChain.resize(4);
+	RightArm.pAnimationClips = &AnimData.Clips;
+	RightArm.DefaultTransform = AnimData.DefaultTransform;
+	RightArm.InverseDefaultTransform = AnimData.InverseDefaultTransform;
+	LeftArm.BodyChain.resize(4);
+	LeftArm.pAnimationClips = &AnimData.Clips;
+	LeftArm.DefaultTransform = AnimData.DefaultTransform;
+	LeftArm.InverseDefaultTransform = AnimData.InverseDefaultTransform;
+	RightLeg.BodyChain.resize(4);
+	RightLeg.pAnimationClips = &AnimData.Clips;
+	RightLeg.DefaultTransform = AnimData.DefaultTransform;
+	RightLeg.InverseDefaultTransform = AnimData.InverseDefaultTransform;
+	LeftLeg.BodyChain.resize(4);
+	LeftLeg.pAnimationClips = &AnimData.Clips;
+	LeftLeg.DefaultTransform = AnimData.DefaultTransform;
+	LeftLeg.InverseDefaultTransform = AnimData.InverseDefaultTransform;
+
+	int boneNameIndex = 0;
+	// right arm.
+	for (int i = 0; i < 4; ++i)
+	{
+		const UINT BONE_ID = AnimData.BoneNameToID[BONE_NAME[boneNameIndex]];
+		const UINT BONE_PARENT_ID = AnimData.BoneParents[BONE_ID];
+
+		RightArm.BodyChain[i].BoneID = BONE_ID;
+		RightArm.BodyChain[i].pWorld = &((MeshConstant*)m_ppRightArm[i]->MeshConstant.pData)->World;
+		RightArm.BodyChain[i].pOffset = &AnimData.OffsetMatrices[BONE_ID];
+		RightArm.BodyChain[i].pParentMatrix = &AnimData.BoneTransforms[BONE_PARENT_ID];
+		RightArm.BodyChain[i].pJointTransform = &AnimData.BoneTransforms[BONE_ID];
+		RightArm.BodyChain[i].Correction = BONE_CORRECTION_TRANSFORM[boneNameIndex];
+		RightArm.BodyChain[i].CharacterWorld = World;
+
+		++boneNameIndex;
+	}
+	// left arm.
+	for (int i = 0; i < 4; ++i)
+	{
+		const UINT BONE_ID = AnimData.BoneNameToID[BONE_NAME[boneNameIndex]];
+		const UINT BONE_PARENT_ID = AnimData.BoneParents[BONE_ID];
+
+		LeftArm.BodyChain[i].BoneID = BONE_ID;
+		LeftArm.BodyChain[i].pWorld = &((MeshConstant*)m_ppLeftArm[i]->MeshConstant.pData)->World;
+		LeftArm.BodyChain[i].pOffset = &AnimData.OffsetMatrices[BONE_ID];
+		LeftArm.BodyChain[i].pParentMatrix = &AnimData.BoneTransforms[BONE_PARENT_ID];
+		LeftArm.BodyChain[i].pJointTransform = &AnimData.BoneTransforms[BONE_ID];
+		LeftArm.BodyChain[i].Correction = BONE_CORRECTION_TRANSFORM[boneNameIndex];
+		LeftArm.BodyChain[i].CharacterWorld = World;
+
+		++boneNameIndex;
+	}
+	// right leg.
+	for (int i = 0; i < 4; ++i)
+	{
+		const UINT BONE_ID = AnimData.BoneNameToID[BONE_NAME[boneNameIndex]];
+		const UINT BONE_PARENT_ID = AnimData.BoneParents[BONE_ID];
+
+		RightLeg.BodyChain[i].BoneID = BONE_ID;
+		RightLeg.BodyChain[i].pWorld = &((MeshConstant*)m_ppRightLeg[i]->MeshConstant.pData)->World;
+		RightLeg.BodyChain[i].pOffset = &AnimData.OffsetMatrices[BONE_ID];
+		RightLeg.BodyChain[i].pParentMatrix = &AnimData.BoneTransforms[BONE_PARENT_ID];
+		RightLeg.BodyChain[i].pJointTransform = &AnimData.BoneTransforms[BONE_ID];
+		RightLeg.BodyChain[i].Correction = BONE_CORRECTION_TRANSFORM[boneNameIndex];
+		RightLeg.BodyChain[i].CharacterWorld = World;
+
+		++boneNameIndex;
+	}
+	// left leg.
+	for (int i = 0; i < 4; ++i)
+	{
+		const UINT BONE_ID = AnimData.BoneNameToID[BONE_NAME[boneNameIndex]];
+		const UINT BONE_PARENT_ID = AnimData.BoneParents[BONE_ID];
+
+		LeftLeg.BodyChain[i].BoneID = BONE_ID;
+		LeftLeg.BodyChain[i].pWorld = &((MeshConstant*)m_ppLeftLeg[i]->MeshConstant.pData)->World;
+		LeftLeg.BodyChain[i].pOffset = &AnimData.OffsetMatrices[BONE_ID];
+		LeftLeg.BodyChain[i].pParentMatrix = &AnimData.BoneTransforms[BONE_PARENT_ID];
+		LeftLeg.BodyChain[i].pJointTransform = &AnimData.BoneTransforms[BONE_ID];
+		LeftLeg.BodyChain[i].Correction = BONE_CORRECTION_TRANSFORM[boneNameIndex];
+		LeftLeg.BodyChain[i].CharacterWorld = World;
+
+		++boneNameIndex;
+	}
+}
+
 void SkinnedMeshModel::updateJointSpheres(int clipID, int frame)
 {
 	// root bone transform을 통해 bounding box 업데이트.
@@ -621,8 +794,8 @@ void SkinnedMeshModel::updateJointSpheres(int clipID, int frame)
 	// world를 바꿔주게 되면 캐릭터 자체가 시야에서 없어져버림.
 	// 현재, Model에서는 bounding box와 bounding sphere를 world에 맞춰 이동시키는데,
 	// 캐릭터에서는 이를 방지하기 위해 bounding object만 따로 변환시킴.
-	const UINT ROOT_BONE_ID = AnimData.BoneNameToID["mixamorig:Hips"];
-	const Matrix ROOT_BONE_TRANSFORM = AnimData.Get(clipID, ROOT_BONE_ID, frame);
+	const int ROOT_BONE_ID = AnimData.BoneNameToID["mixamorig:Hips"];
+	const Matrix ROOT_BONE_TRANSFORM = AnimData.Get(ROOT_BONE_ID);
 	const Matrix CORRECTION_CENTER = Matrix::CreateTranslation(Vector3(0.2f, 0.0f, 0.0f));
 	MeshConstant* pBoxMeshConst = (MeshConstant*)m_pBoundingBoxMesh->MeshConstant.pData;
 	MeshConstant* pSphereMeshConst = (MeshConstant*)m_pBoundingSphereMesh->MeshConstant.pData;
@@ -634,39 +807,39 @@ void SkinnedMeshModel::updateJointSpheres(int clipID, int frame)
 
 	// update debugging sphere for chain.
 	{
-		const UINT RIGHT_ARM_ID = AnimData.BoneNameToID["mixamorig:RightArm"];
-		const UINT RIGHT_FORE_ARM_ID = AnimData.BoneNameToID["mixamorig:RightForeArm"];
-		const UINT RIGHT_HAND_ID = AnimData.BoneNameToID["mixamorig:RightHand"];
-		const UINT RIGHT_HAND_MIDDLE_ID = AnimData.BoneNameToID["mixamorig:RightHandMiddle1"];
-		const UINT LEFT_ARM_ID = AnimData.BoneNameToID["mixamorig:LeftArm"];
-		const UINT LEFT_ARM_FORE_ID = AnimData.BoneNameToID["mixamorig:LeftForeArm"];
-		const UINT LEFT_HAND_ID = AnimData.BoneNameToID["mixamorig:LeftHand"];
-		const UINT LEFT_HAND_MIDDLE_ID = AnimData.BoneNameToID["mixamorig:LeftHandMiddle1"];
-		const UINT RIGHT_UP_LEG_ID = AnimData.BoneNameToID["mixamorig:RightUpLeg"];
-		const UINT RIGHT_LEG_ID = AnimData.BoneNameToID["mixamorig:RightLeg"];
-		const UINT RIGHT_FOOT_ID = AnimData.BoneNameToID["mixamorig:RightFoot"];
-		const UINT RIGHT_TOE_ID = AnimData.BoneNameToID["mixamorig:RightToeBase"];
-		const UINT LEFT_UP_LEG_ID = AnimData.BoneNameToID["mixamorig:LeftUpLeg"];
-		const UINT LEFT_LEG_ID = AnimData.BoneNameToID["mixamorig:LeftLeg"];
-		const UINT LEFT_FOOT_ID = AnimData.BoneNameToID["mixamorig:LeftFoot"];
-		const UINT LEFT_TOE_ID = AnimData.BoneNameToID["mixamorig:LeftToeBase"];
+		const int RIGHT_ARM_ID = AnimData.BoneNameToID["mixamorig:RightArm"];
+		const int RIGHT_FORE_ARM_ID = AnimData.BoneNameToID["mixamorig:RightForeArm"];
+		const int RIGHT_HAND_ID = AnimData.BoneNameToID["mixamorig:RightHand"];
+		const int RIGHT_HAND_MIDDLE_ID = AnimData.BoneNameToID["mixamorig:RightHandMiddle1"];
+		const int LEFT_ARM_ID = AnimData.BoneNameToID["mixamorig:LeftArm"];
+		const int LEFT_ARM_FORE_ID = AnimData.BoneNameToID["mixamorig:LeftForeArm"];
+		const int LEFT_HAND_ID = AnimData.BoneNameToID["mixamorig:LeftHand"];
+		const int LEFT_HAND_MIDDLE_ID = AnimData.BoneNameToID["mixamorig:LeftHandMiddle1"];
+		const int RIGHT_UP_LEG_ID = AnimData.BoneNameToID["mixamorig:RightUpLeg"];
+		const int RIGHT_LEG_ID = AnimData.BoneNameToID["mixamorig:RightLeg"];
+		const int RIGHT_FOOT_ID = AnimData.BoneNameToID["mixamorig:RightFoot"];
+		const int RIGHT_TOE_ID = AnimData.BoneNameToID["mixamorig:RightToeBase"];
+		const int LEFT_UP_LEG_ID = AnimData.BoneNameToID["mixamorig:LeftUpLeg"];
+		const int LEFT_LEG_ID = AnimData.BoneNameToID["mixamorig:LeftLeg"];
+		const int LEFT_FOOT_ID = AnimData.BoneNameToID["mixamorig:LeftFoot"];
+		const int LEFT_TOE_ID = AnimData.BoneNameToID["mixamorig:LeftToeBase"];
 
-		const Matrix RIGHT_ARM_TRANSFORM = AnimData.Get(clipID, RIGHT_ARM_ID, frame);
-		const Matrix RIGHT_FORE_ARM_TRANSFORM = AnimData.Get(clipID, RIGHT_FORE_ARM_ID, frame);
-		const Matrix RIGHT_HAND_TRANSFORM = AnimData.Get(clipID, RIGHT_HAND_ID, frame);
-		const Matrix RIGHT_HAND_MIDDLE_TRANSFORM = AnimData.Get(clipID, RIGHT_HAND_MIDDLE_ID, frame);
-		const Matrix LEFT_ARM_TRANSFORM = AnimData.Get(clipID, LEFT_ARM_ID, frame);
-		const Matrix LEFT_FORE_ARM_TRANSFORM = AnimData.Get(clipID, LEFT_ARM_FORE_ID, frame);
-		const Matrix LEFT_HAND_TRANSFORM = AnimData.Get(clipID, LEFT_HAND_ID, frame);
-		const Matrix LEFT_HAND_MIDDLE_TRANSFORM = AnimData.Get(clipID, LEFT_HAND_MIDDLE_ID, frame);
-		const Matrix RIGHT_UP_LEG_TRANSFORM = AnimData.Get(clipID, RIGHT_UP_LEG_ID, frame);
-		const Matrix RIGHT_LEG_TRANSFORM = AnimData.Get(clipID, RIGHT_LEG_ID, frame);
-		const Matrix RIGHT_FOOT_TRANSFORM = AnimData.Get(clipID, RIGHT_FOOT_ID, frame);
-		const Matrix RIGHT_TOE_TRANSFORM = AnimData.Get(clipID, RIGHT_TOE_ID, frame);
-		const Matrix LEFT_UP_LEG_TRANSFORM = AnimData.Get(clipID, LEFT_UP_LEG_ID, frame);
-		const Matrix LEFT_LEG_TRANSFORM = AnimData.Get(clipID, LEFT_LEG_ID, frame);
-		const Matrix LEFT_FOOT_TRANSFORM = AnimData.Get(clipID, LEFT_FOOT_ID, frame);
-		const Matrix LEFT_TOE_TRANSFORM = AnimData.Get(clipID, LEFT_TOE_ID, frame);
+		const Matrix RIGHT_ARM_TRANSFORM = AnimData.Get(RIGHT_ARM_ID);
+		const Matrix RIGHT_FORE_ARM_TRANSFORM = AnimData.Get(RIGHT_FORE_ARM_ID);
+		const Matrix RIGHT_HAND_TRANSFORM = AnimData.Get(RIGHT_HAND_ID);
+		const Matrix RIGHT_HAND_MIDDLE_TRANSFORM = AnimData.Get(RIGHT_HAND_MIDDLE_ID);
+		const Matrix LEFT_ARM_TRANSFORM = AnimData.Get(LEFT_ARM_ID);
+		const Matrix LEFT_FORE_ARM_TRANSFORM = AnimData.Get(LEFT_ARM_FORE_ID);
+		const Matrix LEFT_HAND_TRANSFORM = AnimData.Get(LEFT_HAND_ID);
+		const Matrix LEFT_HAND_MIDDLE_TRANSFORM = AnimData.Get(LEFT_HAND_MIDDLE_ID);
+		const Matrix RIGHT_UP_LEG_TRANSFORM = AnimData.Get(RIGHT_UP_LEG_ID);
+		const Matrix RIGHT_LEG_TRANSFORM = AnimData.Get(RIGHT_LEG_ID);
+		const Matrix RIGHT_FOOT_TRANSFORM = AnimData.Get(RIGHT_FOOT_ID);
+		const Matrix RIGHT_TOE_TRANSFORM = AnimData.Get(RIGHT_TOE_ID);
+		const Matrix LEFT_UP_LEG_TRANSFORM = AnimData.Get(LEFT_UP_LEG_ID);
+		const Matrix LEFT_LEG_TRANSFORM = AnimData.Get(LEFT_LEG_ID);
+		const Matrix LEFT_FOOT_TRANSFORM = AnimData.Get(LEFT_FOOT_ID);
+		const Matrix LEFT_TOE_TRANSFORM = AnimData.Get(LEFT_TOE_ID);
 
 		/*const Matrix CORRECTION_RIGHT_ARM = Matrix::CreateTranslation(Vector3(0.085f, 0.33f, 0.06f));
 		const Matrix CORRECTION_RIGHT_FORE_ARM = Matrix::CreateTranslation(Vector3(-0.04f, 0.32f, 0.06f));

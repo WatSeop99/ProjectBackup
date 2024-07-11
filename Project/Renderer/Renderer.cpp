@@ -1351,6 +1351,7 @@ void Renderer::processMouseControl()
 {
 	static Model* s_pActiveModel = nullptr;
 	static Mesh* s_pEndEffector = nullptr;
+	static int s_EndEffectorType = -1;
 	static float s_PrevRatio = 0.0f;
 	static Vector3 s_PrevPos(0.0f);
 	static Vector3 s_PrevVector(0.0f);
@@ -1379,7 +1380,7 @@ void Renderer::processMouseControl()
 		if (!s_pActiveModel) // 이전 프레임에서 아무 물체도 선택되지 않았을 경우에는 새로 선택.
 		{
 			Mesh* pEndEffector = nullptr;
-			Model* pSelectedModel = pickClosest(PICKING_RAY, &dist, &pEndEffector);
+			Model* pSelectedModel = pickClosest(PICKING_RAY, &dist, &pEndEffector, &s_EndEffectorType);
 			if (pSelectedModel)
 			{
 #ifdef _DEBUG
@@ -1488,9 +1489,37 @@ void Renderer::processMouseControl()
 		if (s_pEndEffector)
 		{
 			MeshConstant* pMeshConstant = (MeshConstant*)s_pEndEffector->MeshConstant.pData;
-			translation = pMeshConstant->World.Translation();
-			// update world.
-			pMeshConstant->World = (Matrix::CreateTranslation(dragTranslation + translation)).Transpose();
+			translation = pMeshConstant->World.Translation() + dragTranslation;
+
+			{
+				std::string debugString = std::string("dragTranslation: ") + std::to_string(dragTranslation.x) + std::string(", ") + std::to_string(dragTranslation.y) + std::string(", ") + std::to_string(dragTranslation.z) + std::string("\n");
+				OutputDebugStringA(debugString.c_str());
+			}
+			
+			SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)s_pActiveModel;
+			switch (s_EndEffectorType)
+			{
+				case 0:
+					OutputDebugStringA("RightArm Control.\n");
+					break;
+
+				case 1:
+					OutputDebugStringA("LeftArm Control.\n");
+					break;
+
+				case 2:
+					OutputDebugStringA("RightLeg Control.\n");
+					break;
+					
+				case 3:
+					OutputDebugStringA("LeftLeg Control.\n");
+					break;
+
+				default:
+					__debugbreak();
+					break;
+			}
+			pCharacter->UpdateCharacter(translation, s_EndEffectorType);
 		}
 		else
 		{
@@ -1510,7 +1539,7 @@ void Renderer::processMouseControl()
 	}
 }
 
-Model* Renderer::pickClosest(const DirectX::SimpleMath::Ray& PICKING_RAY, float* pMinDist, Mesh** ppEndEffector)
+Model* Renderer::pickClosest(const DirectX::SimpleMath::Ray& PICKING_RAY, float* pMinDist, Mesh** ppEndEffector, int* pEndEffectorType)
 {
 	*pMinDist = 1e5f;
 	Model* pMinModel = nullptr;
@@ -1546,29 +1575,113 @@ Model* Renderer::pickClosest(const DirectX::SimpleMath::Ray& PICKING_RAY, float*
 
 					// 4개 end-effector 중 어디에 해당되는 지 확인.
 					SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pCurModel;
-					if (PICKING_RAY.Intersects(pCharacter->RightHandMiddle, dist) &&
-						dist < *pMinDist)
+					//{
+					//	std::string debugString;
+
+					//	/*Vector3 rayOriginToSphereCencter(Vector3(pCharacter->BoundingSphere.Center) - PICKING_RAY.position);
+					//	float distAtRayAndSphereCenter = rayOriginToSphereCencter.Cross(PICKING_RAY.direction).Length() / PICKING_RAY.direction.Length();
+					//	debugString = std::string("rayOriginToSphereCenter: ") + std::to_string(distAtRayAndSphereCenter) + std::string("\n");
+					//	OutputDebugStringA(debugString.c_str());
+
+					//	Vector3 rayOriginToRightToeCenter(Vector3(pCharacter->RightToe.Center) - PICKING_RAY.position);
+					//	float distAtRayAndToeCenter = rayOriginToRightToeCenter.Cross(PICKING_RAY.direction).Length() / PICKING_RAY.direction.Length();
+					//	debugString = std::string("distAtRayAndToeCenter: ") + std::to_string(distAtRayAndToeCenter) + std::string("\n");
+					//	OutputDebugStringA(debugString.c_str());
+
+					//	Vector3 rayOriginToRightHandCenter(Vector3(pCharacter->RightHandMiddle.Center) - PICKING_RAY.position);
+					//	float distAtRayAndRightHandCenter = rayOriginToRightHandCenter.Cross(PICKING_RAY.direction).Length() / PICKING_RAY.direction.Length();
+					//	debugString = std::string("distAtRayAndRightHand: ") + std::to_string(distAtRayAndRightHandCenter) + std::string("\n");
+					//	OutputDebugStringA(debugString.c_str());*/
+
+					//	/*Vector3 rightToeToCenter(Vector3(pCharacter->BoundingSphere.Center) - Vector3(pCharacter->RightToe.Center));
+					//	Vector3 leftToeToCenter(Vector3(pCharacter->BoundingSphere.Center) - Vector3(pCharacter->LeftToe.Center));
+					//	Vector3 rightHandToCenter(Vector3(pCharacter->BoundingSphere.Center) - Vector3(pCharacter->RightHandMiddle.Center));
+					//	Vector3 leftHandToCenter(Vector3(pCharacter->BoundingSphere.Center) - Vector3(pCharacter->LeftHandMiddle.Center));
+
+					//	debugString = std::string("rightToeToCenter: ") + std::to_string(rightToeToCenter.Length()) + std::string("\n");
+					//	OutputDebugStringA(debugString.c_str());
+					//	debugString = std::string("leftToeToCenter: ") + std::to_string(leftToeToCenter.Length()) + std::string("\n");
+					//	OutputDebugStringA(debugString.c_str());
+					//	debugString = std::string("rightHandToCenter: ") + std::to_string(rightHandToCenter.Length()) + std::string("\n");
+					//	OutputDebugStringA(debugString.c_str());
+					//	debugString = std::string("leftHandToCenter: ") + std::to_string(leftHandToCenter.Length()) + std::string("\n");
+					//	OutputDebugStringA(debugString.c_str());
+					//	debugString = std::string("sphere radius: ") + std::to_string(pCharacter->BoundingSphere.Radius) + std::string("\n");
+					//	OutputDebugStringA(debugString.c_str());*/
+
+					//	OutputDebugStringA("\n\n");
+					//}
+
+					//if (PICKING_RAY.Intersects(pCharacter->RightHandMiddle, dist) &&
+					//	dist < *pMinDist)
+					//{
+					//	*ppEndEffector = *(pCharacter->GetRightArmsMesh() + 3);
+					//	*pMinDist = dist;
+					//}
+					//if (PICKING_RAY.Intersects(pCharacter->LeftHandMiddle, dist) &&
+					//	dist < *pMinDist)
+					//{
+					//	*ppEndEffector = *(pCharacter->GetLeftArmsMesh() + 3);
+					//	*pMinDist = dist;
+					//}
+					//if (PICKING_RAY.Intersects(pCharacter->RightToe, dist) &&
+					//	dist < *pMinDist)
+					//{
+					//	*ppEndEffector = *(pCharacter->GetRightLegsMesh() + 3);
+					//	*pMinDist = dist;
+					//}
+					//if (PICKING_RAY.Intersects(pCharacter->LeftToe, dist) &&
+					//	dist < *pMinDist)
+					//{
+					//	*ppEndEffector = *(pCharacter->GetLeftLegsMesh() + 3);
+					//	*pMinDist = dist;
+					//}
+
+					// 기존 picking 방식을 사용하면, 각 joint별 sphere가 너무 작아서인지 오차가 생기는 것 같음.
+					// 그래서 가정을 하나 함. 모델 picking하면 end-effector를 잡는다고 가정.
+					// picking ray와 각 end-effector 중심 거리가 가장 작은 것을 선택.
+					Vector3 rayToEndEffectorCenter;
+					float rayToEndEffectorDist;
+					const float PICKING_RAY_DIR_LENGTH = PICKING_RAY.direction.Length();
+
+					// right hand middle.
+					rayToEndEffectorCenter = pCharacter->RightHandMiddle.Center - PICKING_RAY.position;
+					rayToEndEffectorDist = rayToEndEffectorCenter.Cross(PICKING_RAY.direction).Length() / PICKING_RAY_DIR_LENGTH;
+					if (rayToEndEffectorDist < dist)
 					{
 						*ppEndEffector = *(pCharacter->GetRightArmsMesh() + 3);
-						*pMinDist = dist;
+						*pEndEffectorType = 0;
+						dist = rayToEndEffectorDist;
 					}
-					if (PICKING_RAY.Intersects(pCharacter->LeftHandMiddle, dist) &&
-						dist < *pMinDist)
+
+					// left hand middle.
+					rayToEndEffectorCenter = pCharacter->LeftHandMiddle.Center - PICKING_RAY.position;
+					rayToEndEffectorDist = rayToEndEffectorCenter.Cross(PICKING_RAY.direction).Length() / PICKING_RAY_DIR_LENGTH;
+					if (rayToEndEffectorDist < dist)
 					{
 						*ppEndEffector = *(pCharacter->GetLeftArmsMesh() + 3);
-						*pMinDist = dist;
+						*pEndEffectorType = 1;
+						dist = rayToEndEffectorDist;
 					}
-					if (PICKING_RAY.Intersects(pCharacter->RightToe, dist) &&
-						dist < *pMinDist)
+
+					// right toe.
+					rayToEndEffectorCenter = pCharacter->RightToe.Center - PICKING_RAY.position;
+					rayToEndEffectorDist = rayToEndEffectorCenter.Cross(PICKING_RAY.direction).Length() / PICKING_RAY_DIR_LENGTH;
+					if (rayToEndEffectorDist < dist)
 					{
 						*ppEndEffector = *(pCharacter->GetRightLegsMesh() + 3);
-						*pMinDist = dist;
+						*pEndEffectorType = 2;
+						dist = rayToEndEffectorDist;
 					}
-					if (PICKING_RAY.Intersects(pCharacter->LeftToe, dist) &&
-						dist < *pMinDist)
+
+					// left toe.
+					rayToEndEffectorCenter = pCharacter->LeftToe.Center - PICKING_RAY.position;
+					rayToEndEffectorDist = rayToEndEffectorCenter.Cross(PICKING_RAY.direction).Length() / PICKING_RAY_DIR_LENGTH;
+					if (rayToEndEffectorDist < dist)
 					{
 						*ppEndEffector = *(pCharacter->GetLeftLegsMesh() + 3);
-						*pMinDist = dist;
+						*pEndEffectorType = 3;
+						dist = rayToEndEffectorDist;
 					}
 				}
 			}

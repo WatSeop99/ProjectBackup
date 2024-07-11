@@ -83,6 +83,7 @@ void Normalize(const Vector3 CENTER, const float LONGEST_LENGTH, std::vector<Mes
 
 	// 애니메이션 데이터 보정에 사용.
 	animData.DefaultTransform = Matrix::CreateTranslation(translation) * Matrix::CreateScale(scale);
+	animData.InverseDefaultTransform = animData.DefaultTransform.Invert();
 }
 
 void MakeSquare(MeshInfo* pDst, const float SCALE, const Vector2 TEX_SCALE)

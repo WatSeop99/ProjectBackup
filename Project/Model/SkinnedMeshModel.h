@@ -16,7 +16,8 @@ public:
 
 	void UpdateConstantBuffers() override;
 	void UpdateAnimation(int clipID, int frame) override;
-	void UpdateJointSpheres();
+	void UpdateCharacter();
+	void UpdateCharacter(Vector3& target, int chainPart);
 
 	void Render(ResourceManager* pManager, ePipelineStateSetting psoSetting) override;
 	void RenderEndEffectorSphere(ResourceManager* pManager, ePipelineStateSetting psoSetting);
@@ -31,6 +32,9 @@ public:
 	inline Mesh** GetLeftLegsMesh() { return m_ppLeftLeg; }
 
 protected:
+	void initJointSpheres(ResourceManager* pManager);
+	void initChain();
+
 	void updateJointSpheres(int clipID, int frame);
 
 public:
@@ -41,6 +45,11 @@ public:
 	DirectX::BoundingSphere LeftHandMiddle;
 	DirectX::BoundingSphere RightToe;
 	DirectX::BoundingSphere LeftToe;
+
+	Chain RightArm;
+	Chain LeftArm;
+	Chain RightLeg;
+	Chain LeftLeg;
 
 private:
 	Mesh* m_ppRightArm[4] = { nullptr, }; // right arm - right fore arm - right hand - right hand middle.

@@ -77,7 +77,7 @@ protected:
 	void onMouseMove(const int MOUSE_X, const int MOUSE_Y);
 	void onMouseClick(const int MOUSE_X, const int MOUSE_Y);
 	void processMouseControl();
-	Model* pickClosest(const DirectX::SimpleMath::Ray& PICKING_RAY, float* pMinDist, Mesh** ppEndEffector);
+	Model* pickClosest(const DirectX::SimpleMath::Ray& PICKING_RAY, float* pMinDist, Mesh** ppEndEffector, int* pEndEffectorType);
 
 	UINT64 fence();
 	void waitForFenceValue(UINT64 expectedFenceValue);

@@ -95,7 +95,7 @@ void App::Update(const float DELTA_TIME)
 				}
 				else
 				{
-					pCharacter->UpdateJointSpheres();
+					pCharacter->UpdateCharacter();
 				}
 				pCharacter->UpdateConstantBuffers();
 			}
@@ -268,7 +268,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		AnimationData characterDefaultAnimData;
 		ReadAnimationFromFile(characterMeshInfo, characterDefaultAnimData, path, filename);
 
-		/*for (UINT64 i = 0, size = clipNames.size(); i < size; ++i)
+		for (UINT64 i = 0, size = clipNames.size(); i < size; ++i)
 		{
 			std::wstring& name = clipNames[i];
 			std::vector<MeshInfo> animationMeshInfo;
@@ -283,7 +283,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 			{
 				animationData.Clips.push_back(animDataInClip.Clips[0]);
 			}
-		}*/
+		}
 		
 		if (animationData.Clips.size() > 0)
 		{
@@ -307,6 +307,12 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		m_pCharacter->Name = "MainCharacter";
 		m_pCharacter->bIsPickable = true;
 		m_pCharacter->UpdateWorld(Matrix::CreateScale(1.0f) * Matrix::CreateTranslation(center));
+		
+		if (animationData.Clips.size() == 0)
+		{
+			m_pCharacter->AnimData.Update(0, 0);
+		}
+		
 		m_RenderObjects.push_back((Model*)m_pCharacter);
 	}
 }
