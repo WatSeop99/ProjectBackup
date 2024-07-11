@@ -350,6 +350,13 @@ void ModelLoader::readAnimation(const aiScene* pSCENE)
 				key.Scale = { SCALE.x, SCALE.y, SCALE.z };
 			}
 		}
+		for (UINT boneID = 0, totalBone = AnimData.BoneNameToID.size(); boneID < totalBone; ++boneID)
+		{
+			if (clip.Keys[boneID].size() == 0)
+			{
+				clip.Keys[boneID].push_back(AnimationClip::Key());
+			}
+		}
 	}
 }
 

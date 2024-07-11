@@ -13,9 +13,7 @@ void AnimationData::Update(int clipID, int frame)
 
 		const int PARENT_ID = (int)BoneParents[boneID];
 		const Matrix& PARENT_MATRIX = (PARENT_ID >= 0 ? BoneTransforms[PARENT_ID] : AccumulatedRootTransform);
-
-		AnimationClip::Key key = (KEY_SIZE > 0 ? keys[frame % KEY_SIZE] : AnimationClip::Key());
-		// AnimationClip::Key key = keys[frame % KEY_SIZE];
+		AnimationClip::Key key = keys[frame % KEY_SIZE];
 
 		// Root일 경우.
 		if (PARENT_ID < 0)
@@ -64,8 +62,7 @@ void Joint::Update(float deltaThetaX, float deltaThetaY, float deltaThetaZ, std:
 	// 원래 키 데이터에서의 변환 각도.
 	std::vector<AnimationClip::Key>& keys = (*pClips)[clipID].Keys[BoneID];
 	const UINT64 KEY_SIZE = keys.size();
-	AnimationClip::Key key = (KEY_SIZE > 0 ? keys[frame % KEY_SIZE] : AnimationClip::Key());
-	// AnimationClip::Key key = keys[frame % KEY_SIZE];
+	AnimationClip::Key key = keys[frame % KEY_SIZE];
 	Quaternion originRot = key.Rotation;
 
 	// 원래 각도에서 변환 각도 적용.

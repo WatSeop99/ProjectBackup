@@ -6,3 +6,9 @@ right hand ring1 --> 약지 시작부분
 right hand thumb1 --> 엄지 시작부분
 
 end-effector은 right hand middle이 좋아 보임.
+
+
+https://github.com/agh372/3D-Inverse-Kinematics
+https://github.com/TonyZYT2000/MyInverseKinematics
+
+cross할 때, diff vector가 length를 포함해야 할듯.. 예제 참조하셈.
