@@ -17,21 +17,17 @@ struct AnimationClip
 		Key() = default;
 		~Key() = default;
 
-		inline Matrix GetTransform()
-		{
-			return (Matrix::CreateScale(Scale) * Matrix::CreateFromQuaternion(Rotation) * Matrix::CreateTranslation(Position));
-		}
+		Matrix GetTransform();
 
 	public:
 		Vector3 Position = Vector3(0.0f);
 		Vector3 Scale = Vector3(1.0f);
 		Quaternion Rotation = Quaternion();
-		// Quaternion UpdateRotation = Quaternion();
+		Quaternion UpdateRotation = Quaternion();
 	};
 
 	std::string Name;					 // Name of this animation clip.
 	std::vector<std::vector<Key>> Keys;  // Keys[boneID][frame].
-	std::vector<std::vector<Quaternion>> UpdateRotations; // UpdateRotations[boneID][frame].
 	int NumChannels;					 // Number of bones.
 	int NumKeys;						 // Number of frames of this animation clip.
 	double Duration;					 // Duration of animation in ticks.

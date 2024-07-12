@@ -665,28 +665,6 @@ void SkinnedMeshModel::initJointSpheres(ResourceManager* pManager)
 
 void SkinnedMeshModel::initChain()
 {
-	const Matrix BONE_CORRECTION_TRANSFORM[16] = 
-	{
-		Matrix::CreateTranslation(Vector3(0.09f, 0.52f, 0.048f)),
-		Matrix::CreateTranslation(Vector3(-0.18f, 0.51f, 0.048f)),
-		Matrix::CreateTranslation(Vector3(-0.32f, 0.52f, 0.048f)),
-		Matrix::CreateTranslation(Vector3(-0.44f, 0.52f, 0.048f)),
-
-		Matrix::CreateTranslation(Vector3(0.32f, 0.5125f, 0.048f)),
-		Matrix::CreateTranslation(Vector3(0.61f, 0.5f, 0.048f)),
-		Matrix::CreateTranslation(Vector3(0.74f, 0.5f, 0.048f)),
-		Matrix::CreateTranslation(Vector3(0.87f, 0.5f, 0.05f)),
-
-		Matrix::CreateTranslation(Vector3(0.165f, 0.05f, 0.04f)),
-		Matrix::CreateTranslation(Vector3(0.155f, -0.18f, 0.05f)),
-		Matrix::CreateTranslation(Vector3(0.16f, -0.38f, 0.05f)),
-		Matrix::CreateTranslation(Vector3(0.14f, -0.43f, -0.09f)),
-
-		Matrix::CreateTranslation(Vector3(0.26f, 0.05f, 0.04f)),
-		Matrix::CreateTranslation(Vector3(0.26f, -0.18f, 0.05f)),
-		Matrix::CreateTranslation(Vector3(0.25f, -0.38f, 0.05f)),
-		Matrix::CreateTranslation(Vector3(0.26f, -0.43f, -0.09f)),
-	};
 	const char* BONE_NAME[16] = 
 	{
 		"mixamorig:RightArm",
@@ -708,6 +686,28 @@ void SkinnedMeshModel::initChain()
 		"mixamorig:LeftLeg",
 		"mixamorig:LeftFoot",
 		"mixamorig:LeftToeBase",
+	};
+	const Matrix BONE_CORRECTION_TRANSFORM[16] =
+	{
+		Matrix::CreateTranslation(Vector3(0.09f, 0.52f, 0.048f)),
+		Matrix::CreateTranslation(Vector3(-0.18f, 0.51f, 0.048f)),
+		Matrix::CreateTranslation(Vector3(-0.32f, 0.52f, 0.048f)),
+		Matrix::CreateTranslation(Vector3(-0.44f, 0.52f, 0.048f)),
+
+		Matrix::CreateTranslation(Vector3(0.32f, 0.5125f, 0.048f)),
+		Matrix::CreateTranslation(Vector3(0.61f, 0.5f, 0.048f)),
+		Matrix::CreateTranslation(Vector3(0.74f, 0.5f, 0.048f)),
+		Matrix::CreateTranslation(Vector3(0.87f, 0.5f, 0.05f)),
+
+		Matrix::CreateTranslation(Vector3(0.165f, 0.05f, 0.04f)),
+		Matrix::CreateTranslation(Vector3(0.155f, -0.18f, 0.05f)),
+		Matrix::CreateTranslation(Vector3(0.16f, -0.38f, 0.05f)),
+		Matrix::CreateTranslation(Vector3(0.14f, -0.43f, -0.09f)),
+
+		Matrix::CreateTranslation(Vector3(0.26f, 0.05f, 0.04f)),
+		Matrix::CreateTranslation(Vector3(0.26f, -0.18f, 0.05f)),
+		Matrix::CreateTranslation(Vector3(0.25f, -0.38f, 0.05f)),
+		Matrix::CreateTranslation(Vector3(0.26f, -0.43f, -0.09f)),
 	};
 
 	RightArm.BodyChain.resize(4);
@@ -818,40 +818,6 @@ void SkinnedMeshModel::updateJointSpheres(int clipID, int frame)
 
 	// update debugging sphere for chain.
 	{
-		const int RIGHT_ARM_ID = AnimData.BoneNameToID["mixamorig:RightArm"];
-		const int RIGHT_FORE_ARM_ID = AnimData.BoneNameToID["mixamorig:RightForeArm"];
-		const int RIGHT_HAND_ID = AnimData.BoneNameToID["mixamorig:RightHand"];
-		const int RIGHT_HAND_MIDDLE_ID = AnimData.BoneNameToID["mixamorig:RightHandMiddle1"];
-		const int LEFT_ARM_ID = AnimData.BoneNameToID["mixamorig:LeftArm"];
-		const int LEFT_ARM_FORE_ID = AnimData.BoneNameToID["mixamorig:LeftForeArm"];
-		const int LEFT_HAND_ID = AnimData.BoneNameToID["mixamorig:LeftHand"];
-		const int LEFT_HAND_MIDDLE_ID = AnimData.BoneNameToID["mixamorig:LeftHandMiddle1"];
-		const int RIGHT_UP_LEG_ID = AnimData.BoneNameToID["mixamorig:RightUpLeg"];
-		const int RIGHT_LEG_ID = AnimData.BoneNameToID["mixamorig:RightLeg"];
-		const int RIGHT_FOOT_ID = AnimData.BoneNameToID["mixamorig:RightFoot"];
-		const int RIGHT_TOE_ID = AnimData.BoneNameToID["mixamorig:RightToeBase"];
-		const int LEFT_UP_LEG_ID = AnimData.BoneNameToID["mixamorig:LeftUpLeg"];
-		const int LEFT_LEG_ID = AnimData.BoneNameToID["mixamorig:LeftLeg"];
-		const int LEFT_FOOT_ID = AnimData.BoneNameToID["mixamorig:LeftFoot"];
-		const int LEFT_TOE_ID = AnimData.BoneNameToID["mixamorig:LeftToeBase"];
-
-		const Matrix RIGHT_ARM_TRANSFORM = AnimData.Get(RIGHT_ARM_ID);
-		const Matrix RIGHT_FORE_ARM_TRANSFORM = AnimData.Get(RIGHT_FORE_ARM_ID);
-		const Matrix RIGHT_HAND_TRANSFORM = AnimData.Get(RIGHT_HAND_ID);
-		const Matrix RIGHT_HAND_MIDDLE_TRANSFORM = AnimData.Get(RIGHT_HAND_MIDDLE_ID);
-		const Matrix LEFT_ARM_TRANSFORM = AnimData.Get(LEFT_ARM_ID);
-		const Matrix LEFT_FORE_ARM_TRANSFORM = AnimData.Get(LEFT_ARM_FORE_ID);
-		const Matrix LEFT_HAND_TRANSFORM = AnimData.Get(LEFT_HAND_ID);
-		const Matrix LEFT_HAND_MIDDLE_TRANSFORM = AnimData.Get(LEFT_HAND_MIDDLE_ID);
-		const Matrix RIGHT_UP_LEG_TRANSFORM = AnimData.Get(RIGHT_UP_LEG_ID);
-		const Matrix RIGHT_LEG_TRANSFORM = AnimData.Get(RIGHT_LEG_ID);
-		const Matrix RIGHT_FOOT_TRANSFORM = AnimData.Get(RIGHT_FOOT_ID);
-		const Matrix RIGHT_TOE_TRANSFORM = AnimData.Get(RIGHT_TOE_ID);
-		const Matrix LEFT_UP_LEG_TRANSFORM = AnimData.Get(LEFT_UP_LEG_ID);
-		const Matrix LEFT_LEG_TRANSFORM = AnimData.Get(LEFT_LEG_ID);
-		const Matrix LEFT_FOOT_TRANSFORM = AnimData.Get(LEFT_FOOT_ID);
-		const Matrix LEFT_TOE_TRANSFORM = AnimData.Get(LEFT_TOE_ID);
-
 		/*const Matrix CORRECTION_RIGHT_ARM = Matrix::CreateTranslation(Vector3(0.085f, 0.33f, 0.06f));
 		const Matrix CORRECTION_RIGHT_FORE_ARM = Matrix::CreateTranslation(Vector3(-0.04f, 0.32f, 0.06f));
 		const Matrix CORRECTION_RIGHT_HAND = Matrix::CreateTranslation(Vector3(-0.18f, 0.32f, 0.06f));
@@ -868,78 +834,85 @@ void SkinnedMeshModel::updateJointSpheres(int clipID, int frame)
 		const Matrix CORRECTION_LEFT_LEG = Matrix::CreateTranslation(Vector3(0.26f, -0.165f, 0.05f));
 		const Matrix CORRECTION_LEFT_FOOT = Matrix::CreateTranslation(Vector3(0.25f, -0.38f, 0.05f));
 		const Matrix CORRECTION_LEFT_TOE = Matrix::CreateTranslation(Vector3(0.26f, -0.42f, 0.0f));*/
-		const Matrix CORRECTION_RIGHT_ARM = Matrix::CreateTranslation(Vector3(0.09f, 0.52f, 0.048f));
-		const Matrix CORRECTION_RIGHT_FORE_ARM = Matrix::CreateTranslation(Vector3(-0.18f, 0.51f, 0.048f));
-		const Matrix CORRECTION_RIGHT_HAND = Matrix::CreateTranslation(Vector3(-0.32f, 0.52f, 0.048f));
-		const Matrix CORRECTION_RIGHT_HAND_MIDDLE = Matrix::CreateTranslation(Vector3(-0.44f, 0.52f, 0.048f));
-		const Matrix CORRECTION_LEFT_ARM = Matrix::CreateTranslation(Vector3(0.32f, 0.5125f, 0.048f));
-		const Matrix CORRECTION_LEFT_FORE_ARM = Matrix::CreateTranslation(Vector3(0.61f, 0.5f, 0.048f));
-		const Matrix CORRECTION_LEFT_HAND = Matrix::CreateTranslation(Vector3(0.74f, 0.5f, 0.048f));
-		const Matrix CORRECTION_LEFT_HAND_MIDDLE = Matrix::CreateTranslation(Vector3(0.87f, 0.5f, 0.05f));
-		const Matrix CORRECTION_RIGHT_UP_LEG = Matrix::CreateTranslation(Vector3(0.165f, 0.05f, 0.04f));
-		const Matrix CORRECTION_RIGHT_LEG = Matrix::CreateTranslation(Vector3(0.155f, -0.18f, 0.05f));
-		const Matrix CORRECTION_RIGHT_FOOT = Matrix::CreateTranslation(Vector3(0.16f, -0.38f, 0.05f));
-		const Matrix CORRECTION_RIGHT_TOE = Matrix::CreateTranslation(Vector3(0.14f, -0.43f, -0.09f));
-		const Matrix CORRECTION_LEFT_UP_LEG = Matrix::CreateTranslation(Vector3(0.26f, 0.05f, 0.04f));
-		const Matrix CORRECTION_LEFT_LEG = Matrix::CreateTranslation(Vector3(0.26f, -0.18f, 0.05f));
-		const Matrix CORRECTION_LEFT_FOOT = Matrix::CreateTranslation(Vector3(0.25f, -0.38f, 0.05f));
-		const Matrix CORRECTION_LEFT_TOE = Matrix::CreateTranslation(Vector3(0.26f, -0.43f, -0.09f));
+		const char* BONE_NAME[16] =
+		{
+			"mixamorig:RightArm",
+			"mixamorig:RightForeArm",
+			"mixamorig:RightHand",
+			"mixamorig:RightHandMiddle1",
 
-		const Matrix CORRECTION = Matrix::CreateTranslation(Vector3(100.0f, 0.0f, 0.0f));
+			"mixamorig:LeftArm",
+			"mixamorig:LeftForeArm",
+			"mixamorig:LeftHand",
+			"mixamorig:LeftHandMiddle1",
 
-		MeshConstant* pRightArmSphere = (MeshConstant*)m_ppRightArm[0]->MeshConstant.pData;
-		MeshConstant* pRightForeArmSphere = (MeshConstant*)m_ppRightArm[1]->MeshConstant.pData;
-		MeshConstant* pRightHandSphere = (MeshConstant*)m_ppRightArm[2]->MeshConstant.pData;
-		MeshConstant* pRightHandMiddleSphere = (MeshConstant*)m_ppRightArm[3]->MeshConstant.pData;
-		MeshConstant* pLeftArmSphere = (MeshConstant*)m_ppLeftArm[0]->MeshConstant.pData;
-		MeshConstant* pLeftForeArmSphere = (MeshConstant*)m_ppLeftArm[1]->MeshConstant.pData;
-		MeshConstant* pLeftHandSphere = (MeshConstant*)m_ppLeftArm[2]->MeshConstant.pData;
-		MeshConstant* pLeftHandMiddleSphere = (MeshConstant*)m_ppLeftArm[3]->MeshConstant.pData;
-		MeshConstant* pRightUpLegSphere = (MeshConstant*)m_ppRightLeg[0]->MeshConstant.pData;
-		MeshConstant* pRightLegSphere = (MeshConstant*)m_ppRightLeg[1]->MeshConstant.pData;
-		MeshConstant* pRightFootSphere = (MeshConstant*)m_ppRightLeg[2]->MeshConstant.pData;
-		MeshConstant* pRightToeSphere = (MeshConstant*)m_ppRightLeg[3]->MeshConstant.pData;
-		MeshConstant* pLeftUpLegSphere = (MeshConstant*)m_ppLeftLeg[0]->MeshConstant.pData;
-		MeshConstant* pLeftLegSphere = (MeshConstant*)m_ppLeftLeg[1]->MeshConstant.pData;
-		MeshConstant* pLeftFootSphere = (MeshConstant*)m_ppLeftLeg[2]->MeshConstant.pData;
-		MeshConstant* pLeftToeSphere = (MeshConstant*)m_ppLeftLeg[3]->MeshConstant.pData;
+			"mixamorig:RightUpLeg",
+			"mixamorig:RightLeg",
+			"mixamorig:RightFoot",
+			"mixamorig:RightToeBase",
 
-		/*pRightArmSphere->World = (CORRECTION_RIGHT_ARM * RIGHT_ARM_TRANSFORM * World).Transpose();
-		pRightForeArmSphere->World = (CORRECTION_RIGHT_FORE_ARM * RIGHT_FORE_ARM_TRANSFORM * World).Transpose();
-		pRightHandSphere->World = (CORRECTION_RIGHT_HAND * RIGHT_HAND_TRANSFORM * World).Transpose();
-		pRightHandMiddleSphere->World = (CORRECTION_RIGHT_HAND_MIDDLE * RIGHT_HAND_MIDDLE_TRANSFORM * World).Transpose();
-		pLeftArmSphere->World = (CORRECTION_LEFT_ARM * LEFT_ARM_TRANSFORM * World).Transpose();
-		pLeftForeArmSphere->World = (CORRECTION_LEFT_FORE_ARM * LEFT_FORE_ARM_TRANSFORM * World).Transpose();
-		pLeftHandSphere->World = (CORRECTION_LEFT_HAND * LEFT_HAND_TRANSFORM * World).Transpose();
-		pLeftHandMiddleSphere->World = (CORRECTION_LEFT_HAND_MIDDLE * LEFT_HAND_MIDDLE_TRANSFORM * World).Transpose();
-		pRightUpLegSphere->World = (CORRECTION_RIGHT_UP_LEG * RIGHT_UP_LEG_TRANSFORM * World).Transpose();
-		pRightLegSphere->World = (CORRECTION_RIGHT_LEG * RIGHT_LEG_TRANSFORM * World).Transpose();
-		pRightFootSphere->World = (CORRECTION_RIGHT_FOOT * RIGHT_FOOT_TRANSFORM * World).Transpose();
-		pRightToeSphere->World = (CORRECTION_RIGHT_TOE * RIGHT_TOE_TRANSFORM * World).Transpose();
-		pLeftUpLegSphere->World = (CORRECTION_LEFT_UP_LEG * LEFT_UP_LEG_TRANSFORM * World).Transpose();
-		pLeftLegSphere->World = (CORRECTION_LEFT_LEG * LEFT_LEG_TRANSFORM * World).Transpose();
-		pLeftFootSphere->World = (CORRECTION_LEFT_FOOT * LEFT_FOOT_TRANSFORM * World).Transpose();
-		pLeftToeSphere->World = (CORRECTION_LEFT_TOE * LEFT_TOE_TRANSFORM * World).Transpose();*/
-		pRightArmSphere->World = (CORRECTION_RIGHT_ARM * RIGHT_ARM_TRANSFORM * World).Transpose();
-		pRightForeArmSphere->World = (CORRECTION_RIGHT_FORE_ARM * RIGHT_FORE_ARM_TRANSFORM * World).Transpose();
-		pRightHandSphere->World = (CORRECTION_RIGHT_HAND * RIGHT_HAND_TRANSFORM * World).Transpose();
-		pRightHandMiddleSphere->World = (CORRECTION_RIGHT_HAND_MIDDLE * RIGHT_HAND_MIDDLE_TRANSFORM * World).Transpose();
-		pLeftArmSphere->World = (CORRECTION_LEFT_ARM * LEFT_ARM_TRANSFORM * World).Transpose();
-		pLeftForeArmSphere->World = (CORRECTION_LEFT_FORE_ARM * LEFT_FORE_ARM_TRANSFORM * World).Transpose();
-		pLeftHandSphere->World = (CORRECTION_LEFT_HAND * LEFT_HAND_TRANSFORM * World).Transpose();
-		pLeftHandMiddleSphere->World = (CORRECTION_LEFT_HAND_MIDDLE * LEFT_HAND_MIDDLE_TRANSFORM * World).Transpose();
-		pRightUpLegSphere->World = (CORRECTION_RIGHT_UP_LEG * RIGHT_UP_LEG_TRANSFORM * World).Transpose();
-		pRightLegSphere->World = (CORRECTION_RIGHT_LEG * RIGHT_LEG_TRANSFORM * World).Transpose();
-		pRightFootSphere->World = (CORRECTION_RIGHT_FOOT * RIGHT_FOOT_TRANSFORM * World).Transpose();
-		pRightToeSphere->World = (CORRECTION_RIGHT_TOE * RIGHT_TOE_TRANSFORM * World).Transpose();
-		pLeftUpLegSphere->World = (CORRECTION_LEFT_UP_LEG * LEFT_UP_LEG_TRANSFORM * World).Transpose();
-		pLeftLegSphere->World = (CORRECTION_LEFT_LEG * LEFT_LEG_TRANSFORM * World).Transpose();
-		pLeftFootSphere->World = (CORRECTION_LEFT_FOOT * LEFT_FOOT_TRANSFORM * World).Transpose();
-		pLeftToeSphere->World = (CORRECTION_LEFT_TOE * LEFT_TOE_TRANSFORM * World).Transpose();
+			"mixamorig:LeftUpLeg",
+			"mixamorig:LeftLeg",
+			"mixamorig:LeftFoot",
+			"mixamorig:LeftToeBase",
+		};
+		const Matrix BONE_CORRECTION_TRANSFORM[16] =
+		{
+			Matrix::CreateTranslation(Vector3(0.09f, 0.52f, 0.048f)),
+			Matrix::CreateTranslation(Vector3(-0.18f, 0.51f, 0.048f)),
+			Matrix::CreateTranslation(Vector3(-0.32f, 0.52f, 0.048f)),
+			Matrix::CreateTranslation(Vector3(-0.44f, 0.52f, 0.048f)),
 
-		RightHandMiddle.Center = pRightHandMiddleSphere->World.Transpose().Translation();
-		LeftHandMiddle.Center = pLeftHandMiddleSphere->World.Transpose().Translation();
-		RightToe.Center = pRightToeSphere->World.Transpose().Translation();
-		LeftToe.Center = pLeftToeSphere->World.Transpose().Translation();
+			Matrix::CreateTranslation(Vector3(0.32f, 0.5125f, 0.048f)),
+			Matrix::CreateTranslation(Vector3(0.61f, 0.5f, 0.048f)),
+			Matrix::CreateTranslation(Vector3(0.74f, 0.5f, 0.048f)),
+			Matrix::CreateTranslation(Vector3(0.87f, 0.5f, 0.05f)),
+
+			Matrix::CreateTranslation(Vector3(0.165f, 0.05f, 0.04f)),
+			Matrix::CreateTranslation(Vector3(0.155f, -0.18f, 0.05f)),
+			Matrix::CreateTranslation(Vector3(0.16f, -0.38f, 0.05f)),
+			Matrix::CreateTranslation(Vector3(0.14f, -0.43f, -0.09f)),
+
+			Matrix::CreateTranslation(Vector3(0.26f, 0.05f, 0.04f)),
+			Matrix::CreateTranslation(Vector3(0.26f, -0.18f, 0.05f)),
+			Matrix::CreateTranslation(Vector3(0.25f, -0.38f, 0.05f)),
+			Matrix::CreateTranslation(Vector3(0.26f, -0.43f, -0.09f)),
+		};
+		int boneIDs[16] = {};
+		Matrix transformMatrics[16] = {};
+		MeshConstant* ppMeshConstants[16] =
+		{
+			(MeshConstant*)m_ppRightArm[0]->MeshConstant.pData,
+			(MeshConstant*)m_ppRightArm[1]->MeshConstant.pData,
+			(MeshConstant*)m_ppRightArm[2]->MeshConstant.pData,
+			(MeshConstant*)m_ppRightArm[3]->MeshConstant.pData,
+			(MeshConstant*)m_ppLeftArm[0]->MeshConstant.pData,
+			(MeshConstant*)m_ppLeftArm[1]->MeshConstant.pData,
+			(MeshConstant*)m_ppLeftArm[2]->MeshConstant.pData,
+			(MeshConstant*)m_ppLeftArm[3]->MeshConstant.pData,
+			(MeshConstant*)m_ppRightLeg[0]->MeshConstant.pData,
+			(MeshConstant*)m_ppRightLeg[1]->MeshConstant.pData,
+			(MeshConstant*)m_ppRightLeg[2]->MeshConstant.pData,
+			(MeshConstant*)m_ppRightLeg[3]->MeshConstant.pData,
+			(MeshConstant*)m_ppLeftLeg[0]->MeshConstant.pData,
+			(MeshConstant*)m_ppLeftLeg[1]->MeshConstant.pData,
+			(MeshConstant*)m_ppLeftLeg[2]->MeshConstant.pData,
+			(MeshConstant*)m_ppLeftLeg[3]->MeshConstant.pData,
+		};
+
+		for (int i = 0; i < 16; ++i)
+		{
+			boneIDs[i] = AnimData.BoneNameToID[BONE_NAME[i]];
+			transformMatrics[i] = AnimData.Get(boneIDs[i]);
+		}
+		for (int i = 0; i < 16; ++i)
+		{
+			ppMeshConstants[i]->World = (BONE_CORRECTION_TRANSFORM[i] * transformMatrics[i] * World).Transpose();
+		}
+
+		RightHandMiddle.Center = ppMeshConstants[3]->World.Transpose().Translation();
+		LeftHandMiddle.Center = ppMeshConstants[7]->World.Transpose().Translation();
+		RightToe.Center = ppMeshConstants[11]->World.Transpose().Translation();
+		LeftToe.Center = ppMeshConstants[15]->World.Transpose().Translation();
 	}
 }
