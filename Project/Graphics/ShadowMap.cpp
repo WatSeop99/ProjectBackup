@@ -564,7 +564,7 @@ void ShadowMap::calculateCascadeLightViewProjection(Vector3* pPosition, Matrix* 
 	_ASSERT(pView);
 	_ASSERT(pProjection);
 
-	const float FRUSTUM_Zs[5] = { 0.01f, 10.0f, 40.0f, 80.0f, 500.0f }; // 고정 값들로 우선 설정.
+	const float FRUSTUM_Zs[5] = { 0.001f, 5.0f, 10.0f, 40.0f, 500.0f }; // 고정 값들로 우선 설정.
 	Matrix inverseView = VIEW.Invert();
 	Vector3 frustumCenter(0.0f);
 	float boundingSphereRadius = 0.0f;

@@ -359,17 +359,6 @@ void ModelLoader::readAnimation(const aiScene* pSCENE)
 				clip.Keys[boneID].push_back(AnimationClip::Key());
 			}
 		}
-		//for (UINT64 boneID = 0; boneID < TOTAL_BONES; ++boneID)
-		//{
-		//	const UINT64 KEY_SIZE = clip.Keys[boneID].size();
-		//	////////////////////////////////////////////////////
-		//	clip.UpdateRotations[boneID].resize(KEY_SIZE);
-		//	/*for (UINT64 i = 0; i < KEY_SIZE; ++i)
-		//	{
-		//		clip.UpdateRotations[boneID][i] = Quaternion();
-		//	}*/
-		//	////////////////////////////////////////////////////
-		//}
 	}
 }
 
