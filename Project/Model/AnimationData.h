@@ -29,7 +29,8 @@ struct AnimationClip
 	};
 
 	std::string Name;					 // Name of this animation clip.
-	std::vector<std::vector<Key>> Keys;  // Keys[boneIDX][frameIDX].
+	std::vector<std::vector<Key>> Keys;  // Keys[boneID][frame].
+	std::vector<std::vector<Quaternion>> UpdateRotations; // UpdateRotations[boneID][frame].
 	int NumChannels;					 // Number of bones.
 	int NumKeys;						 // Number of frames of this animation clip.
 	double Duration;					 // Duration of animation in ticks.
@@ -57,8 +58,8 @@ public:
 	std::vector<Matrix> BoneTransforms;					// 움직임에 따른 뼈의 변환 행렬.
 	std::vector<AnimationClip> Clips;					// 애니메이션 동작.
 
-	Matrix DefaultTransform = Matrix();
-	Matrix InverseDefaultTransform = Matrix();
+	Matrix DefaultTransform = Matrix();			// normalizing을 위한 변환 행렬 [-1, 1]^3
+	Matrix InverseDefaultTransform = Matrix();	// 모델 좌표계 복귀 변환 행렬.
 	Matrix RootTransform = Matrix();
 	Matrix AccumulatedRootTransform = Matrix();
 	Vector3 PrevPos = Vector3(0.0f);
@@ -72,19 +73,22 @@ public:
 
 	void Update(float deltaX, float deltaY, float deltaZ, std::vector<AnimationClip>* pClips, Matrix* pDefaultTransform, Matrix* pInverseDefaultTransform, int clipID, int frame);
 
-	void JacobianX(Vector3* pOutput, Vector3& target);
-	void JacobianY(Vector3* pOutput, Vector3& target);
-	void JacobianZ(Vector3* pOutput, Vector3& target);
+	void JacobianX(Vector3* pOutput, Vector3& parentPos);
+	void JacobianY(Vector3* pOutput, Vector3& parentPos);
+	void JacobianZ(Vector3* pOutput, Vector3& parentPos);
+
+	inline Vector3 GetPos() { return pWorld->Translation(); }
 
 public:
 	UINT BoneID = 0xffffffff;
-	Matrix CharacterWorld = Matrix(); // 캐릭터 world.
-	Matrix Correction = Matrix(); // world를 위한 보정값.
 
 	Matrix* pWorld = nullptr; // World Matrix.
 	Matrix* pOffset = nullptr; 
-	Matrix* pParentMatrix = nullptr;
+	Matrix* pParentMatrix = nullptr; // parent bone transform.
 	Matrix* pJointTransform = nullptr; // bone transform.
+
+	Matrix CharacterWorld = Matrix(); // 캐릭터 world.
+	Matrix Correction = Matrix(); // world를 위한 보정값.
 };
 class Chain
 {
@@ -92,7 +96,7 @@ public:
 	Chain() = default;
 	~Chain() = default;
 
-	void Update(Vector3 targetPos, int clipID, int frame);
+	void SolveIK(Vector3& targetPos, int clipID, int frame, const float DELTA_TIME);
 
 public:
 	std::vector<Joint> BodyChain; // root ~ child.

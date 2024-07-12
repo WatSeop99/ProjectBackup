@@ -156,39 +156,46 @@ void SkinnedMeshModel::UpdateAnimation(int clipID, int frame)
 
 void SkinnedMeshModel::UpdateCharacter()
 {
+	AnimData.Update(0, 0);
 	updateJointSpheres(0, 0);
 }
 
-void SkinnedMeshModel::UpdateCharacter(Vector3& target, int chainPart)
+void SkinnedMeshModel::UpdateCharacter(Vector3& target, int chainPart, const float DELTA_TIME)
 {
-	// AnimData.Update(0, 0);
-	
+
+	/*{
+		std::string debugString;
+		debugString = std::string("targetPos: ") + std::to_string(target.x) + std::string(", ") + std::to_string(target.y) + std::string(", ") + std::to_string(target.z) + std::string("\n");
+		OutputDebugStringA(debugString.c_str());
+	}*/
 	switch (chainPart)
 	{
 		// right arm.
 		case 0:
-			RightArm.Update(target, 0, 0);
+			RightArm.SolveIK(target, 0, 0, DELTA_TIME);
 			break;
 
 		// left arm.
 		case 1:
-			LeftArm.Update(target, 0, 0);
+			LeftArm.SolveIK(target, 0, 0, DELTA_TIME);
 			break;
 
 		// right leg.
 		case 2:
-			RightLeg.Update(target, 0, 0);
+			RightLeg.SolveIK(target, 0, 0, DELTA_TIME);
 			break;
 
 		// left leg.
 		case 3:
-			LeftLeg.Update(target, 0, 0);
+			LeftLeg.SolveIK(target, 0, 0, DELTA_TIME);
 			break;
 			
 		default:
 			__debugbreak();
 			break;
 	}
+
+	AnimData.Update(0, 0);
 
 	// 버퍼 업데이트.
 	Matrix* pBoneTransformConstData = (Matrix*)BoneTransforms.pData;
@@ -726,14 +733,15 @@ void SkinnedMeshModel::initChain()
 	{
 		const UINT BONE_ID = AnimData.BoneNameToID[BONE_NAME[boneNameIndex]];
 		const UINT BONE_PARENT_ID = AnimData.BoneParents[BONE_ID];
+		Joint* pJoint = &RightArm.BodyChain[i];
 
-		RightArm.BodyChain[i].BoneID = BONE_ID;
-		RightArm.BodyChain[i].pWorld = &((MeshConstant*)m_ppRightArm[i]->MeshConstant.pData)->World;
-		RightArm.BodyChain[i].pOffset = &AnimData.OffsetMatrices[BONE_ID];
-		RightArm.BodyChain[i].pParentMatrix = &AnimData.BoneTransforms[BONE_PARENT_ID];
-		RightArm.BodyChain[i].pJointTransform = &AnimData.BoneTransforms[BONE_ID];
-		RightArm.BodyChain[i].Correction = BONE_CORRECTION_TRANSFORM[boneNameIndex];
-		RightArm.BodyChain[i].CharacterWorld = World;
+		pJoint->BoneID = BONE_ID;
+		pJoint->pWorld = &((MeshConstant*)m_ppRightArm[i]->MeshConstant.pData)->World;
+		pJoint->pOffset = &AnimData.OffsetMatrices[BONE_ID];
+		pJoint->pParentMatrix = &AnimData.BoneTransforms[BONE_PARENT_ID];
+		pJoint->pJointTransform = &AnimData.BoneTransforms[BONE_ID];
+		pJoint->Correction = BONE_CORRECTION_TRANSFORM[boneNameIndex];
+		pJoint->CharacterWorld = World;
 
 		++boneNameIndex;
 	}
@@ -742,14 +750,15 @@ void SkinnedMeshModel::initChain()
 	{
 		const UINT BONE_ID = AnimData.BoneNameToID[BONE_NAME[boneNameIndex]];
 		const UINT BONE_PARENT_ID = AnimData.BoneParents[BONE_ID];
+		Joint* pJoint = &LeftArm.BodyChain[i];
 
-		LeftArm.BodyChain[i].BoneID = BONE_ID;
-		LeftArm.BodyChain[i].pWorld = &((MeshConstant*)m_ppLeftArm[i]->MeshConstant.pData)->World;
-		LeftArm.BodyChain[i].pOffset = &AnimData.OffsetMatrices[BONE_ID];
-		LeftArm.BodyChain[i].pParentMatrix = &AnimData.BoneTransforms[BONE_PARENT_ID];
-		LeftArm.BodyChain[i].pJointTransform = &AnimData.BoneTransforms[BONE_ID];
-		LeftArm.BodyChain[i].Correction = BONE_CORRECTION_TRANSFORM[boneNameIndex];
-		LeftArm.BodyChain[i].CharacterWorld = World;
+		pJoint->BoneID = BONE_ID;
+		pJoint->pWorld = &((MeshConstant*)m_ppLeftArm[i]->MeshConstant.pData)->World;
+		pJoint->pOffset = &AnimData.OffsetMatrices[BONE_ID];
+		pJoint->pParentMatrix = &AnimData.BoneTransforms[BONE_PARENT_ID];
+		pJoint->pJointTransform = &AnimData.BoneTransforms[BONE_ID];
+		pJoint->Correction = BONE_CORRECTION_TRANSFORM[boneNameIndex];
+		pJoint->CharacterWorld = World;
 
 		++boneNameIndex;
 	}
@@ -758,14 +767,15 @@ void SkinnedMeshModel::initChain()
 	{
 		const UINT BONE_ID = AnimData.BoneNameToID[BONE_NAME[boneNameIndex]];
 		const UINT BONE_PARENT_ID = AnimData.BoneParents[BONE_ID];
+		Joint* pJoint = &RightLeg.BodyChain[i];
 
-		RightLeg.BodyChain[i].BoneID = BONE_ID;
-		RightLeg.BodyChain[i].pWorld = &((MeshConstant*)m_ppRightLeg[i]->MeshConstant.pData)->World;
-		RightLeg.BodyChain[i].pOffset = &AnimData.OffsetMatrices[BONE_ID];
-		RightLeg.BodyChain[i].pParentMatrix = &AnimData.BoneTransforms[BONE_PARENT_ID];
-		RightLeg.BodyChain[i].pJointTransform = &AnimData.BoneTransforms[BONE_ID];
-		RightLeg.BodyChain[i].Correction = BONE_CORRECTION_TRANSFORM[boneNameIndex];
-		RightLeg.BodyChain[i].CharacterWorld = World;
+		pJoint->BoneID = BONE_ID;
+		pJoint->pWorld = &((MeshConstant*)m_ppRightLeg[i]->MeshConstant.pData)->World;
+		pJoint->pOffset = &AnimData.OffsetMatrices[BONE_ID];
+		pJoint->pParentMatrix = &AnimData.BoneTransforms[BONE_PARENT_ID];
+		pJoint->pJointTransform = &AnimData.BoneTransforms[BONE_ID];
+		pJoint->Correction = BONE_CORRECTION_TRANSFORM[boneNameIndex];
+		pJoint->CharacterWorld = World;
 
 		++boneNameIndex;
 	}
@@ -774,14 +784,15 @@ void SkinnedMeshModel::initChain()
 	{
 		const UINT BONE_ID = AnimData.BoneNameToID[BONE_NAME[boneNameIndex]];
 		const UINT BONE_PARENT_ID = AnimData.BoneParents[BONE_ID];
+		Joint* pJoint = &LeftLeg.BodyChain[i];
 
-		LeftLeg.BodyChain[i].BoneID = BONE_ID;
-		LeftLeg.BodyChain[i].pWorld = &((MeshConstant*)m_ppLeftLeg[i]->MeshConstant.pData)->World;
-		LeftLeg.BodyChain[i].pOffset = &AnimData.OffsetMatrices[BONE_ID];
-		LeftLeg.BodyChain[i].pParentMatrix = &AnimData.BoneTransforms[BONE_PARENT_ID];
-		LeftLeg.BodyChain[i].pJointTransform = &AnimData.BoneTransforms[BONE_ID];
-		LeftLeg.BodyChain[i].Correction = BONE_CORRECTION_TRANSFORM[boneNameIndex];
-		LeftLeg.BodyChain[i].CharacterWorld = World;
+		pJoint->BoneID = BONE_ID;
+		pJoint->pWorld = &((MeshConstant*)m_ppLeftLeg[i]->MeshConstant.pData)->World;
+		pJoint->pOffset = &AnimData.OffsetMatrices[BONE_ID];
+		pJoint->pParentMatrix = &AnimData.BoneTransforms[BONE_PARENT_ID];
+		pJoint->pJointTransform = &AnimData.BoneTransforms[BONE_ID];
+		pJoint->Correction = BONE_CORRECTION_TRANSFORM[boneNameIndex];
+		pJoint->CharacterWorld = World;
 
 		++boneNameIndex;
 	}

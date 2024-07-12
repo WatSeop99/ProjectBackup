@@ -17,7 +17,7 @@ public:
 	void UpdateConstantBuffers() override;
 	void UpdateAnimation(int clipID, int frame) override;
 	void UpdateCharacter();
-	void UpdateCharacter(Vector3& target, int chainPart);
+	void UpdateCharacter(Vector3& target, int chainPart, const float DELTA_TIME);
 
 	void Render(ResourceManager* pManager, ePipelineStateSetting psoSetting) override;
 	void RenderEndEffectorSphere(ResourceManager* pManager, ePipelineStateSetting psoSetting);

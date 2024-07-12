@@ -325,10 +325,12 @@ void ModelLoader::readAnimation(const aiScene* pSCENE)
 	{
 		AnimationClip& clip = AnimData.Clips[i];
 		const aiAnimation* pANIM = pSCENE->mAnimations[i];
+		const UINT64 TOTAL_BONES = AnimData.BoneNameToID.size();
 
 		clip.Duration = pANIM->mDuration;
 		clip.TicksPerSec = pANIM->mTicksPerSecond;
-		clip.Keys.resize(AnimData.BoneNameToID.size());
+		clip.Keys.resize(TOTAL_BONES);
+		clip.UpdateRotations.resize(TOTAL_BONES);
 		clip.NumChannels = pANIM->mNumChannels;
 
 		for (UINT c = 0; c < pANIM->mNumChannels; ++c)
@@ -350,12 +352,24 @@ void ModelLoader::readAnimation(const aiScene* pSCENE)
 				key.Scale = { SCALE.x, SCALE.y, SCALE.z };
 			}
 		}
-		for (UINT boneID = 0, totalBone = AnimData.BoneNameToID.size(); boneID < totalBone; ++boneID)
+		for (UINT64 boneID = 0; boneID < TOTAL_BONES; ++boneID)
 		{
-			if (clip.Keys[boneID].size() == 0)
+			const UINT64 KEY_SIZE = clip.Keys[boneID].size();
+			if (KEY_SIZE == 0)
 			{
 				clip.Keys[boneID].push_back(AnimationClip::Key());
 			}
+		}
+		for (UINT64 boneID = 0; boneID < TOTAL_BONES; ++boneID)
+		{
+			const UINT64 KEY_SIZE = clip.Keys[boneID].size();
+			////////////////////////////////////////////////////
+			clip.UpdateRotations[boneID].resize(KEY_SIZE);
+			/*for (UINT64 i = 0; i < KEY_SIZE; ++i)
+			{
+				clip.UpdateRotations[boneID][i] = Quaternion();
+			}*/
+			////////////////////////////////////////////////////
 		}
 	}
 }

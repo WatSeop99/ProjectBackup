@@ -66,7 +66,7 @@ void Renderer::Initizlie(InitialData* pIntialData)
 void Renderer::Update(const float DELTA_TIME)
 {
 	m_Camera.UpdateKeyboard(DELTA_TIME, &m_Keyboard);
-	processMouseControl();
+	processMouseControl(DELTA_TIME);
 
 	updateGlobalConstants(DELTA_TIME);
 	updateLightConstants(DELTA_TIME);
@@ -1347,7 +1347,7 @@ void Renderer::onMouseClick(const int MOUSE_X, const int MOUSE_Y)
 	m_Mouse.MouseNDCY = (float)(-MOUSE_Y) * 2.0f / (float)m_ScreenHeight + 1.0f;
 }
 
-void Renderer::processMouseControl()
+void Renderer::processMouseControl(const float DELTA_TIME)
 {
 	static Model* s_pActiveModel = nullptr;
 	static Mesh* s_pEndEffector = nullptr;
@@ -1491,10 +1491,13 @@ void Renderer::processMouseControl()
 			MeshConstant* pMeshConstant = (MeshConstant*)s_pEndEffector->MeshConstant.pData;
 			translation = pMeshConstant->World.Translation() + dragTranslation;
 
-			{
+			/*{
 				std::string debugString = std::string("dragTranslation: ") + std::to_string(dragTranslation.x) + std::string(", ") + std::to_string(dragTranslation.y) + std::string(", ") + std::to_string(dragTranslation.z) + std::string("\n");
 				OutputDebugStringA(debugString.c_str());
-			}
+
+				debugString = std::string("translation: ") + std::to_string(translation.x) + std::string(", ") + std::to_string(translation.y) + std::string(", ") + std::to_string(translation.z) + std::string("\n");
+				OutputDebugStringA(debugString.c_str());
+			}*/
 			
 			SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)s_pActiveModel;
 			switch (s_EndEffectorType)
@@ -1519,7 +1522,7 @@ void Renderer::processMouseControl()
 					__debugbreak();
 					break;
 			}
-			pCharacter->UpdateCharacter(translation, s_EndEffectorType);
+			pCharacter->UpdateCharacter(translation, s_EndEffectorType, DELTA_TIME);
 		}
 		else
 		{
@@ -1575,42 +1578,52 @@ Model* Renderer::pickClosest(const DirectX::SimpleMath::Ray& PICKING_RAY, float*
 
 					// 4개 end-effector 중 어디에 해당되는 지 확인.
 					SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pCurModel;
-					//{
-					//	std::string debugString;
+					{
+						std::string debugString;
 
-					//	/*Vector3 rayOriginToSphereCencter(Vector3(pCharacter->BoundingSphere.Center) - PICKING_RAY.position);
-					//	float distAtRayAndSphereCenter = rayOriginToSphereCencter.Cross(PICKING_RAY.direction).Length() / PICKING_RAY.direction.Length();
-					//	debugString = std::string("rayOriginToSphereCenter: ") + std::to_string(distAtRayAndSphereCenter) + std::string("\n");
-					//	OutputDebugStringA(debugString.c_str());
+						Vector3 rayOriginToSphereCencter(Vector3(pCharacter->BoundingSphere.Center) - PICKING_RAY.position);
+						float distAtRayAndSphereCenter = rayOriginToSphereCencter.Cross(PICKING_RAY.direction).Length() / PICKING_RAY.direction.Length();
+						debugString = std::string("rayOriginToSphereCenter: ") + std::to_string(distAtRayAndSphereCenter) + std::string("\n");
+						OutputDebugStringA(debugString.c_str());
 
-					//	Vector3 rayOriginToRightToeCenter(Vector3(pCharacter->RightToe.Center) - PICKING_RAY.position);
-					//	float distAtRayAndToeCenter = rayOriginToRightToeCenter.Cross(PICKING_RAY.direction).Length() / PICKING_RAY.direction.Length();
-					//	debugString = std::string("distAtRayAndToeCenter: ") + std::to_string(distAtRayAndToeCenter) + std::string("\n");
-					//	OutputDebugStringA(debugString.c_str());
+						Vector3 rayOriginToRightToeCenter(Vector3(pCharacter->RightToe.Center) - PICKING_RAY.position);
+						float distAtRayAndRightToeCenter = rayOriginToRightToeCenter.Cross(PICKING_RAY.direction).Length() / PICKING_RAY.direction.Length();
+						debugString = std::string("distAtRayAndRightToeCenter: ") + std::to_string(distAtRayAndRightToeCenter) + std::string("\n");
+						OutputDebugStringA(debugString.c_str());
 
-					//	Vector3 rayOriginToRightHandCenter(Vector3(pCharacter->RightHandMiddle.Center) - PICKING_RAY.position);
-					//	float distAtRayAndRightHandCenter = rayOriginToRightHandCenter.Cross(PICKING_RAY.direction).Length() / PICKING_RAY.direction.Length();
-					//	debugString = std::string("distAtRayAndRightHand: ") + std::to_string(distAtRayAndRightHandCenter) + std::string("\n");
-					//	OutputDebugStringA(debugString.c_str());*/
+						Vector3 rayOriginToLeftToeCenter(Vector3(pCharacter->LeftToe.Center) - PICKING_RAY.position);
+						float distAtRayAndLeftToeCenter = rayOriginToRightToeCenter.Cross(PICKING_RAY.direction).Length() / PICKING_RAY.direction.Length();
+						debugString = std::string("distAtRayAndLeftToeCenter: ") + std::to_string(distAtRayAndLeftToeCenter) + std::string("\n");
+						OutputDebugStringA(debugString.c_str());
 
-					//	/*Vector3 rightToeToCenter(Vector3(pCharacter->BoundingSphere.Center) - Vector3(pCharacter->RightToe.Center));
-					//	Vector3 leftToeToCenter(Vector3(pCharacter->BoundingSphere.Center) - Vector3(pCharacter->LeftToe.Center));
-					//	Vector3 rightHandToCenter(Vector3(pCharacter->BoundingSphere.Center) - Vector3(pCharacter->RightHandMiddle.Center));
-					//	Vector3 leftHandToCenter(Vector3(pCharacter->BoundingSphere.Center) - Vector3(pCharacter->LeftHandMiddle.Center));
+						Vector3 rayOriginToRightHandCenter(Vector3(pCharacter->RightHandMiddle.Center) - PICKING_RAY.position);
+						float distAtRayAndRightHandCenter = rayOriginToRightHandCenter.Cross(PICKING_RAY.direction).Length() / PICKING_RAY.direction.Length();
+						debugString = std::string("distAtRayAndRightHand: ") + std::to_string(distAtRayAndRightHandCenter) + std::string("\n");
+						OutputDebugStringA(debugString.c_str());
 
-					//	debugString = std::string("rightToeToCenter: ") + std::to_string(rightToeToCenter.Length()) + std::string("\n");
-					//	OutputDebugStringA(debugString.c_str());
-					//	debugString = std::string("leftToeToCenter: ") + std::to_string(leftToeToCenter.Length()) + std::string("\n");
-					//	OutputDebugStringA(debugString.c_str());
-					//	debugString = std::string("rightHandToCenter: ") + std::to_string(rightHandToCenter.Length()) + std::string("\n");
-					//	OutputDebugStringA(debugString.c_str());
-					//	debugString = std::string("leftHandToCenter: ") + std::to_string(leftHandToCenter.Length()) + std::string("\n");
-					//	OutputDebugStringA(debugString.c_str());
-					//	debugString = std::string("sphere radius: ") + std::to_string(pCharacter->BoundingSphere.Radius) + std::string("\n");
-					//	OutputDebugStringA(debugString.c_str());*/
+						Vector3 rayOriginToLeftHandCenter(Vector3(pCharacter->LeftHandMiddle.Center) - PICKING_RAY.position);
+						float distAtRayAndLeftHandCenter = rayOriginToLeftHandCenter.Cross(PICKING_RAY.direction).Length() / PICKING_RAY.direction.Length();
+						debugString = std::string("distAtRayAndLeftHand: ") + std::to_string(distAtRayAndLeftHandCenter) + std::string("\n");
+						OutputDebugStringA(debugString.c_str());
 
-					//	OutputDebugStringA("\n\n");
-					//}
+						/*Vector3 rightToeToCenter(Vector3(pCharacter->BoundingSphere.Center) - Vector3(pCharacter->RightToe.Center));
+						Vector3 leftToeToCenter(Vector3(pCharacter->BoundingSphere.Center) - Vector3(pCharacter->LeftToe.Center));
+						Vector3 rightHandToCenter(Vector3(pCharacter->BoundingSphere.Center) - Vector3(pCharacter->RightHandMiddle.Center));
+						Vector3 leftHandToCenter(Vector3(pCharacter->BoundingSphere.Center) - Vector3(pCharacter->LeftHandMiddle.Center));
+
+						debugString = std::string("rightToeToCenter: ") + std::to_string(rightToeToCenter.Length()) + std::string("\n");
+						OutputDebugStringA(debugString.c_str());
+						debugString = std::string("leftToeToCenter: ") + std::to_string(leftToeToCenter.Length()) + std::string("\n");
+						OutputDebugStringA(debugString.c_str());
+						debugString = std::string("rightHandToCenter: ") + std::to_string(rightHandToCenter.Length()) + std::string("\n");
+						OutputDebugStringA(debugString.c_str());
+						debugString = std::string("leftHandToCenter: ") + std::to_string(leftHandToCenter.Length()) + std::string("\n");
+						OutputDebugStringA(debugString.c_str());
+						debugString = std::string("sphere radius: ") + std::to_string(pCharacter->BoundingSphere.Radius) + std::string("\n");
+						OutputDebugStringA(debugString.c_str());*/
+
+						OutputDebugStringA("\n\n");
+					}
 
 					//if (PICKING_RAY.Intersects(pCharacter->RightHandMiddle, dist) &&
 					//	dist < *pMinDist)

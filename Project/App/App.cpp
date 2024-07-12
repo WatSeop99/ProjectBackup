@@ -70,11 +70,6 @@ void App::Update(const float DELTA_TIME)
 {
 	Renderer::Update(DELTA_TIME);
 
-	/*if (m_pMirror)
-	{
-		m_pMirror->UpdateConstantBuffers();
-	}*/
-
 	for (UINT64 i = 0, size = m_RenderObjects.size(); i < size; ++i)
 	{
 		Model* pModel = m_RenderObjects[i];
@@ -308,6 +303,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		m_pCharacter->bIsPickable = true;
 		m_pCharacter->UpdateWorld(Matrix::CreateScale(1.0f) * Matrix::CreateTranslation(center));
 		
+		// 별도의 애니메이션 데이터가 없다면
 		if (animationData.Clips.size() == 0)
 		{
 			m_pCharacter->AnimData.Update(0, 0);
