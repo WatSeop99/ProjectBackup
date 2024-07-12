@@ -130,6 +130,9 @@ void Chain::SolveIK(Vector3& targetPos, int clipID, int frame, const float DELTA
 		std::string debugString;
 		debugString = std::string("targetPos: ") + std::to_string(targetPos.x) + std::string(", ") + std::to_string(targetPos.y) + std::string(", ") + std::to_string(targetPos.z) + std::string("\n");
 		OutputDebugStringA(debugString.c_str());
+
+		debugString = std::string("delta time: ") + std::to_string(DELTA_TIME) + std::string("\n");
+		OutputDebugStringA(debugString.c_str());
 	}
 
 	for (int step = 0; step < 100; ++step)

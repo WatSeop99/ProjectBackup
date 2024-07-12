@@ -26,6 +26,7 @@ struct AnimationClip
 		Vector3 Position = Vector3(0.0f);
 		Vector3 Scale = Vector3(1.0f);
 		Quaternion Rotation = Quaternion();
+		// Quaternion UpdateRotation = Quaternion();
 	};
 
 	std::string Name;					 // Name of this animation clip.
