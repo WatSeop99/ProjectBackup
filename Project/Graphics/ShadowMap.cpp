@@ -33,7 +33,8 @@ void ShadowMap::Initialize(ResourceManager* pManager, UINT lightType)
 
 		case LIGHT_SPOT:
 			dsvDesc.DepthOrArraySize = 1;
-			dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
+			// dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
+			dsvDesc.Format = DXGI_FORMAT_R32_TYPELESS;
 			m_SpotLightShadowBuffer.Initialize(pManager, dsvDesc);
 			break;
 

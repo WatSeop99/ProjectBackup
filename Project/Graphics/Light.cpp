@@ -17,7 +17,7 @@ void Light::Initialize(ResourceManager* pManager)
 {
 	Clear();
 
-	switch (Property.LightType)
+	switch (Property.LightType & m_TOTAL_LIGHT_TYPE)
 	{
 		case LIGHT_DIRECTIONAL:
 			m_LightViewCamera.SetFarZ(500.0f);
