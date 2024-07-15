@@ -68,7 +68,7 @@ public:
 	Joint() = default;
 	~Joint() = default;
 
-	void Update(float deltaX, float deltaY, float deltaZ, std::vector<AnimationClip>* pClips, Matrix* pDefaultTransform, Matrix* pInverseDefaultTransform, int clipID, int frame);
+	void Update(float deltaX, float deltaY, float deltaZ, std::vector<AnimationClip>* pClips, Matrix* pDefaultTransform, Matrix* pInverseDefaultTransform);
 
 	void JacobianX(Vector3* pOutput, Vector3& parentPos);
 	void JacobianY(Vector3* pOutput, Vector3& parentPos);
@@ -93,7 +93,7 @@ public:
 	Chain() = default;
 	~Chain() = default;
 
-	void SolveIK(Vector3& targetPos, int clipID, int frame, const float DELTA_TIME);
+	void SolveIK(Vector3& targetPos, const float DELTA_TIME);
 
 public:
 	std::vector<Joint> BodyChain; // root ~ child.

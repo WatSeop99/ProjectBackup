@@ -32,28 +32,35 @@ void CommandListPool::Close()
 	m_pCurCmdList = nullptr;
 }
 
+void CommandListPool::ClosedAndExecute(ID3D12CommandQueue* pCommandQueue)
+{
+	// 현재 인덱스의 CommandList를 실행
+	if (!m_pCurCmdList)
+	{
+		__debugbreak();
+	}
+
+	if (m_pCurCmdList->bClosed)
+	{
+		__debugbreak();
+	}
+
+	if (FAILED(m_pCurCmdList->pCommandList->Close()))
+	{
+		__debugbreak();
+	}
+
+	m_pCurCmdList->bClosed = TRUE;
+
+	pCommandQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&m_pCurCmdList->pCommandList);
+	m_pCurCmdList = nullptr;
+}
+
 void CommandListPool::Clear()
 {
 	HRESULT hr = S_OK;
 
-	while (m_pAllocatedCmdLinkHead)
-	{
-		CommandList* pCmdList = (CommandList*)m_pAllocatedCmdLinkHead->pItem;
-
-		hr = pCmdList->pCommandAllocator->Reset();
-		BREAK_IF_FAILED(hr);
-
-		hr = pCmdList->pCommandList->Reset(pCmdList->pCommandAllocator, nullptr);
-		BREAK_IF_FAILED(hr);
-
-		pCmdList->bClosed = false;
-
-		UnLinkElemFromList(&m_pAllocatedCmdLinkHead, &m_pAllocatedCmdLinkTail, &pCmdList->Link);
-		--m_AllocatedCmdNum;
-
-		LinkElemIntoListFIFO(&m_pAvailableCmdLinkHead, &m_pAvailableCmdLinkTail, &pCmdList->Link);
-		++m_AvailableCmdNum;
-	}
+	Reset();
 	while (m_pAvailableCmdLinkHead)
 	{
 		CommandList* pCmdList = (CommandList*)m_pAvailableCmdLinkHead->pItem;
@@ -79,6 +86,30 @@ void CommandListPool::Clear()
 	m_TotalCmdNum = 0;
 	m_MaxCmdListNum = 0;
 	m_pDevice = nullptr;
+}
+
+void CommandListPool::Reset()
+{
+	HRESULT hr = S_OK;
+
+	while (m_pAllocatedCmdLinkHead)
+	{
+		CommandList* pCmdList = (CommandList*)m_pAllocatedCmdLinkHead->pItem;
+
+		hr = pCmdList->pCommandAllocator->Reset();
+		BREAK_IF_FAILED(hr);
+
+		hr = pCmdList->pCommandList->Reset(pCmdList->pCommandAllocator, nullptr);
+		BREAK_IF_FAILED(hr);
+
+		pCmdList->bClosed = false;
+
+		UnLinkElemFromList(&m_pAllocatedCmdLinkHead, &m_pAllocatedCmdLinkTail, &pCmdList->Link);
+		--m_AllocatedCmdNum;
+
+		LinkElemIntoListFIFO(&m_pAvailableCmdLinkHead, &m_pAvailableCmdLinkTail, &pCmdList->Link);
+		++m_AvailableCmdNum;
+	}
 }
 
 ID3D12GraphicsCommandList* CommandListPool::GetCurrentCommandList()

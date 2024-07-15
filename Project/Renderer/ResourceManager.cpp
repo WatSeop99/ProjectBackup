@@ -696,6 +696,271 @@ void ResourceManager::SetCommonState(ePipelineStateSetting psoState)
 	}
 }
 
+void ResourceManager::SetCommonState(ID3D12GraphicsCommandList* pCommandList, int psoState)
+{
+	HRESULT hr = S_OK;
+	const float BLEND_FECTOR[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
+
+	// set dynamic descriptor heap. (for commont resource)
+	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable({ 0xffffffffffffffff, });
+	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorTable({ 0xffffffffffffffff, });
+
+	switch (psoState)
+	{
+		case Default: case Skinned: case Skybox:
+		case MirrorBlend: case DepthOnlyCubeDefault: case DepthOnlyCubeSkinned:
+		case DepthOnlyCascadeDefault: case DepthOnlyCascadeSkinned:
+		case Sampling: case BloomDown: case BloomUp: case Combine: case Wire:
+		{
+			hr = m_pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 11);
+			BREAK_IF_FAILED(hr);
+
+			CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, m_CBVSRVUAVDescriptorSize);
+			CD3DX12_CPU_DESCRIPTOR_HANDLE cbvHandle(m_pCBVSRVUAVHeap->GetCPUDescriptorHandleForHeapStart(), m_GlobalConstantViewStartOffset, m_CBVSRVUAVDescriptorSize);
+			CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(m_pCBVSRVUAVHeap->GetCPUDescriptorHandleForHeapStart(), m_GlobalShaderResourceViewStartOffset, m_CBVSRVUAVDescriptorSize);
+
+			// b0
+			m_pDevice->CopyDescriptorsSimple(1, dstHandle, cbvHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			dstHandle.Offset(1, m_CBVSRVUAVDescriptorSize);
+			cbvHandle.Offset(2, m_CBVSRVUAVDescriptorSize);
+
+			// b1
+			m_pDevice->CopyDescriptorsSimple(1, dstHandle, cbvHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			dstHandle.Offset(1, m_CBVSRVUAVDescriptorSize);
+
+			// t8 ~ t16
+			m_pDevice->CopyDescriptorsSimple(9, dstHandle, srvHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		}
+		break;
+
+		case ReflectionDefault: case ReflectionSkinned: case ReflectionSkybox:
+		{
+			hr = m_pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 11);
+			BREAK_IF_FAILED(hr);
+
+			CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, m_CBVSRVUAVDescriptorSize);
+			CD3DX12_CPU_DESCRIPTOR_HANDLE cbvHandle(m_pCBVSRVUAVHeap->GetCPUDescriptorHandleForHeapStart(), m_GlobalConstantViewStartOffset + 1, m_CBVSRVUAVDescriptorSize);
+			CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(m_pCBVSRVUAVHeap->GetCPUDescriptorHandleForHeapStart(), m_GlobalShaderResourceViewStartOffset, m_CBVSRVUAVDescriptorSize);
+
+			// b0
+			m_pDevice->CopyDescriptorsSimple(1, dstHandle, cbvHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			dstHandle.Offset(1, m_CBVSRVUAVDescriptorSize);
+			cbvHandle.Offset(1, m_CBVSRVUAVDescriptorSize);
+
+			// b1
+			m_pDevice->CopyDescriptorsSimple(1, dstHandle, cbvHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			dstHandle.Offset(1, m_CBVSRVUAVDescriptorSize);
+
+			// t8 ~ t16
+			m_pDevice->CopyDescriptorsSimple(9, dstHandle, srvHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		}
+		break;
+
+		case DepthOnlyDefault: case DepthOnlySkinned: case StencilMask:
+		{
+			hr = m_pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 10);
+			BREAK_IF_FAILED(hr);
+
+			CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, m_CBVSRVUAVDescriptorSize);
+			CD3DX12_CPU_DESCRIPTOR_HANDLE cbvHandle(m_pCBVSRVUAVHeap->GetCPUDescriptorHandleForHeapStart(), m_GlobalConstantViewStartOffset + 2, m_CBVSRVUAVDescriptorSize);
+			CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(m_pCBVSRVUAVHeap->GetCPUDescriptorHandleForHeapStart(), m_GlobalShaderResourceViewStartOffset, m_CBVSRVUAVDescriptorSize);
+
+			// b1
+			m_pDevice->CopyDescriptorsSimple(1, dstHandle, cbvHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			dstHandle.Offset(1, m_CBVSRVUAVDescriptorSize);
+
+			// t8 ~ t16
+			m_pDevice->CopyDescriptorsSimple(9, dstHandle, srvHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		}
+		break;
+
+		default:
+			break;
+	}
+
+	// set pipeline state for each state.
+	switch (psoState)
+	{
+		case Default:
+			pCommandList->SetGraphicsRootSignature(m_pDefaultRootSignature);
+			pCommandList->SetPipelineState(m_pDefaultSolidPSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(0);
+			pCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case Skinned:
+			pCommandList->SetGraphicsRootSignature(m_pSkinnedRootSignature);
+			pCommandList->SetPipelineState(m_pSkinnedSolidPSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(0);
+			pCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case Skybox:
+			pCommandList->SetGraphicsRootSignature(m_pDefaultRootSignature);
+			pCommandList->SetPipelineState(m_pSkyboxSolidPSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(0);
+			pCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case StencilMask:
+			pCommandList->SetGraphicsRootSignature(m_pDepthOnlyRootSignature);
+			pCommandList->SetPipelineState(m_pStencilMaskPSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(1);
+			pCommandList->SetGraphicsRootConstantBufferView(1, m_pGlobalConstant->GetGPUMemAddr());
+			pCommandList->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case MirrorBlend:
+			pCommandList->SetGraphicsRootSignature(m_pDefaultRootSignature);
+			pCommandList->SetPipelineState(m_pMirrorBlendSolidPSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(1);
+			pCommandList->OMSetBlendFactor(BLEND_FECTOR);
+			pCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case ReflectionDefault:
+			pCommandList->SetGraphicsRootSignature(m_pDefaultRootSignature);
+			pCommandList->SetPipelineState(m_pReflectDefaultSolidPSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(1);
+			pCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case ReflectionSkinned:
+			pCommandList->SetGraphicsRootSignature(m_pSkinnedRootSignature);
+			pCommandList->SetPipelineState(m_pReflectSkinnedSolidPSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(1);
+			pCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case ReflectionSkybox:
+			pCommandList->SetGraphicsRootSignature(m_pDefaultRootSignature);
+			pCommandList->SetPipelineState(m_pReflectSkyboxSolidPSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(1);
+			pCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case DepthOnlyDefault:
+			pCommandList->SetGraphicsRootSignature(m_pDepthOnlyRootSignature);
+			pCommandList->SetPipelineState(m_pDepthOnlyPSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(0);
+			pCommandList->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case DepthOnlySkinned:
+			pCommandList->SetGraphicsRootSignature(m_pDepthOnlySkinnedRootSignature);
+			pCommandList->SetPipelineState(m_pDepthOnlySkinnedPSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(0);
+			pCommandList->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case DepthOnlyCubeDefault:
+			pCommandList->SetGraphicsRootSignature(m_pDepthOnlyAroundRootSignature);
+			pCommandList->SetPipelineState(m_pDepthOnlyCubePSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(0);
+			pCommandList->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case DepthOnlyCubeSkinned:
+			pCommandList->SetGraphicsRootSignature(m_pDepthOnlyAroundSkinnedRootSignature);
+			pCommandList->SetPipelineState(m_pDepthOnlyCubeSkinnedPSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(0);
+			pCommandList->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case DepthOnlyCascadeDefault:
+			pCommandList->SetGraphicsRootSignature(m_pDepthOnlyAroundRootSignature);
+			pCommandList->SetPipelineState(m_pDepthOnlyCascadePSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(0);
+			pCommandList->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case DepthOnlyCascadeSkinned:
+			pCommandList->SetGraphicsRootSignature(m_pDepthOnlyAroundSkinnedRootSignature);
+			pCommandList->SetPipelineState(m_pDepthOnlyCascadeSkinnedPSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(0);
+			pCommandList->SetGraphicsRootDescriptorTable(2, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(3, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case Sampling:
+			pCommandList->SetGraphicsRootSignature(m_pSamplingRootSignature);
+			pCommandList->SetPipelineState(m_pSamplingPSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(0);
+			pCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case BloomDown:
+			pCommandList->SetGraphicsRootSignature(m_pSamplingRootSignature);
+			pCommandList->SetPipelineState(m_pBloomDownPSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(0);
+			pCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case BloomUp:
+			pCommandList->SetGraphicsRootSignature(m_pSamplingRootSignature);
+			pCommandList->SetPipelineState(m_pBloomUpPSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(0);
+			pCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case Combine:
+			pCommandList->SetGraphicsRootSignature(m_pCombineRootSignature);
+			pCommandList->SetPipelineState(m_pCombinePSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			pCommandList->OMSetStencilRef(0);
+			pCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+
+		case Wire:
+			pCommandList->SetGraphicsRootSignature(m_pDefaultWireRootSignature);
+			pCommandList->SetPipelineState(m_pDefaultWirePSO);
+			pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+			pCommandList->OMSetStencilRef(0);
+			pCommandList->SetGraphicsRootDescriptorTable(1, gpuDescriptorTable);
+			pCommandList->SetGraphicsRootDescriptorTable(2, m_pSamplerHeap->GetGPUDescriptorHandleForHeapStart());
+			break;
+			break;
+
+		default:
+			__debugbreak();
+			break;
+	}
+}
+
 void ResourceManager::initSamplers()
 {
 	HRESULT hr = S_OK;

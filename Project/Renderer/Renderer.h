@@ -12,12 +12,12 @@
 
 enum eRenderPass
 {
-	Shadow = 0,
-	Object,
-	Mirror,
-	Collider,
-	Post,
-	RenderPassCount,
+	RenderPass_Shadow = 0,
+	RenderPass_Object,
+	RenderPass_Mirror,
+	RenderPass_Collider,
+	RenderPass_Post,
+	RenderPass_RenderPassCount,
 };
 
 class Renderer
@@ -47,7 +47,7 @@ public:
 	void Update(const float DELTA_TIME);
 
 	void Render();
-	void ProcessByThread(UINT threadIndex);
+	void ProcessByThread(UINT threadIndex, int renderPass);
 
 	void Clear();
 
@@ -123,16 +123,18 @@ private:
 	ID3D12CommandAllocator* m_ppCommandAllocator[SWAP_CHAIN_FRAME_COUNT] = { nullptr, };
 	ID3D12GraphicsCommandList* m_ppCommandList[SWAP_CHAIN_FRAME_COUNT] = { nullptr, };
 
-	// for multithread
-	ID3D12CommandQueue* m_ppCommandQueue[RenderPassCount] = { nullptr, };
+	// for multi-thread
+	ID3D12CommandQueue* m_ppCommandQueue[RenderPass_RenderPassCount] = { nullptr, };
+	RenderQueue* m_ppRenderQueue[RenderPass_RenderPassCount][MAX_RENDER_THREAD_COUNT] = { nullptr, };
 	CommandListPool* m_ppCommandListPool[SWAP_CHAIN_FRAME_COUNT][MAX_RENDER_THREAD_COUNT] = { nullptr, };
 	DynamicDescriptorPool* m_ppDescriptorPool[SWAP_CHAIN_FRAME_COUNT][MAX_RENDER_THREAD_COUNT] = { nullptr, };
-	RenderQueue* m_ppRenderQueue[MAX_RENDER_THREAD_COUNT] = { nullptr, };
+	RenderThreadDesc* m_pThreadDescList = nullptr;
 	UINT m_RenderThreadCount = 0;
-	UINT m_CurThreadIndex = 0;
+	UINT m_CurThreadIndex = 0; // render queue에 균등하게 넣기 위한 인덱스.
 
 	long volatile m_ActiveThreadCount = 0;
-	HANDLE m_hCompletedEvent = nullptr;
+	long volatile m_pActiveThreadCounts[RenderPass_RenderPassCount] = { 0, };
+	HANDLE m_phCompletedEvents[RenderPass_RenderPassCount] = { nullptr, };
 	/////////////////////////////////////////////
 
 	// main resources.

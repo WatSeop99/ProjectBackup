@@ -46,7 +46,7 @@
 #include <process.h>
 #include <synchapi.h>
 
-#define SINGLETHREAD FALSE
+#define MULTI_THREAD
 
 #include "Renderer/ResourceManager.h"
 

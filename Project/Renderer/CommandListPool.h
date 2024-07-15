@@ -19,8 +19,11 @@ public:
 	void Initialize(ID3D12Device5* pDevice, D3D12_COMMAND_LIST_TYPE type, UINT maxCommandListNum);
 
 	void Close();
+	void ClosedAndExecute(ID3D12CommandQueue* pCommandQueue);
 
 	void Clear();
+
+	void Reset();
 
 	ID3D12GraphicsCommandList* GetCurrentCommandList();
 	inline UINT GetTotalCmdListNum() const { return m_TotalCmdNum; }

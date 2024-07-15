@@ -2,7 +2,12 @@
 
 enum eRenderThreadEventType
 {
-	RenderThreadEventType_Process,
+	// RenderThreadEventType_Process,
+	RenderThreadEventType_Shadow,
+	RenderThreadEventType_Object,
+	RenderThreadEventType_Mirror,
+	RenderThreadEventType_Collider,
+	RenderThreadEventType_Post,
 	RenderThreadEventType_Desctroy,
 	RenderThreadEventType_Count
 };

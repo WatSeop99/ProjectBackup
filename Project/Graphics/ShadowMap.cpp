@@ -45,6 +45,9 @@ void ShadowMap::Initialize(ResourceManager* pManager, UINT lightType)
 	for (int i = 0; i < 6; ++i)
 	{
 		m_ShadowConstantBuffers[i].Initialize(pManager, sizeof(GlobalConstant));
+
+		m_pViewPorts[i] = { 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f };
+		m_pScissorRects[i] = { 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight };
 	}
 	m_ShadowConstantsBufferForGS.Initialize(pManager, sizeof(ShadowConstant));
 }
@@ -184,38 +187,34 @@ void ShadowMap::Render(ResourceManager* pManager, std::vector<Model*>* pRenderOb
 			for (UINT64 i = 0, size = pRenderObjects->size(); i < size; ++i)
 			{
 				Model* pModel = (*pRenderObjects)[i];
-				if (pModel->bIsVisible && pModel->bCastShadow)
+
+				if (!pModel->bIsVisible || !pModel->bCastShadow)
 				{
-					switch (pModel->ModelType)
+					continue;
+				}
+
+				switch (pModel->ModelType)
+				{
+					case DefaultModel:
+					case MirrorModel:
 					{
-						case DefaultModel:
-						{
-							pManager->SetCommonState(DepthOnlyCascadeDefault);
-							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
-							pModel->Render(pManager, DepthOnlyCascadeDefault);
-						}
-						break;
-
-						case SkinnedModel:
-						{
-							SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pModel;
-							pManager->SetCommonState(DepthOnlyCascadeSkinned);
-							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
-							pCharacter->Render(pManager, DepthOnlyCascadeSkinned);
-						}
-						break;
-
-						case MirrorModel:
-						{
-							pManager->SetCommonState(DepthOnlyCascadeDefault);
-							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
-							pModel->Render(pManager, DepthOnlyCascadeDefault);
-						}
-						break;
-
-						default:
-							break;
+						pManager->SetCommonState(DepthOnlyCascadeDefault);
+						pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
+						pModel->Render(pManager, DepthOnlyCascadeDefault);
 					}
+					break;
+
+					case SkinnedModel:
+					{
+						SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pModel;
+						pManager->SetCommonState(DepthOnlyCascadeSkinned);
+						pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
+						pCharacter->Render(pManager, DepthOnlyCascadeSkinned);
+					}
+					break;
+
+					default:
+						break;
 				}
 			}
 		}
@@ -234,38 +233,34 @@ void ShadowMap::Render(ResourceManager* pManager, std::vector<Model*>* pRenderOb
 			for (UINT64 i = 0, size = pRenderObjects->size(); i < size; ++i)
 			{
 				Model* pModel = (*pRenderObjects)[i];
-				if (pModel->bIsVisible && pModel->bCastShadow)
+
+				if (!pModel->bIsVisible || !pModel->bCastShadow)
 				{
-					switch (pModel->ModelType)
+					continue;
+				}
+
+				switch (pModel->ModelType)
+				{
+					case DefaultModel:
+					case MirrorModel:
 					{
-						case DefaultModel:
-						{
-							pManager->SetCommonState(DepthOnlyCubeDefault);
-							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
-							pModel->Render(pManager, DepthOnlyCubeDefault);
-						}
-						break;
-
-						case SkinnedModel:
-						{
-							SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pModel;
-							pManager->SetCommonState(DepthOnlyCubeSkinned);
-							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
-							pCharacter->Render(pManager, DepthOnlyCubeSkinned);
-						}
-						break;
-
-						case MirrorModel:
-						{
-							pManager->SetCommonState(DepthOnlyCubeDefault);
-							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
-							pModel->Render(pManager, DepthOnlyCubeDefault);
-						}
-						break;
-
-						default:
-							break;
+						pManager->SetCommonState(DepthOnlyCubeDefault);
+						pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
+						pModel->Render(pManager, DepthOnlyCubeDefault);
 					}
+					break;
+
+					case SkinnedModel:
+					{
+						SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pModel;
+						pManager->SetCommonState(DepthOnlyCubeSkinned);
+						pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
+						pCharacter->Render(pManager, DepthOnlyCubeSkinned);
+					}
+					break;
+
+					default:
+						break;
 				}
 			}
 		}
@@ -284,38 +279,34 @@ void ShadowMap::Render(ResourceManager* pManager, std::vector<Model*>* pRenderOb
 			for (UINT64 i = 0, size = pRenderObjects->size(); i < size; ++i)
 			{
 				Model* pModel = (*pRenderObjects)[i];
-				if (pModel->bIsVisible && pModel->bCastShadow)
+
+				if (!pModel->bIsVisible || !pModel->bCastShadow)
 				{
-					switch (pModel->ModelType)
+					continue;
+				}
+
+				switch (pModel->ModelType)
+				{
+					case DefaultModel:
+					case MirrorModel:
 					{
-						case DefaultModel:
-						{
-							pManager->SetCommonState(DepthOnlyDefault);
-							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
-							pModel->Render(pManager, DepthOnlyDefault);
-						}
-						break;
-
-						case SkinnedModel:
-						{
-							SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pModel;
-							pManager->SetCommonState(DepthOnlySkinned);
-							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
-							pCharacter->Render(pManager, DepthOnlySkinned);
-						}
-						break;
-
-						case MirrorModel:
-						{
-							pManager->SetCommonState(DepthOnlyDefault);
-							pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
-							pModel->Render(pManager, DepthOnlyDefault);
-						}
-						break;
-
-						default:
-							break;
+						pManager->SetCommonState(DepthOnlyDefault);
+						pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
+						pModel->Render(pManager, DepthOnlyDefault);
 					}
+					break;
+
+					case SkinnedModel:
+					{
+						SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pModel;
+						pManager->SetCommonState(DepthOnlySkinned);
+						pCommandList->SetGraphicsRootConstantBufferView(1, m_ShadowConstantsBufferForGS.GetGPUMemAddr());
+						pCharacter->Render(pManager, DepthOnlySkinned);
+					}
+					break;
+
+					default:
+						break;
 				}
 			}
 		}
@@ -359,6 +350,28 @@ void ShadowMap::Clear()
 
 		default:
 			break;
+	}
+}
+
+void ShadowMap::SetShadowWidth(const UINT WIDTH)
+{
+	m_ShadowMapWidth = WIDTH;
+
+	for (int i = 0; i < 6; ++i)
+	{
+		m_pViewPorts[i] = { 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f };
+		m_pScissorRects[i] = { 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight };
+	}
+}
+
+void ShadowMap::SetShadowHeight(const UINT HEIGHT)
+{
+	m_ShadowMapHeight = HEIGHT;
+
+	for (int i = 0; i < 6; ++i)
+	{
+		m_pViewPorts[i] = { 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f };
+		m_pScissorRects[i] = { 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight };
 	}
 }
 
@@ -462,45 +475,16 @@ void ShadowMap::setShadowViewport(ID3D12GraphicsCommandList* pCommandList)
 	switch (m_LightType & m_TOTAL_LIGHT_TYPE)
 	{
 		case LIGHT_DIRECTIONAL:
-		{
-			const D3D12_VIEWPORT VIEWPORTS[4] =
-			{
-				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
-				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
-				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
-				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
-			};
-			pCommandList->RSSetViewports(4, VIEWPORTS);
-		}
-		break;
+			pCommandList->RSSetViewports(4, m_pViewPorts);
+			break;
 
 		case LIGHT_POINT:
-		{
-			const D3D12_VIEWPORT VIEWPORTS[6] =
-			{
-				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
-				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
-				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
-				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
-				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
-				{ 0, 0, (float)m_ShadowMapWidth, (float)m_ShadowMapHeight, 0.0f, 1.0f },
-			};
-			pCommandList->RSSetViewports(6, VIEWPORTS);
-		}
-		break;
+			pCommandList->RSSetViewports(6, m_pViewPorts);
+			break;
 
 		case LIGHT_SPOT:
-		{
-			D3D12_VIEWPORT shadowViewport = { 0, };
-			shadowViewport.TopLeftX = 0;
-			shadowViewport.TopLeftY = 0;
-			shadowViewport.Width = (float)m_ShadowMapWidth;
-			shadowViewport.Height = (float)m_ShadowMapHeight;
-			shadowViewport.MinDepth = 0.0f;
-			shadowViewport.MaxDepth = 1.0f;
-			pCommandList->RSSetViewports(1, &shadowViewport);
-		}
-		break;
+			pCommandList->RSSetViewports(1, m_pViewPorts);
+			break;
 
 		default:
 			__debugbreak();
@@ -515,43 +499,16 @@ void ShadowMap::setShadowScissorRect(ID3D12GraphicsCommandList* pCommandList)
 	switch (m_LightType & m_TOTAL_LIGHT_TYPE)
 	{
 		case LIGHT_DIRECTIONAL:
-		{
-			const D3D12_RECT SCISSOR_RECTS[4] =
-			{
-				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
-				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
-				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
-				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
-			};
-			pCommandList->RSSetScissorRects(4, SCISSOR_RECTS);
-		}
-		break;
+			pCommandList->RSSetScissorRects(4, m_pScissorRects);
+			break;
 
 		case LIGHT_POINT:
-		{
-			const D3D12_RECT SCISSOR_RECTS[6] =
-			{
-				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
-				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
-				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
-				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
-				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
-				{ 0, 0, (long)m_ShadowMapWidth, (long)m_ShadowMapHeight },
-			};
-			pCommandList->RSSetScissorRects(6, SCISSOR_RECTS);
-		}
-		break;
+			pCommandList->RSSetScissorRects(6, m_pScissorRects);
+			break;
 
 		case LIGHT_SPOT:
-		{
-			D3D12_RECT scissorRect = { 0, };
-			scissorRect.left = 0;
-			scissorRect.top = 0;
-			scissorRect.right = (long)m_ShadowMapWidth;
-			scissorRect.bottom = (long)m_ShadowMapHeight;
-			pCommandList->RSSetScissorRects(1, &scissorRect);
-		}
-		break;
+			pCommandList->RSSetScissorRects(1, m_pScissorRects);
+			break;
 
 		default:
 			__debugbreak();

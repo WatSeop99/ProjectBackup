@@ -128,6 +128,11 @@ void SkinnedMeshModel::InitAnimationData(ResourceManager* pManager, const Animat
 
 void SkinnedMeshModel::UpdateConstantBuffers()
 {
+	if (!bIsVisible)
+	{
+		return;
+	}
+
 	Model::UpdateConstantBuffers();
 	for (int i = 0; i < 4; ++i)
 	{
@@ -154,15 +159,8 @@ void SkinnedMeshModel::UpdateAnimation(int clipID, int frame)
 	updateJointSpheres(clipID, frame);
 }
 
-void SkinnedMeshModel::UpdateCharacter()
+void SkinnedMeshModel::UpdateCharacterIK(Vector3& target, int chainPart, const float DELTA_TIME)
 {
-	AnimData.Update(0, 0);
-	updateJointSpheres(0, 0);
-}
-
-void SkinnedMeshModel::UpdateCharacter(Vector3& target, int chainPart, const float DELTA_TIME)
-{
-
 	/*{
 		std::string debugString;
 		debugString = std::string("targetPos: ") + std::to_string(target.x) + std::string(", ") + std::to_string(target.y) + std::string(", ") + std::to_string(target.z) + std::string("\n");
@@ -172,22 +170,22 @@ void SkinnedMeshModel::UpdateCharacter(Vector3& target, int chainPart, const flo
 	{
 		// right arm.
 		case 0:
-			RightArm.SolveIK(target, 0, 0, DELTA_TIME);
+			RightArm.SolveIK(target, DELTA_TIME);
 			break;
 
 		// left arm.
 		case 1:
-			LeftArm.SolveIK(target, 0, 0, DELTA_TIME);
+			LeftArm.SolveIK(target, DELTA_TIME);
 			break;
 
 		// right leg.
 		case 2:
-			RightLeg.SolveIK(target, 0, 0, DELTA_TIME);
+			RightLeg.SolveIK(target, DELTA_TIME);
 			break;
 
 		// left leg.
 		case 3:
-			LeftLeg.SolveIK(target, 0, 0, DELTA_TIME);
+			LeftLeg.SolveIK(target, DELTA_TIME);
 			break;
 			
 		default:
@@ -195,17 +193,17 @@ void SkinnedMeshModel::UpdateCharacter(Vector3& target, int chainPart, const flo
 			break;
 	}
 
-	AnimData.Update(0, 0);
+	//AnimData.Update(0, 0);
 
-	// 버퍼 업데이트.
-	Matrix* pBoneTransformConstData = (Matrix*)BoneTransforms.pData;
-	for (UINT64 i = 0, size = BoneTransforms.ElementCount; i < size; ++i)
-	{
-		pBoneTransformConstData[i] = AnimData.Get((int)i).Transpose();
-	}
-	BoneTransforms.Upload();
+	//// 버퍼 업데이트.
+	//Matrix* pBoneTransformConstData = (Matrix*)BoneTransforms.pData;
+	//for (UINT64 i = 0, size = BoneTransforms.ElementCount; i < size; ++i)
+	//{
+	//	pBoneTransformConstData[i] = AnimData.Get((int)i).Transpose();
+	//}
+	//BoneTransforms.Upload();
 
-	updateJointSpheres(0, 0);
+	//updateJointSpheres(0, 0);
 }
 
 void SkinnedMeshModel::Render(ResourceManager* pManager, ePipelineStateSetting psoSetting)
@@ -219,6 +217,82 @@ void SkinnedMeshModel::Render(ResourceManager* pManager, ePipelineStateSetting p
 	DynamicDescriptorPool* pDynamicDescriptorPool = pManager->m_pDynamicDescriptorPool;
 	const UINT CBV_SRV_UAV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
 	bool bIsSkinnedPSO = false;
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable;
+	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorTable;
+
+	for (UINT64 i = 0, size = Meshes.size(); i < size; ++i)
+	{
+		Mesh* const pCurMesh = Meshes[i];
+
+		switch (psoSetting)
+		{
+			case Skinned: case ReflectionSkinned:
+			{
+				hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 10);
+				BREAK_IF_FAILED(hr);
+
+				CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+
+				// t7
+				pDevice->CopyDescriptorsSimple(1, dstHandle, BoneTransforms.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+				dstHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+
+				// b2, b3
+				pDevice->CopyDescriptorsSimple(2, dstHandle, pCurMesh->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+				dstHandle.Offset(2, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+
+				// t0 ~ t5
+				pDevice->CopyDescriptorsSimple(6, dstHandle, pCurMesh->Material.Albedo.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+				dstHandle.Offset(6, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+
+				// t6
+				pDevice->CopyDescriptorsSimple(1, dstHandle, pCurMesh->Material.Height.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+				pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
+
+			}
+			break;
+
+			case DepthOnlySkinned: case DepthOnlyCubeSkinned: case DepthOnlyCascadeSkinned:
+			{
+				hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 3);
+				BREAK_IF_FAILED(hr);
+
+				CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+
+				// t7
+				pDevice->CopyDescriptorsSimple(1, dstHandle, BoneTransforms.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+				dstHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+
+				// b2, b3
+				pDevice->CopyDescriptorsSimple(2, dstHandle, pCurMesh->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+				pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
+			}
+			break;
+
+			default:
+				__debugbreak();
+				break;
+		}
+
+		pCommandList->IASetVertexBuffers(0, 1, &pCurMesh->Vertex.VertexBufferView);
+		pCommandList->IASetIndexBuffer(&pCurMesh->Index.IndexBufferView);
+		pCommandList->DrawIndexedInstanced(pCurMesh->Index.Count, 1, 0, 0, 0);
+	}
+}
+
+void SkinnedMeshModel::Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, ResourceManager* pManager, int psoSetting)
+{
+	_ASSERT(pCommandList);
+	_ASSERT(pManager);
+
+	HRESULT hr = S_OK;
+
+	ID3D12Device5* pDevice = pManager->m_pDevice;
+	DynamicDescriptorPool* pDynamicDescriptorPool = pManager->m_pppDynamicDescriptorPools[*(pManager->m_pFrameIndex)][threadIndex];
+	const UINT CBV_SRV_UAV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable;
 	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorTable;

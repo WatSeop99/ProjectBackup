@@ -84,14 +84,15 @@ void App::Update(const float DELTA_TIME)
 			case SkinnedModel:
 			{
 				SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pModel;
-				if (pCharacter->AnimData.Clips.size() > 1)
+				/*if (pCharacter->AnimData.Clips.size() > 1)
 				{
 					updateAnimationState(DELTA_TIME);
 				}
 				else
 				{
 					pCharacter->UpdateCharacter();
-				}
+				}*/
+				updateAnimationState(DELTA_TIME);
 				pCharacter->UpdateConstantBuffers();
 			}
 			break;
@@ -171,7 +172,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		m_Lights[1].Property.SpotPower = 2.0f;
 		m_Lights[1].Property.Direction = Vector3(0.0f, -0.5f, 1.7f) - m_Lights[1].Property.Position;
 		m_Lights[1].Property.Direction.Normalize();
-		m_Lights[1].Property.LightType = LIGHT_SPOT | LIGHT_SHADOW;
+		m_Lights[1].Property.LightType = LIGHT_SPOT;
 		m_Lights[1].Property.Radius = 0.03f;
 		m_Lights[1].Initialize(pResourceManager);
 
@@ -303,11 +304,10 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		m_pCharacter->bIsPickable = true;
 		m_pCharacter->UpdateWorld(Matrix::CreateScale(1.0f) * Matrix::CreateTranslation(center));
 		
-		// 별도의 애니메이션 데이터가 없다면
-		if (animationData.Clips.size() == 0)
+		/*if(animationData.Clips.size() == 0)
 		{
-			m_pCharacter->AnimData.Update(0, 0);
-		}
+			m_pCharacter->UpdateAnimation(0, 0);
+		}*/
 		
 		m_RenderObjects.push_back((Model*)m_pCharacter);
 	}
@@ -323,8 +323,14 @@ void App::updateAnimationState(const float DELTA_TIME)
 	// 2: walk forward
 	// 3: walk to stop
 	static int s_State = 0;
-	static Vector3 s_Dir = Vector3(0.0f, 0.0f, -1.0f);
 	static float s_Speed = 1.0f;
+
+	// 별도의 애니메이션 클립이 없을 경우.
+	if (m_pCharacter->AnimData.Clips.size() == 1)
+	{
+		// return;
+		goto LB_UPDATE;
+	}
 
 	switch (s_State)
 	{
@@ -361,14 +367,12 @@ void App::updateAnimationState(const float DELTA_TIME)
 				m_pCharacter->AnimData.AccumulatedRootTransform =
 					Matrix::CreateRotationY(DirectX::XM_PI * 60.0f / 180.0f * DELTA_TIME * 2.0f) *
 					m_pCharacter->AnimData.AccumulatedRootTransform;
-				s_Dir;
 			}
 			if (m_Keyboard.bPressed[VK_LEFT])
 			{
 				m_pCharacter->AnimData.AccumulatedRootTransform =
 					Matrix::CreateRotationY(-DirectX::XM_PI * 60.0f / 180.0f * DELTA_TIME * 2.0f) *
 					m_pCharacter->AnimData.AccumulatedRootTransform;
-				s_Dir;
 			}
 			if (s_FrameCount == m_pCharacter->AnimData.Clips[s_State].Keys[0].size())
 			{
@@ -397,6 +401,7 @@ void App::updateAnimationState(const float DELTA_TIME)
 			break;
 	}
 
+LB_UPDATE:
 	m_pCharacter->UpdateAnimation(s_State, s_FrameCount);
 	++s_FrameCount;
 }

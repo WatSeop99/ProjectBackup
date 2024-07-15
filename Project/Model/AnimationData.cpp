@@ -57,7 +57,7 @@ void AnimationData::Update(int clipID, int frame)
 	}
 }
 
-void Joint::Update(float deltaThetaX, float deltaThetaY, float deltaThetaZ, std::vector<AnimationClip>* pClips, Matrix* pDefaultTransform, Matrix* pInverseDefaultTransform, int clipID, int frame)
+void Joint::Update(float deltaThetaX, float deltaThetaY, float deltaThetaZ, std::vector<AnimationClip>* pClips, Matrix* pDefaultTransform, Matrix* pInverseDefaultTransform)
 {
 	_ASSERT(pClips);
 
@@ -66,30 +66,26 @@ void Joint::Update(float deltaThetaX, float deltaThetaY, float deltaThetaZ, std:
 	Quaternion deltaRot = Quaternion::CreateFromRotationMatrix(rot);
 	
 	// 원래 키 데이터에서의 변환 각도.
-	std::vector<AnimationClip::Key>& keys = (*pClips)[clipID].Keys[BoneID];
+	std::vector<AnimationClip::Key>& keys = (*pClips)[0].Keys[BoneID];
 	const UINT64 KEY_SIZE = keys.size();
-	AnimationClip::Key& key = keys[frame % KEY_SIZE];
-	Quaternion originRot = key.Rotation;
-	Quaternion prevRot = key.UpdateRotation;
 
-	// 원래 각도에서 변환 각도 적용.
-	// Quaternion newRot = Quaternion::Concatenate(originRot, deltaRot);
-	Quaternion newRot = Quaternion::Concatenate(prevRot, deltaRot);
-	newRot = Quaternion::Concatenate(originRot, newRot);
+	for (UINT64 i = 0; i < KEY_SIZE; ++i)
+	{
+		// 원래 키 데이터에서의 변환 각도.
+		AnimationClip::Key& key = keys[i % KEY_SIZE];
+		Quaternion originRot = key.Rotation;
+		Quaternion prevUpdateRot = key.UpdateRotation;
 
-	Matrix newKeyTransform = Matrix::CreateScale(key.Scale) * Matrix::CreateFromQuaternion(newRot) * Matrix::CreateTranslation(key.Position);
+		// 원래 각도에서 변환 각도 적용.
+		Quaternion newUpdateRot = Quaternion::Concatenate(prevUpdateRot, deltaRot);
+		Quaternion adjustingRot = Quaternion::Concatenate(originRot, newUpdateRot);
+		Matrix newKeyTransform = Matrix::CreateScale(key.Scale) * Matrix::CreateFromQuaternion(adjustingRot) * Matrix::CreateTranslation(key.Position);
 
-	// 적용.
-	*pJointTransform = newKeyTransform * (*pParentMatrix);
-	*pWorld = Correction * (*pInverseDefaultTransform) * (*pOffset) * (*pJointTransform) * (*pDefaultTransform) * CharacterWorld;
-	// key.UpdateRotation = deltaRot;
-	key.UpdateRotation = newRot;
-
-	/*std::vector<AnimationClip::Key>& keys = (*pClips)[clipID].Keys[BoneID];
-	const UINT64 KEY_SIZE = keys.size();
-	Quaternion prevRot = keys[frame % KEY_SIZE].UpdateRotation;
-
-	keys[frame % KEY_SIZE].UpdateRotation = Quaternion::Concatenate(prevRot, deltaRot);*/
+		// 적용.
+		*pJointTransform = newKeyTransform * (*pParentMatrix);
+		*pWorld = Correction * (*pInverseDefaultTransform) * (*pOffset) * (*pJointTransform) * (*pDefaultTransform) * CharacterWorld;
+		key.UpdateRotation = newUpdateRot;
+	}
 }
 
 void Joint::JacobianX(Vector3* pOutput, Vector3& parentPos)
@@ -119,7 +115,7 @@ void Joint::JacobianZ(Vector3* pOutput, Vector3& parentPos)
 	*pOutput = zAxis.Cross(diff);
 }
 
-void Chain::SolveIK(Vector3& targetPos, int clipID, int frame, const float DELTA_TIME)
+void Chain::SolveIK(Vector3& targetPos, const float DELTA_TIME)
 {
 	_ASSERT(BodyChain.size() > 0);
 
@@ -141,7 +137,8 @@ void Chain::SolveIK(Vector3& targetPos, int clipID, int frame, const float DELTA
 	for (int step = 0; step < 100; ++step)
 	{
 		Vector3 deltaPos = targetPos - endEffector.GetPos();
-		if (deltaPos.Length() <= 0.01f)
+		float deltaPosLength = deltaPos.Length();
+		if (deltaPosLength <= 0.01f || deltaPosLength >= 1.0f)
 		{
 			break;
 		}
@@ -185,7 +182,7 @@ void Chain::SolveIK(Vector3& targetPos, int clipID, int frame, const float DELTA
 		for (UINT64 i = 0; i < TOTAL_JOINT; ++i)
 		{
 			Joint* pJoint = &BodyChain[i];
-			pJoint->Update(deltaTheta[columnIndex], deltaTheta[columnIndex + 1], deltaTheta[columnIndex + 2], pAnimationClips, &DefaultTransform, &InverseDefaultTransform, clipID, frame);
+			pJoint->Update(deltaTheta[columnIndex], deltaTheta[columnIndex + 1], deltaTheta[columnIndex + 2], pAnimationClips, &DefaultTransform, &InverseDefaultTransform);
 			columnIndex += 3;
 		}
 	}

@@ -13,12 +13,16 @@ UINT WINAPI RenderThread(void* pArg)
 
 	while (true)
 	{
-		UINT eventIndex = WaitForMultipleObjects(RenderThreadEventType_Count, phEventList, FALSE, INFINITE);
+		int eventIndex = WaitForMultipleObjects(RenderThreadEventType_Count, phEventList, FALSE, INFINITE);
 
 		switch (eventIndex)
 		{
-			case RenderThreadEventType_Process:
-				pRenderer->ProcessByThread(threadIndex);
+			case RenderThreadEventType_Shadow:
+			case RenderThreadEventType_Object:
+			case RenderThreadEventType_Mirror:
+			case RenderThreadEventType_Collider:
+			case RenderThreadEventType_Post:
+				pRenderer->ProcessByThread(threadIndex, eventIndex);
 				break;
 
 			case RenderThreadEventType_Desctroy:

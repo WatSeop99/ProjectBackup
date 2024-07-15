@@ -34,6 +34,7 @@ public:
 	virtual void UpdateAnimation(int clipID, int frame) { }
 
 	virtual void Render(ResourceManager* pManager, ePipelineStateSetting psoSetting);
+	virtual void Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, ResourceManager* pManager, int psoSetting);
 	void RenderBoundingBox(ResourceManager* pManager, ePipelineStateSetting psoSetting);
 	void RenderBoundingSphere(ResourceManager* pManager, ePipelineStateSetting psoSetting);
 

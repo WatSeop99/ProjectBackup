@@ -73,6 +73,7 @@ public:
 
 	void SetGlobalConstants(ConstantBuffer* pGlobal, ConstantBuffer* pLight, ConstantBuffer* pReflection);
 	void SetCommonState(ePipelineStateSetting psoState);
+	void SetCommonState(ID3D12GraphicsCommandList* pCommandList, int psoState);
 	
 	inline ID3D12GraphicsCommandList* GetCommandList() { return m_ppSingleCommandList[*m_pFrameIndex]; }
 
@@ -99,6 +100,13 @@ public:
 	ID3D12DescriptorHeap* m_pSamplerHeap = nullptr;
 	DynamicDescriptorPool* m_pDynamicDescriptorPool = nullptr;
 
+	// for multi-thread
+	DynamicDescriptorPool*** m_pppDynamicDescriptorPools = nullptr;
+
+	/////////////////////////////
+
+	UINT* m_pFrameIndex = nullptr;
+
 	UINT m_RTVDescriptorSize = 0;
 	UINT m_DSVDescriptorSize = 0;
 	UINT m_CBVSRVUAVDescriptorSize = 0;
@@ -116,7 +124,6 @@ public:
 private:
 	HANDLE m_hFenceEvent = nullptr;
 	ID3D12Fence* m_pFence = nullptr;
-	UINT* m_pFrameIndex = nullptr;
 	UINT64* m_pFenceValue = nullptr;
 	UINT64* m_pFenceValues = nullptr;
 

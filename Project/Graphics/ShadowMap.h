@@ -28,9 +28,10 @@ public:
 	inline Texture* GetDirectionalLightShadowBufferPtr() { return &m_DirectionalLightShadowBuffer; }
 
 	inline ConstantBuffer* GetShadowConstantsBufferPtr() { return m_ShadowConstantBuffers; }
+	inline ConstantBuffer* GetShadowConstantBufferForGSPtr() { return &m_ShadowConstantsBufferForGS; }
 
-	inline void SetShadowWidth(const UINT WIDTH) { m_ShadowMapWidth = WIDTH; }
-	inline void SetShadowHeight(const UINT HEIGHT) { m_ShadowMapHeight = HEIGHT; }
+	void SetShadowWidth(const UINT WIDTH);
+	void SetShadowHeight(const UINT HEIGHT);
 
 	void SetDescriptorHeap(ResourceManager* pManager);
 
@@ -45,6 +46,9 @@ private:
 	UINT m_ShadowMapHeight;
 	UINT m_LightType = LIGHT_OFF;
 	const UINT m_TOTAL_LIGHT_TYPE = (LIGHT_DIRECTIONAL | LIGHT_POINT | LIGHT_SPOT);
+
+	D3D12_VIEWPORT m_pViewPorts[6];
+	D3D12_RECT m_pScissorRects[6];
 
 	union
 	{
