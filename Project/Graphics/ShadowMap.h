@@ -3,8 +3,11 @@
 #include "Camera.h"
 #include "ConstantDataType.h"
 #include "ConstantBuffer.h"
+#include "Light.h"
 #include "../Model/SkinnedMeshModel.h"
 #include "Texture.h"
+
+class Light;
 
 class ShadowMap
 {

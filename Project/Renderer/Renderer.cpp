@@ -181,7 +181,6 @@ void Renderer::Clear()
 	m_LightConstant.Clear();
 	m_ReflectionGlobalConstant.Clear();
 
-#ifdef MULTI_THREAD
 	for (UINT i = 0; i < SWAP_CHAIN_FRAME_COUNT; ++i)
 	{
 		for (UINT j = 0; j < MAX_RENDER_THREAD_COUNT; ++j)
@@ -210,7 +209,6 @@ void Renderer::Clear()
 			}
 		}
 	}
-#endif
 
 	m_PostProcessor.Clear();
 	m_DynamicDescriptorPool.Clear();
@@ -657,6 +655,15 @@ LB_EXIT:
 		SetDebugLayerInfo(m_pDevice);
 	}
 
+	UINT physicalCoreCount = 0;
+	UINT logicalCoreCount = 0;
+	GetPhysicalCoreCount(&physicalCoreCount, &logicalCoreCount);
+	m_RenderThreadCount = physicalCoreCount;
+	if (m_RenderThreadCount > MAX_RENDER_THREAD_COUNT)
+	{
+		m_RenderThreadCount = MAX_RENDER_THREAD_COUNT;
+	}
+
 	// create command queue
 	{
 		D3D12_COMMAND_QUEUE_DESC queueDesc = {};
@@ -666,6 +673,15 @@ LB_EXIT:
 		hr = m_pDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_pCommandQueue));
 		BREAK_IF_FAILED(hr);
 		m_pCommandQueue->SetName(L"CommandQueue");
+
+		for (int i = 0; i < RenderPass_RenderPassCount; ++i)
+		{
+			hr = m_pDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_ppCommandQueue[i]));
+			BREAK_IF_FAILED(hr);
+
+			std::wstring wstr = L"CommandQueue" + std::to_wstring(i);
+			m_ppCommandQueue[i]->SetName(wstr.c_str());
+		}
 	}
 
 	// create swapchain
@@ -718,6 +734,30 @@ LB_EXIT:
 			// Command lists are created in the recording state, but there is nothing
 			// to record yet. The main loop expects it to be closed, so close it now.
 			m_ppCommandList[i]->Close();
+		}
+	}
+
+	// create render queue and command list pool, descriptor pool
+	{
+		for (int i = 0; i < RenderPass_RenderPassCount; ++i)
+		{
+			for (UINT j = 0; j < MAX_RENDER_THREAD_COUNT; ++j)
+			{
+				m_ppRenderQueue[i][j] = new RenderQueue;
+				m_ppRenderQueue[i][j]->Initialize(8192);
+			}
+		}
+
+		for (UINT i = 0; i < SWAP_CHAIN_FRAME_COUNT; i++)
+		{
+			for (UINT j = 0; j < m_RenderThreadCount; j++)
+			{
+				m_ppCommandListPool[i][j] = new CommandListPool;
+				m_ppCommandListPool[i][j]->Initialize(m_pDevice, D3D12_COMMAND_LIST_TYPE_DIRECT, 256);
+
+				m_ppDescriptorPool[i][j] = new DynamicDescriptorPool;
+				m_ppDescriptorPool[i][j]->Initialize(m_pDevice, 512);
+			}
 		}
 	}
 
@@ -775,15 +815,16 @@ LB_EXIT:
 		m_pPrevBuffer->SetName(L"PrevBuffer");
 	}
 
-
-	UINT physicalCoreCount = 0;
-	UINT logicalCoreCount = 0;
-	GetPhysicalCoreCount(&physicalCoreCount, &logicalCoreCount);
-	m_RenderThreadCount = physicalCoreCount;
-	if (m_RenderThreadCount > MAX_RENDER_THREAD_COUNT)
+#ifdef MULTI_THREAD
+	// create thread and event
 	{
-		m_RenderThreadCount = MAX_RENDER_THREAD_COUNT;
+		initRenderThreadPool(m_RenderThreadCount);
+		for (int i = 0; i < RenderPass_RenderPassCount; ++i)
+		{
+			m_phCompletedEvents[i] = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+		}
 	}
+#endif
 
 
 	ResourceManager::InitialData initData = { m_pDevice, m_pCommandQueue, m_ppCommandAllocator, m_ppCommandList, &m_DynamicDescriptorPool, m_hFenceEvent, m_pFence, &m_FrameIndex, &m_FenceValue, m_LastFenceValues };
@@ -1054,6 +1095,25 @@ void Renderer::initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceText
 	}
 }
 
+void Renderer::initRenderThreadPool(UINT renderThreadCount)
+{
+	m_pThreadDescList = new RenderThreadDesc[renderThreadCount];
+	memset(m_pThreadDescList, 0, sizeof(RenderThreadDesc) * renderThreadCount);
+
+	for (UINT i = 0; i < renderThreadCount; ++i)
+	{
+		for (int j = 0; j < RenderThreadEventType_Count; ++j)
+		{
+			m_pThreadDescList[i].hEventList[j] = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+		}
+
+		m_pThreadDescList[i].pRenderer = this;
+		m_pThreadDescList[i].ThreadIndex = i;
+		UINT threadID = 0;
+		m_pThreadDescList[i].hThread = (HANDLE)_beginthreadex(nullptr, 0, RenderThread, m_pThreadDescList + i, 0, &threadID);
+	}
+}
+
 void Renderer::beginRender()
 {
 	HRESULT hr = S_OK;
@@ -1082,23 +1142,33 @@ void Renderer::shadowMapRender()
 {
 #ifdef MULTI_THREAD
 
+	CommandListPool* pCommandListPool = m_ppCommandListPool[m_FrameIndex][0];
+	const int TOTAL_LIGHT_TYPE = LIGHT_DIRECTIONAL | LIGHT_POINT | LIGHT_SPOT;
+
 	for (int i = 0; i < MAX_LIGHTS; ++i)
 	{
 		CD3DX12_RESOURCE_BARRIER barrier;
-		ID3D12GraphicsCommandList* pCommandList = m_ppCommandListPool[m_FrameIndex][0]->GetCurrentCommandList();
+		ID3D12GraphicsCommandList* pCommandList = pCommandListPool->GetCurrentCommandList();
 
-		switch ((*m_pLights)[i].Property.LightType & (LIGHT_DIRECTIONAL | LIGHT_POINT | LIGHT_SPOT))
+		Light* pCurLight = &(*m_pLights)[i];
+		eRenderPSOType renderPSO;
+		
+		// set shadow map writing state for depth buffer.
+		switch (pCurLight->Property.LightType & TOTAL_LIGHT_TYPE)
 		{
 			case LIGHT_DIRECTIONAL:
-				barrier = CD3DX12_RESOURCE_BARRIER::Transition((*m_pLights)[i].ShadowMap.GetDirectionalLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->ShadowMap.GetDirectionalLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				renderPSO = RenderPSOType_DepthOnlyCascadeDefault;
 				break;
 
 			case LIGHT_POINT:
-				barrier = CD3DX12_RESOURCE_BARRIER::Transition((*m_pLights)[i].ShadowMap.GetPointLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->ShadowMap.GetPointLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				renderPSO = RenderPSOType_DepthOnlyCubeDefault;
 				break;
 
 			case LIGHT_SPOT:
-				barrier = CD3DX12_RESOURCE_BARRIER::Transition((*m_pLights)[i].ShadowMap.GetSpotLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->ShadowMap.GetSpotLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				renderPSO = RenderPSOType_DepthOnlyDefault;
 				break;
 
 			default:
@@ -1107,10 +1177,33 @@ void Renderer::shadowMapRender()
 		}
 
 		// need to add item in render queue.
+		for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
+		{
+			RenderQueue* pRenderQue = m_ppRenderQueue[RenderPass_Shadow][m_CurThreadIndex];
+			Model* pModel = (*m_pRenderObjects)[i];
+			RenderItem item;
+
+			item.ModelType = (eRenderObjectType)pModel->ModelType;
+			item.pObjectHandle = (void*)pModel;
+			item.pLight = (void*)pCurLight;
+			item.pFilter = nullptr;
+			item.PSOType = renderPSO;
+
+			if (pModel->ModelType == SkinnedModel)
+			{
+				item.PSOType = (eRenderPSOType)(renderPSO + 1);			
+			}
+
+			if (!pRenderQue->Add(&item))
+			{
+				__debugbreak();
+			}
+			++m_CurThreadIndex;
+		}
 
 		pCommandList->ResourceBarrier(1, &barrier);
-		m_ppCommandQueue[RenderPass_Shadow]->ExecuteCommandLists(1, (ID3D12CommandList**) & pCommandList);
 	}
+	pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Shadow]);
 
 #else
 
@@ -1125,6 +1218,71 @@ void Renderer::shadowMapRender()
 void Renderer::objectRender()
 {
 #ifdef MULTI_THREAD
+
+	{
+		CommandListPool* pCommandListPool = m_ppCommandListPool[m_FrameIndex][0];
+
+		const UINT RTV_DESCRIPTOR_SIZE = m_pResourceManager->m_RTVDescriptorSize;
+		CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_pResourceManager->m_pRTVHeap->GetCPUDescriptorHandleForHeapStart(), m_MainRenderTargetOffset + m_FrameIndex, RTV_DESCRIPTOR_SIZE);
+		CD3DX12_CPU_DESCRIPTOR_HANDLE floatRtvHandle(m_pResourceManager->m_pRTVHeap->GetCPUDescriptorHandleForHeapStart(), m_FloatBufferRTVOffset, RTV_DESCRIPTOR_SIZE);
+		CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_pResourceManager->m_pDSVHeap->GetCPUDescriptorHandleForHeapStart());
+		ID3D12GraphicsCommandList* pCommandList = pCommandListPool->GetCurrentCommandList();
+
+		const CD3DX12_RESOURCE_BARRIER RTV_BEFORE_BARRIERS[2] =
+		{
+			CD3DX12_RESOURCE_BARRIER::Transition(m_pRenderTargets[m_FrameIndex], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET),
+			CD3DX12_RESOURCE_BARRIER::Transition(m_pFloatBuffer, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET),
+		};
+		pCommandList->ResourceBarrier(2, RTV_BEFORE_BARRIERS);
+
+		const float COLOR[] = { 0.0f, 0.0f, 1.0f, 1.0f };
+		pCommandList->ClearRenderTargetView(rtvHandle, COLOR, 0, nullptr);
+		pCommandList->ClearRenderTargetView(floatRtvHandle, COLOR, 0, nullptr);
+		pCommandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+
+		pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Object]);
+	}
+
+	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
+	{
+		RenderQueue* pRenderQue = m_ppRenderQueue[RenderPass_Object][m_CurThreadIndex];
+		Model* pCurModel = (*m_pRenderObjects)[i];
+		RenderItem item;
+
+		item.ModelType = (eRenderObjectType)pCurModel->ModelType;
+		item.pObjectHandle = (void*)pCurModel;
+		item.pLight = nullptr;
+		item.pFilter = nullptr;
+
+		if (!pCurModel->bIsVisible)
+		{
+			continue;
+		}
+
+		switch (pCurModel->ModelType)
+		{
+			case DefaultModel:
+				item.PSOType = RenderPSOType_Default;
+				break;
+
+			case SkinnedModel:
+				item.PSOType = RenderPSOType_Skinned;
+				break;
+
+			case SkyboxModel:
+				item.PSOType = RenderPSOType_Skybox;
+				break;
+
+			default:
+				break;
+		}
+
+		if (!pRenderQue->Add(&item))
+		{
+			__debugbreak();
+		}
+		++m_CurThreadIndex;
+	}
 
 #else
 
@@ -1198,6 +1356,47 @@ void Renderer::mirrorRender()
 	}
 
 #ifdef MULTI_THREAD
+
+	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
+	{
+		RenderQueue* pRenderQue = m_ppRenderQueue[RenderPass_Mirror][m_CurThreadIndex];
+		Model* pCurModel = (*m_pRenderObjects)[i];
+		RenderItem item;
+
+		item.ModelType = (eRenderObjectType)pCurModel->ModelType;
+		item.pObjectHandle = (void*)pCurModel;
+		item.pLight = nullptr;
+		item.pFilter = nullptr;
+
+		if (!pCurModel->bIsVisible)
+		{
+			continue;
+		}
+
+		switch (pCurModel->ModelType)
+		{
+			case DefaultModel:
+				item.PSOType = RenderPSOType_ReflectionDefault;
+				break;
+
+			case SkinnedModel:
+				item.PSOType = RenderPSOType_ReflectionSkinned;
+				break;
+
+			case SkyboxModel:
+				item.PSOType = RenderPSOType_ReflectionSkybox;
+				break;
+
+			default:
+				break;
+		}
+
+		if (!pRenderQue->Add(&item))
+		{
+			__debugbreak();
+		}
+		++m_CurThreadIndex;
+	}
 
 #else
 
@@ -1289,6 +1488,8 @@ void Renderer::postProcess()
 {
 #ifdef MULTI_THREAD
 
+
+
 #else
 
 	const CD3DX12_RESOURCE_BARRIER BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(m_pFloatBuffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON);
@@ -1315,24 +1516,27 @@ void Renderer::endRender()
 		SetEvent(m_pThreadDescList[i].hEventList[RenderThreadEventType_Shadow]);
 	}
 	WaitForSingleObject(m_phCompletedEvents[RenderPass_Shadow], INFINITE);
+	
 	// resource barrier.
+	const int TOTAL_LIGHT_TYPE = LIGHT_DIRECTIONAL | LIGHT_POINT | LIGHT_SPOT;
 	for (int i = 0; i < MAX_LIGHTS; ++i)
 	{
 		CD3DX12_RESOURCE_BARRIER barrier;
 		ID3D12GraphicsCommandList* pCommandList = pCommandListPool->GetCurrentCommandList();
+		Light* pCurLight = &(*m_pLights)[i];
 
-		switch ((*m_pLights)[i].Property.LightType & (LIGHT_DIRECTIONAL | LIGHT_POINT | LIGHT_SPOT))
+		switch (pCurLight->Property.LightType & TOTAL_LIGHT_TYPE)
 		{
 			case LIGHT_DIRECTIONAL:
-				barrier = CD3DX12_RESOURCE_BARRIER::Transition((*m_pLights)[i].ShadowMap.GetDirectionalLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ);
+				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->ShadowMap.GetDirectionalLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ);
 				break;
 
 			case LIGHT_POINT:
-				barrier = CD3DX12_RESOURCE_BARRIER::Transition((*m_pLights)[i].ShadowMap.GetPointLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ);
+				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->ShadowMap.GetPointLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ);
 				break;
 
 			case LIGHT_SPOT:
-				barrier = CD3DX12_RESOURCE_BARRIER::Transition((*m_pLights)[i].ShadowMap.GetSpotLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ);
+				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->ShadowMap.GetSpotLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ);
 				break;
 
 			default:
@@ -1341,8 +1545,8 @@ void Renderer::endRender()
 		}
 
 		pCommandList->ResourceBarrier(1, &barrier);
-		m_ppCommandQueue[RenderPass_Shadow]->ExecuteCommandLists(1, (ID3D12CommandList**)&pCommandList);
 	}
+	pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Shadow]);
 
 	// default render pass.
 	for (UINT i = 0; i < m_RenderThreadCount; ++i)
@@ -1357,7 +1561,7 @@ void Renderer::endRender()
 		ID3D12GraphicsCommandList* pCommandList = pCommandListPool->GetCurrentCommandList();
 		m_pResourceManager->SetCommonState(pCommandList, RenderPSOType_StencilMask);
 		m_pMirror->Render(0, pCommandList, m_pResourceManager, RenderPSOType_StencilMask);
-		m_ppCommandQueue[RenderPass_Mirror]->ExecuteCommandLists(1, (ID3D12CommandList**)&pCommandList);
+		pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Mirror]);
 	}
 	for (UINT i = 0; i < m_RenderThreadCount; ++i)
 	{
@@ -1369,7 +1573,7 @@ void Renderer::endRender()
 		ID3D12GraphicsCommandList* pCommandList = pCommandListPool->GetCurrentCommandList();
 		m_pResourceManager->SetCommonState(pCommandList, RenderPSOType_MirrorBlend);
 		m_pMirror->Render(0, pCommandList, m_pResourceManager, RenderPSOType_MirrorBlend);
-		m_ppCommandQueue[RenderPass_Mirror]->ExecuteCommandLists(1, (ID3D12CommandList**)&pCommandList);
+		pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Mirror]);
 	}
 
 	// postprocessing pass.
@@ -1377,7 +1581,7 @@ void Renderer::endRender()
 		ID3D12GraphicsCommandList* pCommandList = pCommandListPool->GetCurrentCommandList();
 		const CD3DX12_RESOURCE_BARRIER BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(m_pFloatBuffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON);
 		pCommandList->ResourceBarrier(1, &BARRIER);
-		m_ppCommandQueue[RenderPass_Post]->ExecuteCommandLists(1, (ID3D12CommandList**)&pCommandList);
+		pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Post]);
 	}
 	for (UINT i = 0; i < m_RenderThreadCount; ++i)
 	{

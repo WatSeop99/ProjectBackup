@@ -61,6 +61,7 @@ protected:
 	void initDirect3D();
 	void initScene();
 	void initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceTexture, Texture* pSpecularTexture, Texture* pBRDFTexture);
+	void initRenderThreadPool(UINT renderThreadCount);
 
 	// for single thread.
 	void beginRender();
@@ -132,7 +133,6 @@ private:
 	UINT m_RenderThreadCount = 0;
 	UINT m_CurThreadIndex = 0; // render queue에 균등하게 넣기 위한 인덱스.
 
-	long volatile m_ActiveThreadCount = 0;
 	long volatile m_pActiveThreadCounts[RenderPass_RenderPassCount] = { 0, };
 	HANDLE m_phCompletedEvents[RenderPass_RenderPassCount] = { nullptr, };
 	/////////////////////////////////////////////

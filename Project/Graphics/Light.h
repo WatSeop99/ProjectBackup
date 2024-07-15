@@ -3,6 +3,8 @@
 #include "Camera.h"
 #include "ShadowMap.h"
 
+class ShadowMap;
+
 class Light
 {
 public:
