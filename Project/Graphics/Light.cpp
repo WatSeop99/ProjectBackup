@@ -2,7 +2,7 @@
 #include "ConstantDataType.h"
 #include "Light.h"
 
-Light::Light(UINT width, UINT height) : ShadowMap(width, height)
+Light::Light(UINT width, UINT height) : LightShadowMap(width, height)
 {
 	m_LightViewCamera.bUseFirstPersonView = true;
 	m_LightViewCamera.SetAspectRatio((float)width / (float)height);
@@ -21,8 +21,8 @@ void Light::Initialize(ResourceManager* pManager)
 	{
 		case LIGHT_DIRECTIONAL:
 			m_LightViewCamera.SetFarZ(500.0f);
-			ShadowMap.SetShadowWidth(2560);
-			ShadowMap.SetShadowHeight(2560);
+			LightShadowMap.SetShadowWidth(2560);
+			LightShadowMap.SetShadowHeight(2560);
 			break;
 
 		case LIGHT_POINT:
@@ -34,7 +34,7 @@ void Light::Initialize(ResourceManager* pManager)
 			break;
 	}
 
-	ShadowMap.Initialize(pManager, Property.LightType);
+	LightShadowMap.Initialize(pManager, Property.LightType);
 }
 
 void Light::Update(ResourceManager* pManager, const float DELTA_TIME, Camera& mainCamera)
@@ -65,9 +65,9 @@ void Light::Update(ResourceManager* pManager, const float DELTA_TIME, Camera& ma
 		// 그림자 맵 생성시 필요.
 		Matrix lightView = DirectX::XMMatrixLookAtLH(Property.Position, Property.Position + Property.Direction, up); // 카메라를 이용하면 pitch, yaw를 고려하게됨. 이를 방지하기 위함.
 		Matrix lightProjection = m_LightViewCamera.GetProjection();
-		ShadowMap.Update(pManager, Property, m_LightViewCamera, mainCamera);
+		LightShadowMap.Update(pManager, Property, m_LightViewCamera, mainCamera);
 
-		ConstantBuffer* pShadowGlobalConstants = ShadowMap.GetShadowConstantsBufferPtr();
+		ConstantBuffer* pShadowGlobalConstants = LightShadowMap.GetShadowConstantsBufferPtr();
 		switch (Property.LightType & m_TOTAL_LIGHT_TYPE)
 		{
 			case LIGHT_DIRECTIONAL:
@@ -106,13 +106,13 @@ void Light::RenderShadowMap(ResourceManager* pManager, std::vector<Model*>* pRen
 {
 	if (Property.LightType & LIGHT_SHADOW)
 	{
-		ShadowMap.Render(pManager, pRenderObjects);
+		LightShadowMap.Render(pManager, pRenderObjects);
 	}
 }
 
 void Light::Clear()
 {
-	ShadowMap.Clear();
+	LightShadowMap.Clear();
 	bRotated = false;
 	bVisible = true;
 }

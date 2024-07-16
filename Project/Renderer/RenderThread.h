@@ -14,6 +14,7 @@ enum eRenderThreadEventType
 struct RenderThreadDesc
 {
 	Renderer* pRenderer;
+	ResourceManager* pResourceManager;
 	UINT ThreadIndex;
 	HANDLE hThread;
 	HANDLE hEventList[RenderThreadEventType_Count];

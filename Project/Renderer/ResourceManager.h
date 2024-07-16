@@ -73,7 +73,7 @@ public:
 
 	void SetGlobalConstants(ConstantBuffer* pGlobal, ConstantBuffer* pLight, ConstantBuffer* pReflection);
 	void SetCommonState(ePipelineStateSetting psoState);
-	void SetCommonState(ID3D12GraphicsCommandList* pCommandList, int psoState);
+	void SetCommonState(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, DynamicDescriptorPool* pDescriptorPool, int psoState);
 	
 	inline ID3D12GraphicsCommandList* GetCommandList() { return m_ppSingleCommandList[*m_pFrameIndex]; }
 
@@ -101,7 +101,7 @@ public:
 	DynamicDescriptorPool* m_pDynamicDescriptorPool = nullptr;
 
 	// for multi-thread
-	DynamicDescriptorPool*** m_pppDynamicDescriptorPools = nullptr;
+	DynamicDescriptorPool**** m_ppppDynamicDescriptorPools = nullptr;
 
 	/////////////////////////////
 

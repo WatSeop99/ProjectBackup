@@ -20,10 +20,10 @@ struct AnimationClip
 		Matrix GetTransform();
 
 	public:
-		Vector3 Position = Vector3(0.0f);
+		Vector3 Position;
 		Vector3 Scale = Vector3(1.0f);
-		Quaternion Rotation = Quaternion();
-		Quaternion UpdateRotation = Quaternion();
+		Quaternion Rotation;
+		Quaternion UpdateRotation;
 	};
 
 	std::string Name;					 // Name of this animation clip.
@@ -46,6 +46,7 @@ public:
 	{
 		return (InverseDefaultTransform * OffsetMatrices[boneID] * BoneTransforms[boneID] * DefaultTransform);
 	}
+	Matrix GetBonePositionMatrix(int boneID, int clipID, int frame);
 
 public:
 	std::unordered_map<std::string, int> BoneNameToID; // 뼈 이름과 인덱스 정수.
@@ -55,11 +56,11 @@ public:
 	std::vector<Matrix> BoneTransforms;					// 움직임에 따른 뼈의 변환 행렬.
 	std::vector<AnimationClip> Clips;					// 애니메이션 동작.
 
-	Matrix DefaultTransform = Matrix();			// normalizing을 위한 변환 행렬 [-1, 1]^3
-	Matrix InverseDefaultTransform = Matrix();	// 모델 좌표계 복귀 변환 행렬.
-	Matrix RootTransform = Matrix();
-	Matrix AccumulatedRootTransform = Matrix();
-	Vector3 PrevPos = Vector3(0.0f);
+	Matrix DefaultTransform;		// normalizing을 위한 변환 행렬 [-1, 1]^3
+	Matrix InverseDefaultTransform;	// 모델 좌표계 복귀 변환 행렬.
+	Matrix RootTransform;
+	Matrix AccumulatedRootTransform;
+	Vector3 PrevPos;
 };
 
 class Joint
@@ -68,24 +69,23 @@ public:
 	Joint() = default;
 	~Joint() = default;
 
-	void Update(float deltaX, float deltaY, float deltaZ, std::vector<AnimationClip>* pClips, Matrix* pDefaultTransform, Matrix* pInverseDefaultTransform);
+	void Update(float deltaX, float deltaY, float deltaZ, std::vector<AnimationClip>* pClips, Matrix* pDefaultTransform, Matrix* pInverseDefaultTransform, int clipID, int frame);
 
 	void JacobianX(Vector3* pOutput, Vector3& parentPos);
 	void JacobianY(Vector3* pOutput, Vector3& parentPos);
 	void JacobianZ(Vector3* pOutput, Vector3& parentPos);
 
-	inline Vector3 GetPos() { return pWorld->Translation(); }
-
 public:
 	UINT BoneID = 0xffffffff;
 
-	Matrix* pWorld = nullptr; // World Matrix.
+	Vector3 Position;
+
 	Matrix* pOffset = nullptr; 
 	Matrix* pParentMatrix = nullptr; // parent bone transform.
 	Matrix* pJointTransform = nullptr; // bone transform.
 
-	Matrix CharacterWorld = Matrix(); // 캐릭터 world.
-	Matrix Correction = Matrix(); // world를 위한 보정값.
+	Matrix CharacterWorld; // 캐릭터 world.
+	Matrix Correction; // world를 위한 보정값.
 };
 class Chain
 {
@@ -93,11 +93,11 @@ public:
 	Chain() = default;
 	~Chain() = default;
 
-	void SolveIK(Vector3& targetPos, const float DELTA_TIME);
+	void SolveIK(Vector3& targetPos, int clipID, int frame, const float DELTA_TIME);
 
 public:
 	std::vector<Joint> BodyChain; // root ~ child.
 	std::vector<AnimationClip>* pAnimationClips = nullptr;
-	Matrix DefaultTransform = Matrix();
-	Matrix InverseDefaultTransform = Matrix();
+	Matrix DefaultTransform;
+	Matrix InverseDefaultTransform;
 };

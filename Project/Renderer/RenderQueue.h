@@ -50,9 +50,9 @@ public:
 
 	bool Add(const RenderItem* pItem);
 
-	UINT Process(UINT threadIndex, ID3D12CommandQueue* pCommandQueue, CommandListPool* pCommandListPool, ResourceManager* pManager, int processCountPerCommandList);
-	UINT ProcessLight(UINT threadIndex, ID3D12CommandQueue* pCommandQueue, CommandListPool* pCommandListPool, ResourceManager* pManager, int processCountPerCommandList);
-	UINT ProcessPostProcessing(UINT threadIndex, ID3D12CommandQueue* pCommandQueue, CommandListPool* pCommandListPool, ResourceManager* pManager, int processCountPerCommandList);
+	UINT Process(UINT threadIndex, ID3D12CommandQueue* pCommandQueue, CommandListPool* pCommandListPool, ResourceManager* pManager, DynamicDescriptorPool* pDescriptorPool, int processCountPerCommandList);
+	UINT ProcessLight(UINT threadIndex, ID3D12CommandQueue* pCommandQueue, CommandListPool* pCommandListPool, ResourceManager* pManager, DynamicDescriptorPool* pDescriptorPool, int processCountPerCommandList);
+	UINT ProcessPostProcessing(UINT threadIndex, ID3D12CommandQueue* pCommandQueue, CommandListPool* pCommandListPool, ResourceManager* pManager, DynamicDescriptorPool* pDescriptorPool, int processCountPerCommandList);
 
 	void Reset();
 
@@ -61,8 +61,6 @@ public:
 protected:
 	const RenderItem* dispatch();
 	
-	void drawItem(const RenderItem* pRenderItem, ID3D12GraphicsCommandList* pCommandList);
-
 private:
 	BYTE* m_pBuffer = nullptr;
 	UINT m_MaxBufferSize = 0;

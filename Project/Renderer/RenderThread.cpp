@@ -8,6 +8,7 @@ UINT WINAPI RenderThread(void* pArg)
 {
 	RenderThreadDesc* pDesc = (RenderThreadDesc*)pArg;
 	Renderer* pRenderer = pDesc->pRenderer;
+	ResourceManager* pManager = pDesc->pResourceManager;
 	UINT threadIndex = pDesc->ThreadIndex;
 	const HANDLE* phEventList = pDesc->hEventList;
 
@@ -22,14 +23,14 @@ UINT WINAPI RenderThread(void* pArg)
 			case RenderThreadEventType_Mirror:
 			case RenderThreadEventType_Collider:
 			case RenderThreadEventType_Post:
-				pRenderer->ProcessByThread(threadIndex, eventIndex);
+				pRenderer->ProcessByThread(threadIndex, pManager, eventIndex);
 				break;
 
 			case RenderThreadEventType_Desctroy:
 				goto LB_EXIT;
 
 			default:
-				// __debugbreak();
+				__debugbreak();
 				break;
 		}
 	}

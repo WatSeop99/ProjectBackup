@@ -42,26 +42,34 @@ LB_RETURN:
 	return bRet;
 }
 
-UINT RenderQueue::Process(UINT threadIndex, ID3D12CommandQueue* pCommandQueue, CommandListPool* pCommandListPool, ResourceManager* pManager, int processCountPerCommandList)
+UINT RenderQueue::Process(UINT threadIndex, ID3D12CommandQueue* pCommandQueue, CommandListPool* pCommandListPool, ResourceManager* pManager, DynamicDescriptorPool* pDescriptorPool, int processCountPerCommandList)
 {
 	_ASSERT(threadIndex >= 0 && threadIndex < MAX_RENDER_THREAD_COUNT);
 	_ASSERT(pCommandQueue);
 	_ASSERT(pCommandListPool);
 	_ASSERT(pManager);
+	_ASSERT(pDescriptorPool);
 
 	ID3D12GraphicsCommandList* ppCommandLists[64] = { };
-	UINT commandListCount = 0;
+	int commandListCount = 0;
 
 	ID3D12GraphicsCommandList* pCommandList = nullptr;
-	UINT processedCount = 0;
-	UINT processedPerCommandList = 0;
+	int processedCount = 0;
+	int processedPerCommandList = 0;
 	const RenderItem* pRenderItem = nullptr;
 
 	while (pRenderItem = dispatch())
 	{
 		pCommandList = pCommandListPool->GetCurrentCommandList();
-		
-		pManager->SetCommonState(pCommandList, pRenderItem->PSOType);
+
+		ID3D12DescriptorHeap* ppDescriptorHeaps[2] =
+		{
+			pDescriptorPool->GetDescriptorHeap(),
+			pManager->m_pSamplerHeap,
+		};
+		pCommandList->SetDescriptorHeaps(2, ppDescriptorHeaps);
+
+		pManager->SetCommonState(threadIndex, pCommandList, pDescriptorPool, pRenderItem->PSOType);
 		switch (pRenderItem->ModelType)
 		{
 			case RenderObjectType_DefaultType:
@@ -115,13 +123,14 @@ UINT RenderQueue::Process(UINT threadIndex, ID3D12CommandQueue* pCommandQueue, C
 	return commandListCount;
 }
 
-UINT RenderQueue::ProcessLight(UINT threadIndex, ID3D12CommandQueue* pCommandQueue, CommandListPool* pCommandListPool, ResourceManager* pManager, int processCountPerCommandList)
+UINT RenderQueue::ProcessLight(UINT threadIndex, ID3D12CommandQueue* pCommandQueue, CommandListPool* pCommandListPool, ResourceManager* pManager, DynamicDescriptorPool* pDescriptorPool, int processCountPerCommandList)
 {
 	// pDepthStencilResource에 대한 resource barrier 처리 필요.
 	_ASSERT(threadIndex >= 0 && threadIndex < MAX_RENDER_THREAD_COUNT);
 	_ASSERT(pCommandQueue);
 	_ASSERT(pCommandListPool);
 	_ASSERT(pManager);
+	_ASSERT(pDescriptorPool);
 
 	ID3D12GraphicsCommandList* ppCommandLists[64] = { };
 	UINT commandListCount = 0;
@@ -140,21 +149,28 @@ UINT RenderQueue::ProcessLight(UINT threadIndex, ID3D12CommandQueue* pCommandQue
 		CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle;
 		ID3D12Resource* pDepthStencilResource = nullptr;
 
-		pManager->SetCommonState(pCommandList, pRenderItem->PSOType);
+		ID3D12DescriptorHeap* ppDescriptorHeaps[2] =
+		{
+			pDescriptorPool->GetDescriptorHeap(),
+			pManager->m_pSamplerHeap,
+		};
+		pCommandList->SetDescriptorHeaps(2, ppDescriptorHeaps);
+
+		pManager->SetCommonState(threadIndex, pCommandList, pDescriptorPool, pRenderItem->PSOType);
 		switch (pCurLight->Property.LightType & (LIGHT_DIRECTIONAL | LIGHT_POINT | LIGHT_SPOT))
 		{
 			case LIGHT_DIRECTIONAL:
-				pShadowBuffer = pCurLight->ShadowMap.GetDirectionalLightShadowBufferPtr();
-				pCommandList->SetGraphicsRootConstantBufferView(1, pCurLight->ShadowMap.GetShadowConstantBufferForGSPtr()->GetGPUMemAddr());
+				pShadowBuffer = pCurLight->LightShadowMap.GetDirectionalLightShadowBufferPtr();
+				pCommandList->SetGraphicsRootConstantBufferView(1, pCurLight->LightShadowMap.GetShadowConstantBufferForGSPtr()->GetGPUMemAddr());
 				break;
 
 			case LIGHT_POINT:
-				pShadowBuffer = pCurLight->ShadowMap.GetPointLightShadowBufferPtr();
-				pCommandList->SetGraphicsRootConstantBufferView(1, pCurLight->ShadowMap.GetShadowConstantBufferForGSPtr()->GetGPUMemAddr());
+				pShadowBuffer = pCurLight->LightShadowMap.GetPointLightShadowBufferPtr();
+				pCommandList->SetGraphicsRootConstantBufferView(1, pCurLight->LightShadowMap.GetShadowConstantBufferForGSPtr()->GetGPUMemAddr());
 				break;
 
 			case LIGHT_SPOT:
-				pShadowBuffer = pCurLight->ShadowMap.GetSpotLightShadowBufferPtr();
+				pShadowBuffer = pCurLight->LightShadowMap.GetSpotLightShadowBufferPtr();
 				break;
 
 			default:
@@ -218,12 +234,13 @@ UINT RenderQueue::ProcessLight(UINT threadIndex, ID3D12CommandQueue* pCommandQue
 	return commandListCount;
 }
 
-UINT RenderQueue::ProcessPostProcessing(UINT threadIndex, ID3D12CommandQueue* pCommandQueue, CommandListPool* pCommandListPool, ResourceManager* pManager, int processCountPerCommandList)
+UINT RenderQueue::ProcessPostProcessing(UINT threadIndex, ID3D12CommandQueue* pCommandQueue, CommandListPool* pCommandListPool, ResourceManager* pManager, DynamicDescriptorPool* pDescriptorPool, int processCountPerCommandList)
 {
 	_ASSERT(threadIndex >= 0 && threadIndex < MAX_RENDER_THREAD_COUNT);
 	_ASSERT(pCommandQueue);
 	_ASSERT(pCommandListPool);
 	_ASSERT(pManager);
+	_ASSERT(pDescriptorPool);
 
 	ID3D12GraphicsCommandList* ppCommandLists[64] = { };
 	UINT commandListCount = 0;
@@ -240,7 +257,14 @@ UINT RenderQueue::ProcessPostProcessing(UINT threadIndex, ID3D12CommandQueue* pC
 		ImageFilter* pImageFilter = (ImageFilter*)pRenderItem->pFilter;
 		Mesh* pScreenMesh = (Mesh*)pRenderItem->pObjectHandle;
 
-		pManager->SetCommonState(pCommandList, pRenderItem->PSOType);
+		ID3D12DescriptorHeap* ppDescriptorHeaps[2] =
+		{
+			pDescriptorPool->GetDescriptorHeap(),
+			pManager->m_pSamplerHeap,
+		};
+		pCommandList->SetDescriptorHeaps(2, ppDescriptorHeaps);
+
+		pManager->SetCommonState(threadIndex, pCommandList, pDescriptorPool, pRenderItem->PSOType);
 		pImageFilter->BeforeRender(threadIndex, pCommandList, pManager, pRenderItem->PSOType);
 		pCommandList->IASetVertexBuffers(0, 1, &pScreenMesh->Vertex.VertexBufferView);
 		pCommandList->IASetIndexBuffer(&pScreenMesh->Index.IndexBufferView);
@@ -309,15 +333,4 @@ const RenderItem* RenderQueue::dispatch()
 
 LB_RETURN:
 	return pItem;
-}
-
-void RenderQueue::drawItem(const RenderItem* pRenderItem, ID3D12GraphicsCommandList* pCommandList)
-{
-	_ASSERT(pRenderItem);
-	_ASSERT(pCommandList);
-
-	switch (pRenderItem->ModelType)
-	{
-
-	}
 }

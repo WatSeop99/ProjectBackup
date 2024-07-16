@@ -42,11 +42,12 @@
 #include <malloc.h>
 #include <memory.h>
 #include <tchar.h>
+#include <wchar.h>
 #include <stdint.h>
 #include <process.h>
 #include <synchapi.h>
 
-#define MULTI_THREAD
+// #define USE_MULTI_THREAD
 
 #include "Renderer/ResourceManager.h"
 

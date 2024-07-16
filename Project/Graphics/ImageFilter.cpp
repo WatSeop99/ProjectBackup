@@ -105,7 +105,7 @@ void ImageFilter::BeforeRender(UINT threadIndex, ID3D12GraphicsCommandList* pCom
 	HRESULT hr = S_OK;
 
 	ID3D12Device5* pDevice = pManager->m_pDevice;
-	DynamicDescriptorPool* pDynamicDescriptorPool = pManager->m_pppDynamicDescriptorPools[*(pManager->m_pFrameIndex)][threadIndex];
+	DynamicDescriptorPool* pDynamicDescriptorPool = *(pManager->m_ppppDynamicDescriptorPools[*(pManager->m_pFrameIndex)][threadIndex]);
 	const UINT CBV_SRV_UAV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable = {};

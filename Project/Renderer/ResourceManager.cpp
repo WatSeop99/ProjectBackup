@@ -696,12 +696,16 @@ void ResourceManager::SetCommonState(ePipelineStateSetting psoState)
 	}
 }
 
-void ResourceManager::SetCommonState(ID3D12GraphicsCommandList* pCommandList, int psoState)
+void ResourceManager::SetCommonState(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, DynamicDescriptorPool* pDescriptorPool, int psoState)
 {
+	_ASSERT(pCommandList);
+	_ASSERT(pDescriptorPool);
+
 	HRESULT hr = S_OK;
 	const float BLEND_FECTOR[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
 
 	// set dynamic descriptor heap. (for commont resource)
+	// DynamicDescriptorPool* pDescriptorPool = *(m_ppppDynamicDescriptorPools[*m_pFrameIndex][threadIndex]);
 	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable({ 0xffffffffffffffff, });
 	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorTable({ 0xffffffffffffffff, });
 
@@ -712,7 +716,7 @@ void ResourceManager::SetCommonState(ID3D12GraphicsCommandList* pCommandList, in
 		case DepthOnlyCascadeDefault: case DepthOnlyCascadeSkinned:
 		case Sampling: case BloomDown: case BloomUp: case Combine: case Wire:
 		{
-			hr = m_pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 11);
+			hr = pDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 11);
 			BREAK_IF_FAILED(hr);
 
 			CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, m_CBVSRVUAVDescriptorSize);
@@ -735,7 +739,7 @@ void ResourceManager::SetCommonState(ID3D12GraphicsCommandList* pCommandList, in
 
 		case ReflectionDefault: case ReflectionSkinned: case ReflectionSkybox:
 		{
-			hr = m_pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 11);
+			hr = pDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 11);
 			BREAK_IF_FAILED(hr);
 
 			CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, m_CBVSRVUAVDescriptorSize);
@@ -758,7 +762,7 @@ void ResourceManager::SetCommonState(ID3D12GraphicsCommandList* pCommandList, in
 
 		case DepthOnlyDefault: case DepthOnlySkinned: case StencilMask:
 		{
-			hr = m_pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 10);
+			hr = pDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 10);
 			BREAK_IF_FAILED(hr);
 
 			CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, m_CBVSRVUAVDescriptorSize);

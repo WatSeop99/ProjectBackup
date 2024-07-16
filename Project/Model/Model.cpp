@@ -10,7 +10,7 @@ Model::Model(ResourceManager* pManager, std::wstring& basePath, std::wstring& fi
 	Initialize(pManager, basePath, fileName);
 }
 
-Model::Model(ResourceManager* pManager, const std::vector<MeshInfo>&MESH_INFOS)
+Model::Model(ResourceManager* pManager, const std::vector<MeshInfo>& MESH_INFOS)
 {
 	Initialize(pManager, MESH_INFOS);
 }
@@ -28,6 +28,7 @@ void Model::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& M
 
 	HRESULT hr = S_OK;
 	struct _stat64 sourceFileStat;
+
 	ID3D12Device5* pDevice = pManager->m_pDevice;
 	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
 
@@ -46,7 +47,7 @@ void Model::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& M
 		pMaterialConst = (MaterialConstant*)pNewMesh->MaterialConstant.pData;
 
 		pMeshConst->World = Matrix();
-		
+
 		InitMeshBuffers(pManager, MESH_DATA, pNewMesh);
 
 		if (!MESH_DATA.szAlbedoTextureFileName.empty())
@@ -169,26 +170,22 @@ void Model::InitMeshBuffers(ResourceManager* pManager, const MeshInfo& MESH_INFO
 	HRESULT hr = S_OK;
 
 	// vertex buffer.
-	{
-		hr = pManager->CreateVertexBuffer(sizeof(Vertex),
-										  (UINT)MESH_INFO.Vertices.size(),
-										  &pNewMesh->Vertex.VertexBufferView,
-										  &pNewMesh->Vertex.pBuffer,
-										  (void*)MESH_INFO.Vertices.data());
-		BREAK_IF_FAILED(hr);
-		pNewMesh->Vertex.Count = (UINT)MESH_INFO.Vertices.size();
-	}
+	hr = pManager->CreateVertexBuffer(sizeof(Vertex),
+									  (UINT)MESH_INFO.Vertices.size(),
+									  &pNewMesh->Vertex.VertexBufferView,
+									  &pNewMesh->Vertex.pBuffer,
+									  (void*)MESH_INFO.Vertices.data());
+	BREAK_IF_FAILED(hr);
+	pNewMesh->Vertex.Count = (UINT)MESH_INFO.Vertices.size();
 
 	// index buffer.
-	{
-		hr = pManager->CreateIndexBuffer(sizeof(UINT),
-										 (UINT)MESH_INFO.Indices.size(),
-										 &pNewMesh->Index.IndexBufferView,
-										 &pNewMesh->Index.pBuffer,
-										 (void*)MESH_INFO.Indices.data());
-		BREAK_IF_FAILED(hr);
-		pNewMesh->Index.Count = (UINT)MESH_INFO.Indices.size();
-	}
+	hr = pManager->CreateIndexBuffer(sizeof(UINT),
+									 (UINT)MESH_INFO.Indices.size(),
+									 &pNewMesh->Index.IndexBufferView,
+									 &pNewMesh->Index.pBuffer,
+									 (void*)MESH_INFO.Indices.data());
+	BREAK_IF_FAILED(hr);
+	pNewMesh->Index.Count = (UINT)MESH_INFO.Indices.size();
 }
 
 void Model::UpdateConstantBuffers()
@@ -260,46 +257,46 @@ void Model::Render(ResourceManager* pManager, ePipelineStateSetting psoSetting)
 
 		switch (psoSetting)
 		{
-		case Default: case Skybox:
-		case MirrorBlend: case ReflectionDefault: case ReflectionSkybox:
-		{
-			hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 9);
-			BREAK_IF_FAILED(hr);
+			case Default: case Skybox:
+			case MirrorBlend: case ReflectionDefault: case ReflectionSkybox:
+			{
+				hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 9);
+				BREAK_IF_FAILED(hr);
 
-			CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_DESCRIPTOR_SIZE);
-			
-			// b2, b3
-			pDevice->CopyDescriptorsSimple(2, dstHandle, pCurMesh->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-			dstHandle.Offset(2, CBV_SRV_DESCRIPTOR_SIZE);
+				CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_DESCRIPTOR_SIZE);
 
-			// t0 ~ t5
-			pDevice->CopyDescriptorsSimple(6, dstHandle, pCurMesh->Material.Albedo.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-			dstHandle.Offset(6, CBV_SRV_DESCRIPTOR_SIZE);
+				// b2, b3
+				pDevice->CopyDescriptorsSimple(2, dstHandle, pCurMesh->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+				dstHandle.Offset(2, CBV_SRV_DESCRIPTOR_SIZE);
 
-			// t6
-			pDevice->CopyDescriptorsSimple(1, dstHandle, pCurMesh->Material.Height.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		
-			pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
-		}
-		break;
+				// t0 ~ t5
+				pDevice->CopyDescriptorsSimple(6, dstHandle, pCurMesh->Material.Albedo.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+				dstHandle.Offset(6, CBV_SRV_DESCRIPTOR_SIZE);
 
-		case DepthOnlyDefault: case DepthOnlyCubeDefault: case DepthOnlyCascadeDefault: case StencilMask:
-		{
-			hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 2);
-			BREAK_IF_FAILED(hr);
+				// t6
+				pDevice->CopyDescriptorsSimple(1, dstHandle, pCurMesh->Material.Height.GetSRVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-			CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_DESCRIPTOR_SIZE);
-
-			// b2, b3
-			pDevice->CopyDescriptorsSimple(2, dstHandle, pCurMesh->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-			pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
-		}
-		break;
-
-		default:
-			__debugbreak();
+				pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
+			}
 			break;
+
+			case DepthOnlyDefault: case DepthOnlyCubeDefault: case DepthOnlyCascadeDefault: case StencilMask:
+			{
+				hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 2);
+				BREAK_IF_FAILED(hr);
+
+				CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_DESCRIPTOR_SIZE);
+
+				// b2, b3
+				pDevice->CopyDescriptorsSimple(2, dstHandle, pCurMesh->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+				pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
+			}
+			break;
+
+			default:
+				__debugbreak();
+				break;
 		}
 
 		pCommandList->IASetVertexBuffers(0, 1, &pCurMesh->Vertex.VertexBufferView);
@@ -315,7 +312,7 @@ void Model::Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, Re
 
 	HRESULT hr = S_OK;
 	ID3D12Device5* pDevice = pManager->m_pDevice;
-	DynamicDescriptorPool* pDynamicDescriptorPool = pManager->m_pppDynamicDescriptorPools[*(pManager->m_pFrameIndex)][threadIndex];
+	DynamicDescriptorPool* pDynamicDescriptorPool = *(pManager->m_ppppDynamicDescriptorPools[*(pManager->m_pFrameIndex)][threadIndex]);
 	const UINT CBV_SRV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable = {};
@@ -619,7 +616,7 @@ void Model::initBoundingSphere(ResourceManager* pManager, const std::vector<Mesh
 		}
 	}
 
-	 maxRadius += 1e-2f; // 살짝 크게 설정.
+	maxRadius += 1e-2f; // 살짝 크게 설정.
 	// maxRadius -= 1e-2f; // 살짝 작게 설정.
 	BoundingSphere = DirectX::BoundingSphere(BoundingBox.Center, maxRadius);
 

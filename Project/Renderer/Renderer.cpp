@@ -14,9 +14,6 @@ Renderer::Renderer()
 {
 	g_pRendrer = this;
 	m_Camera.SetAspectRatio((float)m_ScreenWidth / (float)m_ScreenHeight);
-
-	initMainWidndow();
-	initDirect3D();
 }
 
 Renderer::~Renderer()
@@ -86,17 +83,19 @@ void Renderer::Render()
 	present();
 }
 
-void Renderer::ProcessByThread(UINT threadIndex, int renderPass)
+void Renderer::ProcessByThread(UINT threadIndex, ResourceManager* pManager, int renderPass)
 {
 	_ASSERT(threadIndex >= 0 && threadIndex < m_RenderThreadCount);
+	_ASSERT(pManager);
 
 	ID3D12CommandQueue* pCommandQueue = m_ppCommandQueue[renderPass];
-	CommandListPool* pCommandListPool = m_ppCommandListPool[m_FrameIndex][threadIndex];
+	CommandListPool* pCommandListPool = m_pppCommandListPool[m_FrameIndex][threadIndex];
+	DynamicDescriptorPool* pDescriptorPool = m_pppDescriptorPool[m_FrameIndex][threadIndex];
 
 	switch (renderPass)
 	{
 		case RenderPass_Shadow:
-			m_ppRenderQueue[renderPass][threadIndex]->ProcessLight(threadIndex, pCommandQueue, pCommandListPool, m_pResourceManager, 100);
+			m_pppRenderQueue[renderPass][threadIndex]->ProcessLight(threadIndex, pCommandQueue, pCommandListPool, pManager, pDescriptorPool, 100);
 			break;
 
 		case RenderPass_Object:
@@ -104,15 +103,15 @@ void Renderer::ProcessByThread(UINT threadIndex, int renderPass)
 		case RenderPass_Collider:
 		{
 			ID3D12GraphicsCommandList* pCommandList = pCommandListPool->GetCurrentCommandList();
-			CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_pResourceManager->m_pRTVHeap->GetCPUDescriptorHandleForHeapStart(), m_MainRenderTargetOffset + m_FrameIndex, m_pResourceManager->m_RTVDescriptorSize);
-			CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_pResourceManager->m_pDSVHeap->GetCPUDescriptorHandleForHeapStart());
+			CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(pManager->m_pRTVHeap->GetCPUDescriptorHandleForHeapStart(), m_MainRenderTargetOffset + m_FrameIndex, m_pResourceManager->m_RTVDescriptorSize);
+			CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(pManager->m_pDSVHeap->GetCPUDescriptorHandleForHeapStart());
 			pCommandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
-			m_ppRenderQueue[renderPass][threadIndex]->Process(threadIndex, pCommandQueue, pCommandListPool, m_pResourceManager, 100);
+			m_pppRenderQueue[renderPass][threadIndex]->Process(threadIndex, pCommandQueue, pCommandListPool, pManager, pDescriptorPool, 100);
 		}
 		break;
 
 		case RenderPass_Post:
-			m_ppRenderQueue[renderPass][threadIndex]->ProcessPostProcessing(threadIndex, pCommandQueue, pCommandListPool, m_pResourceManager, 100);
+			m_pppRenderQueue[renderPass][threadIndex]->ProcessPostProcessing(threadIndex, pCommandQueue, pCommandListPool, pManager, pDescriptorPool, 100);
 			break;
 
 		default:
@@ -129,7 +128,8 @@ void Renderer::ProcessByThread(UINT threadIndex, int renderPass)
 
 void Renderer::Clear()
 {
-#ifdef MULTI_THREAD
+#ifdef USE_MULTI_THREAD
+
 	if (m_pThreadDescList)
 	{
 		for (UINT i = 0; i < m_RenderThreadCount; ++i)
@@ -155,6 +155,7 @@ void Renderer::Clear()
 		CloseHandle(m_phCompletedEvents[i]);
 		m_phCompletedEvents[i] = nullptr;
 	}
+
 #endif
 
 	fence();
@@ -185,27 +186,27 @@ void Renderer::Clear()
 	{
 		for (UINT j = 0; j < MAX_RENDER_THREAD_COUNT; ++j)
 		{
-			if (m_ppCommandListPool[i][j])
+			if (m_pppCommandListPool[i][j])
 			{
-				delete m_ppCommandListPool[i][j];
-				m_ppCommandListPool[i][j] = nullptr;
+				delete m_pppCommandListPool[i][j];
+				m_pppCommandListPool[i][j] = nullptr;
 			}
-			if (m_ppDescriptorPool[i][j])
+			if (m_pppDescriptorPool[i][j])
 			{
-				delete m_ppDescriptorPool[i][j];
-				m_ppDescriptorPool[i][j] = nullptr;
+				delete m_pppDescriptorPool[i][j];
+				m_pppDescriptorPool[i][j] = nullptr;
 			}
 		}
 	}
-	for (UINT i = 0; i < RenderPass_RenderPassCount; ++i)
+	for (int i = 0; i < RenderPass_RenderPassCount; ++i)
 	{
 		SAFE_RELEASE(m_ppCommandQueue[i]);
 		for (UINT j = 0; j < MAX_RENDER_THREAD_COUNT; ++j)
 		{
-			if (m_ppRenderQueue[i][j])
+			if (m_pppRenderQueue[i][j])
 			{
-				delete m_ppRenderQueue[i];
-				m_ppRenderQueue[i][j] = nullptr;
+				delete m_pppRenderQueue[i][j];
+				m_pppRenderQueue[i][j] = nullptr;
 			}
 		}
 	}
@@ -679,8 +680,9 @@ LB_EXIT:
 			hr = m_pDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_ppCommandQueue[i]));
 			BREAK_IF_FAILED(hr);
 
-			std::wstring wstr = L"CommandQueue" + std::to_wstring(i);
-			m_ppCommandQueue[i]->SetName(wstr.c_str());
+			wchar_t debugName[256];
+			swprintf_s(debugName, 256, L"CommandQueue%d", i);
+			m_ppCommandQueue[i]->SetName(debugName);
 		}
 	}
 
@@ -719,17 +721,17 @@ LB_EXIT:
 	{
 		for (UINT i = 0; i < SWAP_CHAIN_FRAME_COUNT; ++i)
 		{
-			std::wstring debugName;
+			wchar_t debugName[256];
 
 			hr = m_pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_ppCommandAllocator[i]));
 			BREAK_IF_FAILED(hr);
-			debugName = std::wstring(L"CommandAllocator") + std::to_wstring(i);
-			m_ppCommandAllocator[i]->SetName(debugName.c_str());
+			swprintf_s(debugName, 256, L"CommandAllocator%d", i);
+			m_ppCommandAllocator[i]->SetName(debugName);
 
 			hr = m_pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_ppCommandAllocator[i], nullptr, IID_PPV_ARGS(&m_ppCommandList[i]));
 			BREAK_IF_FAILED(hr);
-			debugName = std::wstring(L"CommandList") + std::to_wstring(i);
-			m_ppCommandList[i]->SetName(debugName.c_str());
+			swprintf_s(debugName, 256, L"CommandList%d", i);
+			m_ppCommandList[i]->SetName(debugName);
 
 			// Command lists are created in the recording state, but there is nothing
 			// to record yet. The main loop expects it to be closed, so close it now.
@@ -743,8 +745,8 @@ LB_EXIT:
 		{
 			for (UINT j = 0; j < MAX_RENDER_THREAD_COUNT; ++j)
 			{
-				m_ppRenderQueue[i][j] = new RenderQueue;
-				m_ppRenderQueue[i][j]->Initialize(8192);
+				m_pppRenderQueue[i][j] = new RenderQueue;
+				m_pppRenderQueue[i][j]->Initialize(8192);
 			}
 		}
 
@@ -752,11 +754,11 @@ LB_EXIT:
 		{
 			for (UINT j = 0; j < m_RenderThreadCount; j++)
 			{
-				m_ppCommandListPool[i][j] = new CommandListPool;
-				m_ppCommandListPool[i][j]->Initialize(m_pDevice, D3D12_COMMAND_LIST_TYPE_DIRECT, 256);
+				m_pppCommandListPool[i][j] = new CommandListPool;
+				m_pppCommandListPool[i][j]->Initialize(m_pDevice, D3D12_COMMAND_LIST_TYPE_DIRECT, 256);
 
-				m_ppDescriptorPool[i][j] = new DynamicDescriptorPool;
-				m_ppDescriptorPool[i][j]->Initialize(m_pDevice, 512);
+				m_pppDescriptorPool[i][j] = new DynamicDescriptorPool;
+				m_pppDescriptorPool[i][j]->Initialize(m_pDevice, 4096 * 9);
 			}
 		}
 	}
@@ -815,7 +817,15 @@ LB_EXIT:
 		m_pPrevBuffer->SetName(L"PrevBuffer");
 	}
 
-#ifdef MULTI_THREAD
+	ResourceManager::InitialData initData = { m_pDevice, m_pCommandQueue, m_ppCommandAllocator, m_ppCommandList, &m_DynamicDescriptorPool, m_hFenceEvent, m_pFence, &m_FrameIndex, &m_FenceValue, m_LastFenceValues };
+	m_pResourceManager = new ResourceManager;
+	m_pResourceManager->Initialize(&initData);
+	m_pResourceManager->InitRTVDescriptorHeap(16);
+	m_pResourceManager->InitDSVDescriptorHeap(8);
+	m_pResourceManager->InitCBVSRVUAVDescriptorHeap(1024);
+	m_pResourceManager->m_ppppDynamicDescriptorPools = (DynamicDescriptorPool****)&m_pppDescriptorPool;
+
+#ifdef USE_MULTI_THREAD
 	// create thread and event
 	{
 		initRenderThreadPool(m_RenderThreadCount);
@@ -825,14 +835,6 @@ LB_EXIT:
 		}
 	}
 #endif
-
-
-	ResourceManager::InitialData initData = { m_pDevice, m_pCommandQueue, m_ppCommandAllocator, m_ppCommandList, &m_DynamicDescriptorPool, m_hFenceEvent, m_pFence, &m_FrameIndex, &m_FenceValue, m_LastFenceValues };
-	m_pResourceManager = new ResourceManager;
-	m_pResourceManager->Initialize(&initData);
-	m_pResourceManager->InitRTVDescriptorHeap(16);
-	m_pResourceManager->InitDSVDescriptorHeap(8);
-	m_pResourceManager->InitCBVSRVUAVDescriptorHeap(1024);
 
 	SAFE_RELEASE(pDebugController);
 	SAFE_RELEASE(pFactory5);
@@ -1004,7 +1006,7 @@ void Renderer::initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceText
 		m_pResourceManager->m_GlobalShaderResourceViewStartOffset = m_pResourceManager->m_CBVSRVUAVHeapSize;
 
 		srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		(*m_pLights)[1].ShadowMap.SetDescriptorHeap(m_pResourceManager);
+		(*m_pLights)[1].LightShadowMap.SetDescriptorHeap(m_pResourceManager);
 		cbvSrvHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 
 		m_pDevice->CreateShaderResourceView(nullptr, &srvDesc, cbvSrvHandle);
@@ -1016,11 +1018,11 @@ void Renderer::initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceText
 		++(m_pResourceManager->m_CBVSRVUAVHeapSize);
 
 		// t11
-		(*m_pLights)[0].ShadowMap.SetDescriptorHeap(m_pResourceManager);
+		(*m_pLights)[0].LightShadowMap.SetDescriptorHeap(m_pResourceManager);
 		cbvSrvHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 
 		// t12
-		(*m_pLights)[2].ShadowMap.SetDescriptorHeap(m_pResourceManager);
+		(*m_pLights)[2].LightShadowMap.SetDescriptorHeap(m_pResourceManager);
 		cbvSrvHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 
 		// t13
@@ -1108,6 +1110,7 @@ void Renderer::initRenderThreadPool(UINT renderThreadCount)
 		}
 
 		m_pThreadDescList[i].pRenderer = this;
+		m_pThreadDescList[i].pResourceManager = m_pResourceManager;
 		m_pThreadDescList[i].ThreadIndex = i;
 		UINT threadID = 0;
 		m_pThreadDescList[i].hThread = (HANDLE)_beginthreadex(nullptr, 0, RenderThread, m_pThreadDescList + i, 0, &threadID);
@@ -1118,8 +1121,31 @@ void Renderer::beginRender()
 {
 	HRESULT hr = S_OK;
 
-#ifdef MULTI_THREAD
+#ifdef USE_MULTI_THREAD
 	
+	CommandListPool* pCommandListPool = m_pppCommandListPool[m_FrameIndex][0];
+	ID3D12GraphicsCommandList* pCommandList = pCommandListPool->GetCurrentCommandList();
+
+	const CD3DX12_RESOURCE_BARRIER RTV_BEFORE_BARRIERS[2] =
+	{
+		CD3DX12_RESOURCE_BARRIER::Transition(m_pRenderTargets[m_FrameIndex], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET),
+		CD3DX12_RESOURCE_BARRIER::Transition(m_pFloatBuffer, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET),
+	};
+	pCommandList->ResourceBarrier(2, RTV_BEFORE_BARRIERS);
+
+	const UINT RTV_DESCRIPTOR_SIZE = m_pResourceManager->m_RTVDescriptorSize;
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_pResourceManager->m_pRTVHeap->GetCPUDescriptorHandleForHeapStart(), m_MainRenderTargetOffset + m_FrameIndex, RTV_DESCRIPTOR_SIZE);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE floatRtvHandle(m_pResourceManager->m_pRTVHeap->GetCPUDescriptorHandleForHeapStart(), m_FloatBufferRTVOffset, RTV_DESCRIPTOR_SIZE);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_pResourceManager->m_pDSVHeap->GetCPUDescriptorHandleForHeapStart());
+
+	const float COLOR[4] = { 0.0f, 0.0f, 1.0f, 1.0f };
+	pCommandList->ClearRenderTargetView(rtvHandle, COLOR, 0, nullptr);
+	pCommandList->ClearRenderTargetView(floatRtvHandle, COLOR, 0, nullptr);
+	pCommandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+
+	// pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Object]);
+	pCommandListPool->ClosedAndExecute(m_pCommandQueue);
+
 #else
 
 	hr = m_ppCommandAllocator[m_FrameIndex]->Reset();
@@ -1140,9 +1166,9 @@ void Renderer::beginRender()
 
 void Renderer::shadowMapRender()
 {
-#ifdef MULTI_THREAD
+#ifdef USE_MULTI_THREAD
 
-	CommandListPool* pCommandListPool = m_ppCommandListPool[m_FrameIndex][0];
+	CommandListPool* pCommandListPool = m_pppCommandListPool[m_FrameIndex][0];
 	const int TOTAL_LIGHT_TYPE = LIGHT_DIRECTIONAL | LIGHT_POINT | LIGHT_SPOT;
 
 	for (int i = 0; i < MAX_LIGHTS; ++i)
@@ -1157,17 +1183,17 @@ void Renderer::shadowMapRender()
 		switch (pCurLight->Property.LightType & TOTAL_LIGHT_TYPE)
 		{
 			case LIGHT_DIRECTIONAL:
-				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->ShadowMap.GetDirectionalLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->LightShadowMap.GetDirectionalLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 				renderPSO = RenderPSOType_DepthOnlyCascadeDefault;
 				break;
 
 			case LIGHT_POINT:
-				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->ShadowMap.GetPointLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->LightShadowMap.GetPointLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 				renderPSO = RenderPSOType_DepthOnlyCubeDefault;
 				break;
 
 			case LIGHT_SPOT:
-				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->ShadowMap.GetSpotLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->LightShadowMap.GetSpotLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 				renderPSO = RenderPSOType_DepthOnlyDefault;
 				break;
 
@@ -1175,14 +1201,21 @@ void Renderer::shadowMapRender()
 				__debugbreak();
 				break;
 		}
+		pCommandList->ResourceBarrier(1, &barrier);
 
-		// need to add item in render queue.
+		// register object to render queue.
+		m_CurThreadIndex = 0;
 		for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
 		{
-			RenderQueue* pRenderQue = m_ppRenderQueue[RenderPass_Shadow][m_CurThreadIndex];
+			RenderQueue* pRenderQue = m_pppRenderQueue[RenderPass_Shadow][m_CurThreadIndex];
 			Model* pModel = (*m_pRenderObjects)[i];
-			RenderItem item;
 
+			if (!pModel->bIsVisible || !pModel->bCastShadow)
+			{
+				continue;
+			}
+
+			RenderItem item;
 			item.ModelType = (eRenderObjectType)pModel->ModelType;
 			item.pObjectHandle = (void*)pModel;
 			item.pLight = (void*)pCurLight;
@@ -1200,10 +1233,10 @@ void Renderer::shadowMapRender()
 			}
 			++m_CurThreadIndex;
 		}
-
-		pCommandList->ResourceBarrier(1, &barrier);
 	}
-	pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Shadow]);
+
+	// pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Shadow]);
+	pCommandListPool->ClosedAndExecute(m_pCommandQueue);
 
 #else
 
@@ -1217,47 +1250,25 @@ void Renderer::shadowMapRender()
 
 void Renderer::objectRender()
 {
-#ifdef MULTI_THREAD
+#ifdef USE_MULTI_THREAD
 
-	{
-		CommandListPool* pCommandListPool = m_ppCommandListPool[m_FrameIndex][0];
-
-		const UINT RTV_DESCRIPTOR_SIZE = m_pResourceManager->m_RTVDescriptorSize;
-		CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_pResourceManager->m_pRTVHeap->GetCPUDescriptorHandleForHeapStart(), m_MainRenderTargetOffset + m_FrameIndex, RTV_DESCRIPTOR_SIZE);
-		CD3DX12_CPU_DESCRIPTOR_HANDLE floatRtvHandle(m_pResourceManager->m_pRTVHeap->GetCPUDescriptorHandleForHeapStart(), m_FloatBufferRTVOffset, RTV_DESCRIPTOR_SIZE);
-		CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_pResourceManager->m_pDSVHeap->GetCPUDescriptorHandleForHeapStart());
-		ID3D12GraphicsCommandList* pCommandList = pCommandListPool->GetCurrentCommandList();
-
-		const CD3DX12_RESOURCE_BARRIER RTV_BEFORE_BARRIERS[2] =
-		{
-			CD3DX12_RESOURCE_BARRIER::Transition(m_pRenderTargets[m_FrameIndex], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET),
-			CD3DX12_RESOURCE_BARRIER::Transition(m_pFloatBuffer, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET),
-		};
-		pCommandList->ResourceBarrier(2, RTV_BEFORE_BARRIERS);
-
-		const float COLOR[] = { 0.0f, 0.0f, 1.0f, 1.0f };
-		pCommandList->ClearRenderTargetView(rtvHandle, COLOR, 0, nullptr);
-		pCommandList->ClearRenderTargetView(floatRtvHandle, COLOR, 0, nullptr);
-		pCommandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
-
-		pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Object]);
-	}
-
+	// register obejct to render queue.
+	m_CurThreadIndex = 0;
 	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
 	{
-		RenderQueue* pRenderQue = m_ppRenderQueue[RenderPass_Object][m_CurThreadIndex];
+		RenderQueue* pRenderQue = m_pppRenderQueue[RenderPass_Object][m_CurThreadIndex];
 		Model* pCurModel = (*m_pRenderObjects)[i];
-		RenderItem item;
-
-		item.ModelType = (eRenderObjectType)pCurModel->ModelType;
-		item.pObjectHandle = (void*)pCurModel;
-		item.pLight = nullptr;
-		item.pFilter = nullptr;
 
 		if (!pCurModel->bIsVisible)
 		{
 			continue;
 		}
+
+		RenderItem item;
+		item.ModelType = (eRenderObjectType)pCurModel->ModelType;
+		item.pObjectHandle = (void*)pCurModel;
+		item.pLight = nullptr;
+		item.pFilter = nullptr;
 
 		switch (pCurModel->ModelType)
 		{
@@ -1298,7 +1309,7 @@ void Renderer::objectRender()
 	};
 	m_ppCommandList[m_FrameIndex]->ResourceBarrier(2, RTV_BEFORE_BARRIERS);
 
-	const float COLOR[] = { 0.0f, 0.0f, 1.0f, 1.0f };
+	const float COLOR[4] = { 0.0f, 0.0f, 1.0f, 1.0f };
 	m_ppCommandList[m_FrameIndex]->ClearRenderTargetView(rtvHandle, COLOR, 0, nullptr);
 	m_ppCommandList[m_FrameIndex]->ClearRenderTargetView(floatRtvHandle, COLOR, 0, nullptr);
 	m_ppCommandList[m_FrameIndex]->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
@@ -1355,23 +1366,25 @@ void Renderer::mirrorRender()
 		return;
 	}
 
-#ifdef MULTI_THREAD
+#ifdef USE_MULTI_THREAD
 
+	// register object to render queue.
+	m_CurThreadIndex = 0;
 	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
 	{
-		RenderQueue* pRenderQue = m_ppRenderQueue[RenderPass_Mirror][m_CurThreadIndex];
+		RenderQueue* pRenderQue = m_pppRenderQueue[RenderPass_Mirror][m_CurThreadIndex];
 		Model* pCurModel = (*m_pRenderObjects)[i];
-		RenderItem item;
-
-		item.ModelType = (eRenderObjectType)pCurModel->ModelType;
-		item.pObjectHandle = (void*)pCurModel;
-		item.pLight = nullptr;
-		item.pFilter = nullptr;
 
 		if (!pCurModel->bIsVisible)
 		{
 			continue;
 		}
+
+		RenderItem item;
+		item.ModelType = (eRenderObjectType)pCurModel->ModelType;
+		item.pObjectHandle = (void*)pCurModel;
+		item.pLight = nullptr;
+		item.pFilter = nullptr;
 
 		switch (pCurModel->ModelType)
 		{
@@ -1401,8 +1414,6 @@ void Renderer::mirrorRender()
 #else
 
 	// 0.5의 투명도를 가진다고 가정.
-	// D3D12_CPU_DESCRIPTOR_HANDLE defaultDSVHandle = m_pResourceManager->m_pDSVHeap->GetCPUDescriptorHandleForHeapStart();
-
 	// 거울 위치만 StencilBuffer에 1로 표기.
 	m_pResourceManager->SetCommonState(StencilMask);
 	m_pMirror->Render(m_pResourceManager, StencilMask);
@@ -1486,9 +1497,62 @@ void Renderer::mirrorRender()
 
 void Renderer::postProcess()
 {
-#ifdef MULTI_THREAD
+#ifdef USE_MULTI_THREAD
 
+	m_CurThreadIndex = 1;
 
+	RenderQueue* pRenderQueue = m_pppRenderQueue[RenderPass_Post][m_CurThreadIndex];
+
+	RenderItem item;
+	item.ModelType = RenderObjectType_DefaultType;
+	item.pObjectHandle = (void*)m_PostProcessor.GetScreenMeshPtr();
+	item.pLight = nullptr;
+
+	// sampling.
+	item.PSOType = RenderPSOType_Sampling;
+	item.pFilter = (void*)m_PostProcessor.GetSamplingFilterPtr();
+	if (!pRenderQueue->Add(&item))
+	{
+		__debugbreak();
+	}
+	// +m_CurThreadIndex;
+
+	// bloom.
+	std::vector<ImageFilter>* pBloomDownFilters = m_PostProcessor.GetBloomDownFiltersPtr();
+	std::vector<ImageFilter>* pBloomUpFilters = m_PostProcessor.GetBloomUpFiltersPtr();
+
+	item.PSOType = RenderPSOType_BloomDown;
+	for (UINT64 i = 0, size = pBloomDownFilters->size(); i < size; ++i)
+	{
+		// pRenderQueue = m_ppRenderQueue[RenderPass_Post][m_CurThreadIndex];
+		item.pFilter = (void*)&(*pBloomDownFilters)[i];
+
+		if (!pRenderQueue->Add(&item))
+		{
+			__debugbreak();
+		}
+		// ++m_CurThreadIndex;
+	}
+	item.PSOType = RenderPSOType_BloomUp;
+	for (UINT64 i = 0, size = pBloomUpFilters->size(); i < size; ++i)
+	{
+		// pRenderQueue = m_ppRenderQueue[RenderPass_Post][m_CurThreadIndex];
+		item.pFilter = (void*)&(*pBloomUpFilters)[i];
+
+		if (!pRenderQueue->Add(&item))
+		{
+			__debugbreak();
+		}
+		// ++m_CurThreadIndex;
+	}
+
+	// combine.
+	item.PSOType = RenderPSOType_Combine;
+	item.pFilter = (void*)m_PostProcessor.GetCombineFilterPtr();
+	if (!pRenderQueue->Add(&item))
+	{
+		__debugbreak();
+	}
 
 #else
 
@@ -1501,9 +1565,9 @@ void Renderer::postProcess()
 
 void Renderer::endRender()
 {
-#ifdef MULTI_THREAD
+#ifdef USE_MULTI_THREAD
 
-	CommandListPool* pCommandListPool = m_ppCommandListPool[m_FrameIndex][0];
+	CommandListPool* pCommandListPool = m_pppCommandListPool[m_FrameIndex][0];
 
 	for (int i = 0; i < RenderPass_RenderPassCount; ++i)
 	{
@@ -1528,15 +1592,15 @@ void Renderer::endRender()
 		switch (pCurLight->Property.LightType & TOTAL_LIGHT_TYPE)
 		{
 			case LIGHT_DIRECTIONAL:
-				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->ShadowMap.GetDirectionalLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ);
+				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->LightShadowMap.GetDirectionalLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ);
 				break;
 
 			case LIGHT_POINT:
-				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->ShadowMap.GetPointLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ);
+				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->LightShadowMap.GetPointLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ);
 				break;
 
 			case LIGHT_SPOT:
-				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->ShadowMap.GetSpotLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ);
+				barrier = CD3DX12_RESOURCE_BARRIER::Transition(pCurLight->LightShadowMap.GetSpotLightShadowBufferPtr()->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ);
 				break;
 
 			default:
@@ -1559,7 +1623,7 @@ void Renderer::endRender()
 	// stencil process.
 	{
 		ID3D12GraphicsCommandList* pCommandList = pCommandListPool->GetCurrentCommandList();
-		m_pResourceManager->SetCommonState(pCommandList, RenderPSOType_StencilMask);
+		m_pResourceManager->SetCommonState(0, pCommandList, m_pppDescriptorPool[m_FrameIndex][0], RenderPSOType_StencilMask);
 		m_pMirror->Render(0, pCommandList, m_pResourceManager, RenderPSOType_StencilMask);
 		pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Mirror]);
 	}
@@ -1571,7 +1635,7 @@ void Renderer::endRender()
 	// mirror blend process.
 	{
 		ID3D12GraphicsCommandList* pCommandList = pCommandListPool->GetCurrentCommandList();
-		m_pResourceManager->SetCommonState(pCommandList, RenderPSOType_MirrorBlend);
+		m_pResourceManager->SetCommonState(0, pCommandList, m_pppDescriptorPool[m_FrameIndex][0], RenderPSOType_MirrorBlend);
 		m_pMirror->Render(0, pCommandList, m_pResourceManager, RenderPSOType_MirrorBlend);
 		pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Mirror]);
 	}
@@ -1599,7 +1663,7 @@ void Renderer::endRender()
 	{
 		for (UINT j = 0; j < m_RenderThreadCount; ++j)
 		{
-			m_ppRenderQueue[i][j]->Reset();
+			m_pppRenderQueue[i][j]->Reset();
 		}
 	}
 	
@@ -1641,14 +1705,18 @@ void Renderer::present()
 	UINT nextFrameIndex = m_pSwapChain->GetCurrentBackBufferIndex();
 	waitForFenceValue(m_LastFenceValues[m_FrameIndex]);
 
-#ifdef MULTI_THREAD
+#ifdef USE_MULTI_THREAD
+
 	for (UINT j = 0; j < m_RenderThreadCount; ++j)
 	{
-		m_ppCommandListPool[m_FrameIndex][j]->Reset();
-		m_ppDescriptorPool[m_FrameIndex][j]->Reset();
+		m_pppCommandListPool[m_FrameIndex][j]->Reset();
+		m_pppDescriptorPool[m_FrameIndex][j]->Reset();
 	}
+
 #else
+
 	m_DynamicDescriptorPool.Reset();
+
 #endif
 
 	m_FrameIndex = nextFrameIndex;
@@ -1688,9 +1756,11 @@ void Renderer::updateLightConstants(const float DELTA_TIME)
 
 	for (int i = 0; i < MAX_LIGHTS; ++i)
 	{
-		(*m_pLights)[i].Update(m_pResourceManager, DELTA_TIME, m_Camera);
-		(*m_pLightSpheres)[i]->UpdateWorld(Matrix::CreateScale(Max(0.01f, (*m_pLights)[i].Property.Radius)) * Matrix::CreateTranslation((*m_pLights)[i].Property.Position));
-		memcpy(&pLightConstData->Lights[i], &(*m_pLights)[i].Property, sizeof(LightProperty));
+		Light* pLight = &(*m_pLights)[i];
+
+		pLight->Update(m_pResourceManager, DELTA_TIME, m_Camera);
+		(*m_pLightSpheres)[i]->UpdateWorld(Matrix::CreateScale(Max(0.01f, pLight->Property.Radius)) * Matrix::CreateTranslation(pLight->Property.Position));
+		memcpy(&pLightConstData->Lights[i], &pLight->Property, sizeof(LightProperty));
 	}
 
 	m_LightConstant.Upload();
@@ -1767,7 +1837,9 @@ void Renderer::processMouseControl(const float DELTA_TIME)
 #endif
 				s_pActiveModel = pSelectedModel;
 				s_pEndEffector = pEndEffector;
-				m_pPickedModel = pSelectedModel; // GUI 조작용 포인터.
+				m_pPickedModel = s_pActiveModel; // GUI 조작용 포인터.
+				m_pPickedEndEffector = s_pEndEffector;
+				m_PickedEndEffectorType = s_EndEffectorType;
 				pickPoint = PICKING_RAY.position + dist * PICKING_RAY.direction;
 
 				if (s_pEndEffector)
@@ -1807,6 +1879,7 @@ void Renderer::processMouseControl(const float DELTA_TIME)
 					if ((newPos - s_PrevPos).Length() > 1e-3)
 					{
 						dragTranslation = newPos - s_PrevPos;
+						m_PickedTranslation = dragTranslation;
 						s_PrevPos = newPos;
 					}
 					pickPoint = newPos; // Cursor sphere 그려질 위치.
@@ -1846,6 +1919,7 @@ void Renderer::processMouseControl(const float DELTA_TIME)
 					if ((newPos - s_PrevPos).Length() > 1e-3)
 					{
 						dragTranslation = newPos - s_PrevPos;
+						m_PickedTranslation = dragTranslation;
 						s_PrevPos = newPos;
 					}
 					pickPoint = newPos; // Cursor sphere 그려질 위치.
@@ -1858,6 +1932,9 @@ void Renderer::processMouseControl(const float DELTA_TIME)
 		// 버튼에서 손을 땠을 경우에는 움직일 모델은 nullptr로 설정.
 		s_pActiveModel = nullptr;
 		s_pEndEffector = nullptr;
+		m_pPickedModel = nullptr;
+		m_pPickedEndEffector = nullptr;
+		m_PickedEndEffectorType = -1;
 	}
 
 	if (s_pActiveModel)
@@ -1866,7 +1943,8 @@ void Renderer::processMouseControl(const float DELTA_TIME)
 		if (s_pEndEffector)
 		{
 			MeshConstant* pMeshConstant = (MeshConstant*)s_pEndEffector->MeshConstant.pData;
-			translation = pMeshConstant->World.Translation() + dragTranslation;
+			translation = pMeshConstant->World.Transpose().Translation() + dragTranslation;
+			m_PickedTranslation = translation;
 
 			/*{
 				std::string debugString = std::string("dragTranslation: ") + std::to_string(dragTranslation.x) + std::string(", ") + std::to_string(dragTranslation.y) + std::string(", ") + std::to_string(dragTranslation.z) + std::string("\n");
@@ -1899,7 +1977,6 @@ void Renderer::processMouseControl(const float DELTA_TIME)
 					__debugbreak();
 					break;
 			}
-			pCharacter->UpdateCharacterIK(translation, s_EndEffectorType, DELTA_TIME);
 		}
 		else
 		{
@@ -1941,7 +2018,7 @@ Model* Renderer::pickClosest(const DirectX::SimpleMath::Ray& PICKING_RAY, float*
 					*pMinDist = dist;
 				}
 			}
-				break;
+			break;
 
 			case SkinnedModel:
 			{
@@ -1987,7 +2064,7 @@ Model* Renderer::pickClosest(const DirectX::SimpleMath::Ray& PICKING_RAY, float*
 						// Vector3 leftToeToCenter(Vector3(pCharacter->BoundingSphere.Center) - Vector3(pCharacter->LeftToe.Center));
 						// Vector3 rightHandToCenter(Vector3(pCharacter->BoundingSphere.Center) - Vector3(pCharacter->RightHandMiddle.Center));
 						// Vector3 leftHandToCenter(Vector3(pCharacter->BoundingSphere.Center) - Vector3(pCharacter->LeftHandMiddle.Center));
-						// 
+						//
 						// debugString = std::string("rightToeToCenter: ") + std::to_string(rightToeToCenter.Length()) + std::string("\n");
 						// OutputDebugStringA(debugString.c_str());
 						// debugString = std::string("leftToeToCenter: ") + std::to_string(leftToeToCenter.Length()) + std::string("\n");
@@ -2075,7 +2152,7 @@ Model* Renderer::pickClosest(const DirectX::SimpleMath::Ray& PICKING_RAY, float*
 					}
 				}
 			}
-				break;
+			break;
 
 			default:
 				break;

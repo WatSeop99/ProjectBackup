@@ -50,8 +50,8 @@ protected:
 	void extendBoundingBox(const DirectX::BoundingBox& SRC_BOX, DirectX::BoundingBox* pDestBox);
 
 public:
-	Matrix World = Matrix();
-	Matrix WorldInverseTranspose = Matrix();
+	Matrix World;
+	Matrix WorldInverseTranspose;
 
 	std::vector<Mesh*> Meshes;
 

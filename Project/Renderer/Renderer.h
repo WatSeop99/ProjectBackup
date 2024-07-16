@@ -47,7 +47,7 @@ public:
 	void Update(const float DELTA_TIME);
 
 	void Render();
-	void ProcessByThread(UINT threadIndex, int renderPass);
+	void ProcessByThread(UINT threadIndex, ResourceManager* pManager, int renderPass);
 
 	void Clear();
 
@@ -105,6 +105,9 @@ protected:
 
 	Model* m_pMirror = nullptr;
 	Model* m_pPickedModel = nullptr;
+	Mesh* m_pPickedEndEffector = nullptr;
+	Vector3 m_PickedTranslation;
+	int m_PickedEndEffectorType = -1;
 	DirectX::SimpleMath::Plane* m_pMirrorPlane = nullptr;
 
 private:
@@ -126,9 +129,9 @@ private:
 
 	// for multi-thread
 	ID3D12CommandQueue* m_ppCommandQueue[RenderPass_RenderPassCount] = { nullptr, };
-	RenderQueue* m_ppRenderQueue[RenderPass_RenderPassCount][MAX_RENDER_THREAD_COUNT] = { nullptr, };
-	CommandListPool* m_ppCommandListPool[SWAP_CHAIN_FRAME_COUNT][MAX_RENDER_THREAD_COUNT] = { nullptr, };
-	DynamicDescriptorPool* m_ppDescriptorPool[SWAP_CHAIN_FRAME_COUNT][MAX_RENDER_THREAD_COUNT] = { nullptr, };
+	RenderQueue* m_pppRenderQueue[RenderPass_RenderPassCount][MAX_RENDER_THREAD_COUNT] = { nullptr, };
+	CommandListPool* m_pppCommandListPool[SWAP_CHAIN_FRAME_COUNT][MAX_RENDER_THREAD_COUNT] = { nullptr, };
+	DynamicDescriptorPool* m_pppDescriptorPool[SWAP_CHAIN_FRAME_COUNT][MAX_RENDER_THREAD_COUNT] = { nullptr, };
 	RenderThreadDesc* m_pThreadDescList = nullptr;
 	UINT m_RenderThreadCount = 0;
 	UINT m_CurThreadIndex = 0; // render queue에 균등하게 넣기 위한 인덱스.

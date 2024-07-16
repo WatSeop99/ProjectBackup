@@ -50,7 +50,7 @@ void CommandListPool::ClosedAndExecute(ID3D12CommandQueue* pCommandQueue)
 		__debugbreak();
 	}
 
-	m_pCurCmdList->bClosed = TRUE;
+	m_pCurCmdList->bClosed = true;
 
 	pCommandQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&m_pCurCmdList->pCommandList);
 	m_pCurCmdList = nullptr;

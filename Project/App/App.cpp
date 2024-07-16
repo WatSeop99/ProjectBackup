@@ -6,6 +6,8 @@ void App::Initialize()
 {
 	UINT64 totalRenderObjectCount = 0;
 
+	initMainWidndow();
+	initDirect3D();
 	initExternalData(&totalRenderObjectCount);
 
 	Renderer::InitialData initData =
@@ -76,7 +78,7 @@ void App::Update(const float DELTA_TIME)
 
 		switch (pModel->ModelType)
 		{
-			case DefaultModel: 
+			case DefaultModel:
 			case MirrorModel:
 				pModel->UpdateConstantBuffers();
 				break;
@@ -84,14 +86,6 @@ void App::Update(const float DELTA_TIME)
 			case SkinnedModel:
 			{
 				SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pModel;
-				/*if (pCharacter->AnimData.Clips.size() > 1)
-				{
-					updateAnimationState(DELTA_TIME);
-				}
-				else
-				{
-					pCharacter->UpdateCharacter();
-				}*/
 				updateAnimationState(DELTA_TIME);
 				pCharacter->UpdateConstantBuffers();
 			}
@@ -280,7 +274,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 				animationData.Clips.push_back(animDataInClip.Clips[0]);
 			}
 		}*/
-		
+
 		if (animationData.Clips.size() > 0)
 		{
 			m_pCharacter = new SkinnedMeshModel(pResourceManager, characterMeshInfo, animationData);
@@ -303,102 +297,92 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		m_pCharacter->Name = "MainCharacter";
 		m_pCharacter->bIsPickable = true;
 		m_pCharacter->UpdateWorld(Matrix::CreateScale(1.0f) * Matrix::CreateTranslation(center));
-		
-		/*if(animationData.Clips.size() == 0)
-		{
-			m_pCharacter->UpdateAnimation(0, 0);
-		}*/
-		
+
 		m_RenderObjects.push_back((Model*)m_pCharacter);
 	}
 }
 
 void App::updateAnimationState(const float DELTA_TIME)
 {
-	static int s_FrameCount = 0;
-
 	// States
 	// 0: idle
 	// 1: idle to walk
 	// 2: walk forward
 	// 3: walk to stop
 	static int s_State = 0;
-	static float s_Speed = 1.0f;
+	static int s_FrameCount = 0;
 
 	// 별도의 애니메이션 클립이 없을 경우.
-	if (m_pCharacter->AnimData.Clips.size() == 1)
+	if (m_pCharacter->CharacterAnimationData.Clips.size() == 1)
 	{
-		// return;
+		if (!m_pPickedEndEffector)
+		{
+			goto LB_UPDATE;
+		}
+
+		m_pCharacter->UpdateCharacterIK(m_PickedTranslation, m_PickedEndEffectorType, s_State, s_FrameCount, DELTA_TIME);
 		goto LB_UPDATE;
 	}
 
-	switch (s_State)
 	{
-		case 0:
+		const UINT64 ANIMATION_CLIP_SIZE = m_pCharacter->CharacterAnimationData.Clips[s_State].Keys[0].size();
+		switch (s_State)
 		{
-			if (m_Keyboard.bPressed[VK_UP])
-			{
-				s_State = 1;
-				s_FrameCount = 0;
-			}
-			else if (s_FrameCount ==
-					 m_pCharacter->AnimData.Clips[s_State].Keys[0].size() ||
-					 m_Keyboard.bPressed[VK_UP]) // 재생이 다 끝난다면.
-			{
-				s_FrameCount = 0; // 상태 변화 없이 반복.
-			}
-		}
-		break;
-
-		case 1:
-		{
-			if (s_FrameCount == m_pCharacter->AnimData.Clips[s_State].Keys[0].size())
-			{
-				s_State = 2;
-				s_FrameCount = 0;
-			}
-		}
-		break;
-
-		case 2:
-		{
-			if (m_Keyboard.bPressed[VK_RIGHT])
-			{
-				m_pCharacter->AnimData.AccumulatedRootTransform =
-					Matrix::CreateRotationY(DirectX::XM_PI * 60.0f / 180.0f * DELTA_TIME * 2.0f) *
-					m_pCharacter->AnimData.AccumulatedRootTransform;
-			}
-			if (m_Keyboard.bPressed[VK_LEFT])
-			{
-				m_pCharacter->AnimData.AccumulatedRootTransform =
-					Matrix::CreateRotationY(-DirectX::XM_PI * 60.0f / 180.0f * DELTA_TIME * 2.0f) *
-					m_pCharacter->AnimData.AccumulatedRootTransform;
-			}
-			if (s_FrameCount == m_pCharacter->AnimData.Clips[s_State].Keys[0].size())
-			{
-				// 방향키를 누르고 있지 않으면 정지. (누르고 있으면 계속 걷기)
-				if (!m_Keyboard.bPressed[VK_UP])
+			case 0:
+				if (m_Keyboard.bPressed[VK_UP])
 				{
-					s_State = 3;
+					s_State = 1;
+					s_FrameCount = 0;
 				}
-				s_FrameCount = 0;
-			}
-		}
-		break;
+				else if (s_FrameCount == ANIMATION_CLIP_SIZE || m_Keyboard.bPressed[VK_UP]) // 재생이 다 끝난다면.
+				{
+					s_FrameCount = 0; // 상태 변화 없이 반복.
+				}
+				break;
 
-		case 3:
-		{
-			if (s_FrameCount == m_pCharacter->AnimData.Clips[s_State].Keys[0].size())
-			{
-				// s_State = 4;
-				s_State = 0;
-				s_FrameCount = 0;
-			}
-		}
-		break;
+			case 1:
+				if (s_FrameCount == ANIMATION_CLIP_SIZE)
+				{
+					s_State = 2;
+					s_FrameCount = 0;
+				}
+				break;
 
-		default:
-			break;
+			case 2:
+				if (m_Keyboard.bPressed[VK_RIGHT])
+				{
+					m_pCharacter->CharacterAnimationData.AccumulatedRootTransform =
+						Matrix::CreateRotationY(DirectX::XM_PI * 60.0f / 180.0f * DELTA_TIME * 2.0f) *
+						m_pCharacter->CharacterAnimationData.AccumulatedRootTransform;
+				}
+				if (m_Keyboard.bPressed[VK_LEFT])
+				{
+					m_pCharacter->CharacterAnimationData.AccumulatedRootTransform =
+						Matrix::CreateRotationY(-DirectX::XM_PI * 60.0f / 180.0f * DELTA_TIME * 2.0f) *
+						m_pCharacter->CharacterAnimationData.AccumulatedRootTransform;
+				}
+				if (s_FrameCount == ANIMATION_CLIP_SIZE)
+				{
+					// 방향키를 누르고 있지 않으면 정지. (누르고 있으면 계속 걷기)
+					if (!m_Keyboard.bPressed[VK_UP])
+					{
+						s_State = 3;
+					}
+					s_FrameCount = 0;
+				}
+				break;
+
+			case 3:
+				if (s_FrameCount == ANIMATION_CLIP_SIZE)
+				{
+					s_State = 0;
+					s_FrameCount = 0;
+				}
+				break;
+
+			default:
+				break;
+		}
 	}
 
 LB_UPDATE:

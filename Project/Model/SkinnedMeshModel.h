@@ -16,7 +16,7 @@ public:
 
 	void UpdateConstantBuffers() override;
 	void UpdateAnimation(int clipID, int frame) override;
-	void UpdateCharacterIK(Vector3& target, int chainPart, const float DELTA_TIME);
+	void UpdateCharacterIK(Vector3& target, int chainPart, int clipID, int frame, const float DELTA_TIME);
 
 	void Render(ResourceManager* pManager, ePipelineStateSetting psoSetting) override;
 	void Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, ResourceManager* pManager, int psoSetting) override;
@@ -39,7 +39,7 @@ protected:
 
 public:
 	NonImageTexture BoneTransforms;
-	AnimationData AnimData;
+	AnimationData CharacterAnimationData;
 
 	DirectX::BoundingSphere RightHandMiddle;
 	DirectX::BoundingSphere LeftHandMiddle;
@@ -56,10 +56,4 @@ private:
 	Mesh* m_ppLeftArm[4] = { nullptr, }; // left arm - left fore arm - left hand - left hand middle.
 	Mesh* m_ppRightLeg[4] = { nullptr, }; // right up leg - right leg - right foot - right toe.
 	Mesh* m_ppLeftLeg[4] = { nullptr, }; // left up leg - left leg - left foot - left toe.
-
-	// InitAnimationData()에서 초기화 필요.
-	Chain m_RightArm;
-	Chain m_LeftArm;
-	Chain m_RightLeg;
-	Chain m_LeftLeg;
 };

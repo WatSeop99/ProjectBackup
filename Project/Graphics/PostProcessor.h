@@ -33,6 +33,12 @@ public:
 
 	void SetDescriptorHeap(ResourceManager* pManager);
 
+	inline Mesh* GetScreenMeshPtr() { return m_pScreenMesh; }
+	inline ImageFilter* GetSamplingFilterPtr() { return &m_BasicSamplingFilter; }
+	inline std::vector<ImageFilter>* GetBloomDownFiltersPtr() { return &m_BloomDownFilters; }
+	inline std::vector<ImageFilter>* GetBloomUpFiltersPtr() { return &m_BloomUpFilters; }
+	inline ImageFilter* GetCombineFilterPtr() { return &m_CombineFilter; }
+
 protected:
 	void createPostBackBuffers(ResourceManager* pManager);
 	void createImageResources(ResourceManager* pManager, const int WIDTH, const int HEIGHT, ImageFilter::ImageResource* pImageResource);

@@ -148,8 +148,8 @@ void PostProcessor::Render(ResourceManager* pManager, UINT frameIndex)
 	pCommandList->RSSetScissorRects(1, &m_ScissorRect);
 
 	// 스크린 렌더링을 위한 정점 버퍼와 인텍스 버퍼를 미리 설정.
-	UINT stride = sizeof(Vertex);
-	UINT offset = 0;
+	/*UINT stride = sizeof(Vertex);
+	UINT offset = 0;*/
 	pCommandList->IASetVertexBuffers(0, 1, &m_pScreenMesh->Vertex.VertexBufferView);
 	pCommandList->IASetIndexBuffer(&m_pScreenMesh->Index.IndexBufferView);
 

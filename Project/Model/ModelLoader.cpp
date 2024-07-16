@@ -84,7 +84,6 @@ HRESULT ModelLoader::LoadAnimation(std::wstring& basePath, std::wstring& fileNam
 	szBasePath = std::string(basePath.begin(), basePath.end());
 
 	Assimp::Importer importer;
-
 	const aiScene* pSCENE = importer.ReadFile(szBasePath + fileNameA, aiProcess_Triangulate | aiProcess_ConvertToLeftHanded);
 
 	if (pSCENE && pSCENE->HasAnimations())
@@ -151,6 +150,8 @@ void ModelLoader::processNode(aiNode* pNode, const aiScene* pSCENE, Matrix& tran
 		AnimData.BoneParents[BONE_ID] = AnimData.BoneNameToID[pPARENT->mName.C_Str()];
 	}
 
+	// mTransformation을 offset으로 저장해야함.
+	// 그럼 animation 에서 offset matrix는 뭐지?
 	Matrix m(&pNode->mTransformation.a1);
 	m = m.Transpose() * transform;
 
@@ -232,9 +233,10 @@ void ModelLoader::processMesh(aiMesh* pMesh, const aiScene* pSCENE, MeshInfo* pM
 		const UINT64 VERT_SIZE = vertices.size();
 		std::vector<std::vector<float>> boneWeights(VERT_SIZE);
 		std::vector<std::vector<UINT8>> boneIndices(VERT_SIZE);
-
-		AnimData.OffsetMatrices.resize(AnimData.BoneNameToID.size());
-		AnimData.BoneTransforms.resize(AnimData.BoneNameToID.size());
+		
+		const UINT64 TOTAL_BONE = AnimData.BoneNameToID.size();
+		AnimData.OffsetMatrices.resize(TOTAL_BONE);
+		AnimData.BoneTransforms.resize(TOTAL_BONE);
 
 		int count = 0;
 		for (UINT i = 0; i < pMesh->mNumBones; ++i)
@@ -243,9 +245,6 @@ void ModelLoader::processMesh(aiMesh* pMesh, const aiScene* pSCENE, MeshInfo* pM
 			const UINT BONE_ID = AnimData.BoneNameToID[pBONE->mName.C_Str()];
 
 			AnimData.OffsetMatrices[BONE_ID] = Matrix((float*)&pBONE->mOffsetMatrix).Transpose();
-
-			// rigid body transform을 여기다 넣어야 함.
-			// rigid body를 어떻게 구성할 것인가를 생각해야함.
 
 			// 이 뼈가 영향을 주는 정점 개수.
 			for (UINT j = 0; j < pBONE->mNumWeights; ++j)
@@ -264,11 +263,13 @@ void ModelLoader::processMesh(aiMesh* pMesh, const aiScene* pSCENE, MeshInfo* pM
 			maxBones = Max(maxBones, (int)(boneWeights[i].size()));
 		}
 
-		char debugString[256];
-		OutputDebugStringA("Max number of influencing bones per vertex = ");
-		sprintf_s(debugString, "%d", maxBones);
-		OutputDebugStringA(debugString);
-		OutputDebugStringA("\n");
+		{
+			char debugString[256];
+			OutputDebugStringA("Max number of influencing bones per vertex = ");
+			sprintf_s(debugString, "%d", maxBones);
+			OutputDebugStringA(debugString);
+			OutputDebugStringA("\n");
+		}
 
 		skinnedVertices.resize(VERT_SIZE);
 		for (UINT64 i = 0; i < VERT_SIZE; ++i)
@@ -351,12 +352,15 @@ void ModelLoader::readAnimation(const aiScene* pSCENE)
 				key.Scale = { SCALE.x, SCALE.y, SCALE.z };
 			}
 		}
+
+		// key data가 없는 곳을 default로 채움.
 		for (UINT64 boneID = 0; boneID < TOTAL_BONES; ++boneID)
 		{
-			const UINT64 KEY_SIZE = clip.Keys[boneID].size();
+			std::vector<AnimationClip::Key>& keys = clip.Keys[boneID];
+			const UINT64 KEY_SIZE = keys.size();
 			if (KEY_SIZE == 0)
 			{
-				clip.Keys[boneID].push_back(AnimationClip::Key());
+				keys.push_back(AnimationClip::Key());
 			}
 		}
 	}

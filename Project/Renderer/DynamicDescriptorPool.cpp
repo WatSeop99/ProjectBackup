@@ -12,7 +12,7 @@ void DynamicDescriptorPool::Initialize(ID3D12Device5* pDevice, UINT maxDescripto
 	m_CBVSRVUAVDescriptorSize = m_pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	D3D12_DESCRIPTOR_HEAP_DESC commonHeapDesc = {};
-	commonHeapDesc.NumDescriptors = m_MaxDescriptorCount;
+	commonHeapDesc.NumDescriptors = (UINT)m_MaxDescriptorCount;
 	commonHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	commonHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	hr = m_pDevice->CreateDescriptorHeap(&commonHeapDesc, IID_PPV_ARGS(&m_pDescriptorHeap));
@@ -25,7 +25,7 @@ void DynamicDescriptorPool::Initialize(ID3D12Device5* pDevice, UINT maxDescripto
 
 HRESULT DynamicDescriptorPool::AllocDescriptorTable(D3D12_CPU_DESCRIPTOR_HANDLE* pCPUDescriptor, D3D12_GPU_DESCRIPTOR_HANDLE* pGPUDescriptorHandle, UINT descriptorCount)
 {
-	if (m_AllocatedDescriptorCount + descriptorCount > m_MaxDescriptorCount)
+	if (m_AllocatedDescriptorCount + (UINT64)descriptorCount > m_MaxDescriptorCount)
 	{
 		return E_FAIL;
 	}

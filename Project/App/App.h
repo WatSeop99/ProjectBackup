@@ -40,7 +40,7 @@ private:
 	Texture m_BRDFTexture;
 	
 	Model* m_pMirror = nullptr;
-	Model* m_pPickedModel = nullptr;
+	// Model* m_pPickedModel = nullptr;
 	SkinnedMeshModel* m_pCharacter = nullptr;
 	DirectX::SimpleMath::Plane m_MirrorPlane;
 };
