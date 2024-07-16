@@ -164,7 +164,7 @@ void ModelLoader::processNode(aiNode* pNode, const aiScene* pSCENE, Matrix& tran
 		for (UINT64 j = 0, size = newMeshInfo.Vertices.size(); j < size; ++j)
 		{
 			Vertex& v = newMeshInfo.Vertices[j];
-			v.Position = DirectX::SimpleMath::Vector3::Transform(v.Position, m);
+			// v.Position = DirectX::SimpleMath::Vector3::Transform(v.Position, m);
 		}
 
 		MeshInfos.push_back(newMeshInfo);
@@ -347,9 +347,9 @@ void ModelLoader::readAnimation(const aiScene* pSCENE)
 				const aiVector3D& SCALE = pNODE_ANIM->mScalingKeys[k].mValue;
 
 				AnimationClip::Key& key = clip.Keys[BONE_ID][k];
-				key.Position = { POS.x, POS.y, POS.z };
+				key.Position = Vector3(POS.x, POS.y, POS.z);
 				key.Rotation = Quaternion(ROTATION.x, ROTATION.y, ROTATION.z, ROTATION.w);
-				key.Scale = { SCALE.x, SCALE.y, SCALE.z };
+				key.Scale = Vector3(SCALE.x, SCALE.y, SCALE.z);
 			}
 		}
 

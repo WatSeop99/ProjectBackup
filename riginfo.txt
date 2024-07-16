@@ -15,3 +15,17 @@ cross할 때, diff vector가 length를 포함해야 할듯.. 예제 참조하셈
 
 
 https://github.com/turanszkij/WickedEngine
+
+
+In the Assimp library, aiNode::mTransform and aiBone::mOffsetMatrix are used for different purposes related to the transformation of nodes and bones in a 3D model.
+
+aiNode::mTransform is a transformation matrix that describes the node’s relative position to its parent node1. If the node does not have any parent node, this transformation describes the position of the scene in its model space1. It includes information about the position, rotation, and scale of the node1.
+aiBone::mOffsetMatrix, on the other hand, is the inverse of the bone’s global transform at the bind pose2. In other words, if you traverse the bone/node hierarchy, applying the local transform (mTransform in Assimp) of each bone/node hierarchically to its children, you get the global transform for each bone/node2. The inverse of this matrix for a particular bone equals its mOffsetMatrix2. This matrix transforms vertices from mesh/model space to bone space2.
+In summary, mTransform is used to determine the position, rotation, and scale of a node in relation to its parent, while mOffsetMatrix is used to transform vertices from the mesh/model space to the bone space. Both are crucial for the correct rendering and animation of 3D models.
+
+
+https://stackoverflow.com/questions/76400779/when-do-i-use-ainode-mtransform
+https://stackoverflow.com/questions/50143649/what-does-moffsetmatrix-actually-do-in-assimp
+https://ogldev.org/www/tutorial38/tutorial38.html
+https://assimp.sourceforge.net/lib_html/structai_bone.html
+https://github.com/assimp/assimp/pull/1803
