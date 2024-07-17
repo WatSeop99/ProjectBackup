@@ -259,7 +259,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		ReadAnimationFromFile(characterMeshInfo, characterDefaultAnimData, path, filename);
 
 		// 애니메이션 클립들.
-		for (UINT64 i = 0, size = clipNames.size(); i < size; ++i)
+		/*for (UINT64 i = 0, size = clipNames.size(); i < size; ++i)
 		{
 			std::wstring& name = clipNames[i];
 			std::vector<MeshInfo> animationMeshInfo;
@@ -274,7 +274,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 			{
 				animationData.Clips.push_back(animDataInClip.Clips[0]);
 			}
-		}
+		}*/
 
 		if (animationData.Clips.size() > 1)
 		{

@@ -1623,8 +1623,9 @@ void Renderer::endRender()
 	// stencil process.
 	{
 		ID3D12GraphicsCommandList* pCommandList = pCommandListPool->GetCurrentCommandList();
+		DynamicDescriptorPool* pDescriptorPool = m_pppDescriptorPool[m_FrameIndex][0];
 		m_pResourceManager->SetCommonState(0, pCommandList, m_pppDescriptorPool[m_FrameIndex][0], RenderPSOType_StencilMask);
-		m_pMirror->Render(0, pCommandList, m_pResourceManager, RenderPSOType_StencilMask);
+		m_pMirror->Render(0, pCommandList, pDescriptorPool, m_pResourceManager, RenderPSOType_StencilMask);
 		pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Mirror]);
 	}
 	for (UINT i = 0; i < m_RenderThreadCount; ++i)
@@ -1635,8 +1636,9 @@ void Renderer::endRender()
 	// mirror blend process.
 	{
 		ID3D12GraphicsCommandList* pCommandList = pCommandListPool->GetCurrentCommandList();
+		DynamicDescriptorPool* pDescriptorPool = m_pppDescriptorPool[m_FrameIndex][0];
 		m_pResourceManager->SetCommonState(0, pCommandList, m_pppDescriptorPool[m_FrameIndex][0], RenderPSOType_MirrorBlend);
-		m_pMirror->Render(0, pCommandList, m_pResourceManager, RenderPSOType_MirrorBlend);
+		m_pMirror->Render(0, pCommandList, pDescriptorPool, m_pResourceManager, RenderPSOType_MirrorBlend);
 		pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Mirror]);
 	}
 

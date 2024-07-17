@@ -77,14 +77,14 @@ UINT RenderQueue::Process(UINT threadIndex, ID3D12CommandQueue* pCommandQueue, C
 			case RenderObjectType_MirrorType:
 			{
 				Model* pModel = (Model*)pRenderItem->pObjectHandle;
-				pModel->Render(threadIndex, pCommandList, pManager, pRenderItem->PSOType);
+				pModel->Render(threadIndex, pCommandList, pDescriptorPool, pManager, pRenderItem->PSOType);
 			}
 				break;
 
 			case RenderObjectType_SkinnedType:
 			{
 				SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pRenderItem->pObjectHandle;
-				pCharacter->Render(threadIndex, pCommandList, pManager, pRenderItem->PSOType);
+				pCharacter->Render(threadIndex, pCommandList, pDescriptorPool, pManager, pRenderItem->PSOType);
 			}
 				break;
 
@@ -188,14 +188,14 @@ UINT RenderQueue::ProcessLight(UINT threadIndex, ID3D12CommandQueue* pCommandQue
 			case RenderObjectType_MirrorType:
 			{
 				Model* pModel = (Model*)pRenderItem->pObjectHandle;
-				pModel->Render(threadIndex, pCommandList, pManager, pRenderItem->PSOType);
+				pModel->Render(threadIndex, pCommandList, pDescriptorPool, pManager, pRenderItem->PSOType);
 			}
 			break;
 
 			case RenderObjectType_SkinnedType:
 			{
 				SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pRenderItem->pObjectHandle;
-				pCharacter->Render(threadIndex, pCommandList, pManager, pRenderItem->PSOType);
+				pCharacter->Render(threadIndex, pCommandList, pDescriptorPool, pManager, pRenderItem->PSOType);
 			}
 			break;
 

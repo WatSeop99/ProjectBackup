@@ -271,10 +271,11 @@ void SkinnedMeshModel::Render(ResourceManager* pManager, ePipelineStateSetting p
 	}
 }
 
-void SkinnedMeshModel::Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, ResourceManager* pManager, int psoSetting)
+void SkinnedMeshModel::Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, DynamicDescriptorPool* pDescriptorPool, ResourceManager* pManager, int psoSetting)
 {
 	_ASSERT(pCommandList);
 	_ASSERT(pManager);
+	_ASSERT(pDescriptorPool);
 
 	if (!bIsVisible)
 	{
@@ -284,7 +285,6 @@ void SkinnedMeshModel::Render(UINT threadIndex, ID3D12GraphicsCommandList* pComm
 	HRESULT hr = S_OK;
 
 	ID3D12Device5* pDevice = pManager->m_pDevice;
-	DynamicDescriptorPool* pDynamicDescriptorPool = *(pManager->m_ppppDynamicDescriptorPools[*(pManager->m_pFrameIndex)][threadIndex]);
 	const UINT CBV_SRV_UAV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable;
@@ -298,7 +298,7 @@ void SkinnedMeshModel::Render(UINT threadIndex, ID3D12GraphicsCommandList* pComm
 		{
 			case Skinned: case ReflectionSkinned:
 			{
-				hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 10);
+				hr = pDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 10);
 				BREAK_IF_FAILED(hr);
 
 				CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_UAV_DESCRIPTOR_SIZE);
@@ -325,7 +325,7 @@ void SkinnedMeshModel::Render(UINT threadIndex, ID3D12GraphicsCommandList* pComm
 
 			case DepthOnlySkinned: case DepthOnlyCubeSkinned: case DepthOnlyCascadeSkinned:
 			{
-				hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 3);
+				hr = pDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 3);
 				BREAK_IF_FAILED(hr);
 
 				CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_UAV_DESCRIPTOR_SIZE);
@@ -348,7 +348,7 @@ void SkinnedMeshModel::Render(UINT threadIndex, ID3D12GraphicsCommandList* pComm
 
 		ID3D12DescriptorHeap* ppDescriptorHeaps[2] =
 		{
-			pDynamicDescriptorPool->GetDescriptorHeap(),
+			pDescriptorPool->GetDescriptorHeap(),
 			pManager->m_pSamplerHeap,
 		};
 		pCommandList->SetDescriptorHeaps(2, ppDescriptorHeaps);

@@ -305,14 +305,14 @@ void Model::Render(ResourceManager* pManager, ePipelineStateSetting psoSetting)
 	}
 }
 
-void Model::Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, ResourceManager* pManager, int psoSetting)
+void Model::Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, DynamicDescriptorPool* pDescriptorPool, ResourceManager* pManager, int psoSetting)
 {
 	_ASSERT(pCommandList);
 	_ASSERT(pManager);
+	_ASSERT(pDescriptorPool);
 
 	HRESULT hr = S_OK;
 	ID3D12Device5* pDevice = pManager->m_pDevice;
-	DynamicDescriptorPool* pDynamicDescriptorPool = *(pManager->m_ppppDynamicDescriptorPools[*(pManager->m_pFrameIndex)][threadIndex]);
 	const UINT CBV_SRV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable = {};
@@ -327,7 +327,7 @@ void Model::Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, Re
 			case Default: case Skybox:
 			case MirrorBlend: case ReflectionDefault: case ReflectionSkybox:
 			{
-				hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 9);
+				hr = pDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 9);
 				BREAK_IF_FAILED(hr);
 
 				CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_DESCRIPTOR_SIZE);
@@ -349,7 +349,7 @@ void Model::Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, Re
 
 			case DepthOnlyDefault: case DepthOnlyCubeDefault: case DepthOnlyCascadeDefault: case StencilMask:
 			{
-				hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 2);
+				hr = pDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 2);
 				BREAK_IF_FAILED(hr);
 
 				CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_DESCRIPTOR_SIZE);
@@ -366,6 +366,12 @@ void Model::Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, Re
 				break;
 		}
 
+		ID3D12DescriptorHeap* ppDescriptorHeaps[2] =
+		{
+			pDescriptorPool->GetDescriptorHeap(),
+			pManager->m_pSamplerHeap,
+		};
+		pCommandList->SetDescriptorHeaps(2, ppDescriptorHeaps);
 		pCommandList->IASetVertexBuffers(0, 1, &pCurMesh->Vertex.VertexBufferView);
 		pCommandList->IASetIndexBuffer(&(pCurMesh->Index.IndexBufferView));
 		pCommandList->DrawIndexedInstanced(pCurMesh->Index.Count, 1, 0, 0, 0);
