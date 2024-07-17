@@ -46,8 +46,9 @@ HRESULT ModelLoader::Load(std::wstring& basePath, std::wstring& fileName, bool _
 		// 각 뼈마다 부모 인덱스를 저장할 준비.
 		AnimData.BoneParents.resize(totalBoneIDs, -1);
 
-		Matrix tr; // Initial transformation.
-		processNode(pSCENE->mRootNode, pSCENE, tr);
+		Matrix globalTransform; // Initial transformation.
+		AnimData.GlobalTransforms.resize(totalBoneIDs);
+		processNode(pSCENE->mRootNode, pSCENE, globalTransform);
 
 		// 애니메이션 정보 읽기.
 		if (pSCENE->HasAnimations())
@@ -150,10 +151,8 @@ void ModelLoader::processNode(aiNode* pNode, const aiScene* pSCENE, Matrix& tran
 		AnimData.BoneParents[BONE_ID] = AnimData.BoneNameToID[pPARENT->mName.C_Str()];
 	}
 
-	// mTransformation을 offset으로 저장해야함.
-	// 그럼 animation 에서 offset matrix는 뭐지?
-	Matrix m(&pNode->mTransformation.a1);
-	m = m.Transpose() * transform;
+	Matrix globalTransform(&pNode->mTransformation.a1);
+	globalTransform = globalTransform.Transpose() * transform;
 
 	for (UINT i = 0; i < pNode->mNumMeshes; ++i)
 	{
@@ -164,7 +163,7 @@ void ModelLoader::processNode(aiNode* pNode, const aiScene* pSCENE, Matrix& tran
 		for (UINT64 j = 0, size = newMeshInfo.Vertices.size(); j < size; ++j)
 		{
 			Vertex& v = newMeshInfo.Vertices[j];
-			// v.Position = DirectX::SimpleMath::Vector3::Transform(v.Position, m);
+			v.Position = DirectX::SimpleMath::Vector3::Transform(v.Position, globalTransform);
 		}
 
 		MeshInfos.push_back(newMeshInfo);
@@ -172,7 +171,7 @@ void ModelLoader::processNode(aiNode* pNode, const aiScene* pSCENE, Matrix& tran
 
 	for (UINT i = 0; i < pNode->mNumChildren; ++i)
 	{
-		processNode(pNode->mChildren[i], pSCENE, m);
+		processNode(pNode->mChildren[i], pSCENE, globalTransform);
 	}
 }
 
@@ -237,6 +236,7 @@ void ModelLoader::processMesh(aiMesh* pMesh, const aiScene* pSCENE, MeshInfo* pM
 		const UINT64 TOTAL_BONE = AnimData.BoneNameToID.size();
 		AnimData.OffsetMatrices.resize(TOTAL_BONE);
 		AnimData.BoneTransforms.resize(TOTAL_BONE);
+		AnimData.GlobalTransforms.resize(TOTAL_BONE);
 
 		int count = 0;
 		for (UINT i = 0; i < pMesh->mNumBones; ++i)
@@ -245,6 +245,7 @@ void ModelLoader::processMesh(aiMesh* pMesh, const aiScene* pSCENE, MeshInfo* pM
 			const UINT BONE_ID = AnimData.BoneNameToID[pBONE->mName.C_Str()];
 
 			AnimData.OffsetMatrices[BONE_ID] = Matrix((float*)&pBONE->mOffsetMatrix).Transpose();
+			AnimData.GlobalTransforms[BONE_ID] = AnimData.OffsetMatrices[BONE_ID].Invert();
 
 			// 이 뼈가 영향을 주는 정점 개수.
 			for (UINT j = 0; j < pBONE->mNumWeights; ++j)

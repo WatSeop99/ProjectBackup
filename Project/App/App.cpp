@@ -258,7 +258,8 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		AnimationData characterDefaultAnimData;
 		ReadAnimationFromFile(characterMeshInfo, characterDefaultAnimData, path, filename);
 
-		/*for (UINT64 i = 0, size = clipNames.size(); i < size; ++i)
+		// 애니메이션 클립들.
+		for (UINT64 i = 0, size = clipNames.size(); i < size; ++i)
 		{
 			std::wstring& name = clipNames[i];
 			std::vector<MeshInfo> animationMeshInfo;
@@ -273,9 +274,9 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 			{
 				animationData.Clips.push_back(animDataInClip.Clips[0]);
 			}
-		}*/
+		}
 
-		if (animationData.Clips.size() > 0)
+		if (animationData.Clips.size() > 1)
 		{
 			m_pCharacter = new SkinnedMeshModel(pResourceManager, characterMeshInfo, animationData);
 		}
@@ -315,13 +316,15 @@ void App::updateAnimationState(const float DELTA_TIME)
 	// 별도의 애니메이션 클립이 없을 경우.
 	if (m_pCharacter->CharacterAnimationData.Clips.size() == 1)
 	{
-		if (!m_pPickedEndEffector)
+		/*if (!m_pPickedEndEffector)
 		{
 			goto LB_UPDATE;
 		}
 
 		m_pCharacter->UpdateCharacterIK(m_PickedTranslation, m_PickedEndEffectorType, s_State, s_FrameCount, DELTA_TIME);
-		goto LB_UPDATE;
+		goto LB_UPDATE;*/
+
+		goto LB_IK_PROCESS;
 	}
 
 	{
@@ -384,6 +387,13 @@ void App::updateAnimationState(const float DELTA_TIME)
 				break;
 		}
 	}
+
+LB_IK_PROCESS:
+	if (!m_pPickedEndEffector)
+	{
+		goto LB_UPDATE;
+	}
+	m_pCharacter->UpdateCharacterIK(m_PickedTranslation, m_PickedEndEffectorType, s_State, s_FrameCount, DELTA_TIME);
 
 LB_UPDATE:
 	m_pCharacter->UpdateAnimation(s_State, s_FrameCount);

@@ -1,5 +1,6 @@
 #include <Eigen/Dense>
 #include "../pch.h"
+#include "../Util/Utility.h"
 #include "AnimationData.h"
 
 Matrix AnimationClip::Key::GetTransform()
@@ -76,7 +77,16 @@ Matrix AnimationData::GetBonePositionMatrix(int boneID, int clipID, int frame)
 	const UINT64 KEY_SIZE = keys.size();
 	AnimationClip::Key& key = keys[frame % KEY_SIZE];
 
-	return (InverseDefaultTransform * OffsetMatrices[boneID] * key.GetTransform() * DefaultTransform);
+	return (InverseDefaultTransform * OffsetMatrices[boneID] * BoneTransforms[boneID] * DefaultTransform);
+}
+
+Joint::Joint()
+{
+	// 초기 제한 값은 최대로 해놓음.
+	for (int i = 0; i < JointAxis_AxisCount; ++i)
+	{
+		AngleLimitation[i] = Vector2(-FLT_MAX, FLT_MAX);
+	}
 }
 
 void Joint::Update(float deltaThetaX, float deltaThetaY, float deltaThetaZ, std::vector<AnimationClip>* pClips, Matrix* pDefaultTransform, Matrix* pInverseDefaultTransform, int clipID, int frame)
@@ -84,24 +94,72 @@ void Joint::Update(float deltaThetaX, float deltaThetaY, float deltaThetaZ, std:
 	_ASSERT(pClips);
 
 	// 변환 각도.
-	Matrix rot = Matrix::CreateFromYawPitchRoll(deltaThetaX, deltaThetaY, deltaThetaZ);
-	Quaternion deltaRot = Quaternion::CreateFromRotationMatrix(rot);
+	Quaternion deltaRot = Quaternion::CreateFromYawPitchRoll(deltaThetaY, deltaThetaX, deltaThetaZ);
 	
 	// 원래 키 데이터에서의 변환 각도.
 	std::vector<AnimationClip::Key>& keys = (*pClips)[clipID].Keys[BoneID];
 	const UINT64 KEY_SIZE = keys.size();
+	AnimationClip::Key& key = keys[frame % KEY_SIZE];
+	Quaternion originRot = key.Rotation;
+	Quaternion prevUpdateRot = key.UpdateRotation;
 
-	for (UINT64 i = 0; i < KEY_SIZE; ++i)
+	/*for (UINT64 i = 0; i < KEY_SIZE; ++i)
 	{
 		// 원래 키 데이터에서의 변환 각도.
-		AnimationClip::Key& key = keys[frame % KEY_SIZE];
+		AnimationClip::Key& key = keys[i % KEY_SIZE];
 		Quaternion originRot = key.Rotation;
 		Quaternion prevUpdateRot = key.UpdateRotation;
 
 		// 원래 각도에서 변환 각도 적용.
 		Quaternion newUpdateRot = Quaternion::Concatenate(prevUpdateRot, deltaRot);
 		key.UpdateRotation = newUpdateRot;
+	}*/
+
+	// 원래 각도에서 변환 각도 적용.
+	Quaternion newUpdateRot = Quaternion::Concatenate(prevUpdateRot, deltaRot);
+
+	// 적용 전, joint 전체 제한 값 테스트.
+	// Quaternion jointAngle = Quaternion::Concatenate(key.Rotation, newUpdateRot);
+	/*float roll = atan2f(2.0f * (newUpdateRot.w * newUpdateRot.x + newUpdateRot.y * newUpdateRot.z), 1.0f - 2.0f * (newUpdateRot.x * newUpdateRot.x + newUpdateRot.y * newUpdateRot.y));
+	float pitch = asinf(2.0f * (newUpdateRot.w * newUpdateRot.y - newUpdateRot.z * newUpdateRot.x));
+	float yaw = atan2f(2.0f * (newUpdateRot.w * newUpdateRot.z + newUpdateRot.x * newUpdateRot.y), 1.0f - 2.0f * (newUpdateRot.y * newUpdateRot.y + newUpdateRot.z * newUpdateRot.z));*/
+	/*float yaw = atan2(2.0f * (prevUpdateRot.y * prevUpdateRot.z + prevUpdateRot.w * prevUpdateRot.x), prevUpdateRot.w * prevUpdateRot.w - prevUpdateRot.x * prevUpdateRot.x - prevUpdateRot.y * prevUpdateRot.y + prevUpdateRot.z * prevUpdateRot.z);
+	float pitch = asin(-2.0f * (prevUpdateRot.x * prevUpdateRot.z - prevUpdateRot.w * prevUpdateRot.y));
+	float roll = atan2(2.0f * (prevUpdateRot.x * prevUpdateRot.y + prevUpdateRot.w * prevUpdateRot.z), prevUpdateRot.w * prevUpdateRot.w + prevUpdateRot.x * prevUpdateRot.x - prevUpdateRot.y * prevUpdateRot.y - prevUpdateRot.z * prevUpdateRot.z);*/
+	Matrix newUpdateRotMat = Matrix::CreateFromQuaternion(newUpdateRot);
+	float pitch = asin(-newUpdateRotMat._23);
+	float yaw = atan2(newUpdateRotMat._13, newUpdateRotMat._33);
+	float roll = atan2(newUpdateRotMat._21, newUpdateRotMat._22);
+	bool bUpdateFlag = false;
+
+	if (pitch < AngleLimitation[JointAxis_X].x || pitch > AngleLimitation[JointAxis_X].y)
+	{
+		deltaThetaX = 0.0f;
+		bUpdateFlag = true;
 	}
+	if (yaw < AngleLimitation[JointAxis_Y].x || yaw > AngleLimitation[JointAxis_Y].y)
+	{
+		deltaThetaY = 0.0f;
+		bUpdateFlag = true;
+	}
+	if (roll < AngleLimitation[JointAxis_Z].x || roll > AngleLimitation[JointAxis_Z].y)
+	{
+		deltaThetaZ = 0.0f;
+		bUpdateFlag = true;
+	}
+	if (bUpdateFlag)
+	{
+		deltaRot = Quaternion::CreateFromYawPitchRoll(deltaThetaY, deltaThetaX, deltaThetaZ);
+		newUpdateRot = Quaternion::Concatenate(prevUpdateRot, deltaRot);
+	}
+	/*{
+		char debugString[256];
+		sprintf_s(debugString, 256, "roll: %f, lower: %f, upper: %f\n", roll, AngleLimitation[JointAxis_Z].x, AngleLimitation[JointAxis_Z].y);
+		OutputDebugStringA(debugString);
+	}*/
+
+	// 적용.
+	key.UpdateRotation = newUpdateRot;
 }
 
 void Joint::JacobianX(Vector3* pOutput, Vector3& parentPos)
@@ -133,7 +191,7 @@ void Chain::SolveIK(Vector3& targetPos, int clipID, int frame, const float DELTA
 	_ASSERT(BodyChain.size() > 0);
 
 	const UINT64 TOTAL_JOINT = BodyChain.size();
-	Eigen::MatrixXf J(3, 3 * TOTAL_JOINT); // 3차원, 관여 joint 3개임.
+	Eigen::MatrixXf J(3, 3 * TOTAL_JOINT); // 3차원, 관여 joint 2개임.
 	Eigen::MatrixXf b(3, 1);
 	Eigen::VectorXf deltaTheta(TOTAL_JOINT * 3);
 	Joint& endEffector = BodyChain[TOTAL_JOINT - 1];
@@ -147,18 +205,18 @@ void Chain::SolveIK(Vector3& targetPos, int clipID, int frame, const float DELTA
 		OutputDebugStringA(debugString.c_str());
 	}*/
 
-	for (int step = 0; step < 100; ++step)
+	for (int step = 0; step < 50; ++step)
 	{
 		Vector3 deltaPos = targetPos - endEffector.Position;
 		float deltaPosLength = deltaPos.Length();
 
-		/*{
-			char debugString[256];
-			Vector3 pos = endEffector.Position;
-			sprintf_s(debugString, "deltaPosLength: %f\n", deltaPosLength);
-			// sprintf_s(debugString, "deltaPos pos: %f, %f, %f\n", deltaPos.x, deltaPos.y, deltaPos.z);
-			OutputDebugStringA(debugString);
-		}*/
+		//{
+		//	char debugString[256];
+		//	Vector3 pos = endEffector.Position;
+		//	sprintf_s(debugString, "deltaPosLength: %f\n", deltaPosLength);
+		//	// sprintf_s(debugString, "deltaPos pos: %f, %f, %f\n", deltaPos.x, deltaPos.y, deltaPos.z);
+		//	OutputDebugStringA(debugString);
+		//}
 
 		if (deltaPosLength <= 0.0001f || deltaPosLength >= 1.0f)
 		{
