@@ -88,14 +88,14 @@ void Renderer::ProcessByThread(UINT threadIndex, ResourceManager* pManager, int 
 	_ASSERT(threadIndex >= 0 && threadIndex < m_RenderThreadCount);
 	_ASSERT(pManager);
 
-	ID3D12CommandQueue* pCommandQueue = nullptr;
+	ID3D12CommandQueue* pCommandQueue = m_pCommandQueue;
 	CommandListPool* pCommandListPool = m_pppCommandListPool[m_FrameIndex][threadIndex];
 	DynamicDescriptorPool* pDescriptorPool = m_pppDescriptorPool[m_FrameIndex][threadIndex];
 
 	switch (renderPass)
 	{
 		case RenderPass_Shadow:
-			pCommandQueue = m_ppCommandQueue[RenderPass_Shadow];
+			// pCommandQueue = m_ppCommandQueue[RenderPass_Shadow];
 			m_pppRenderQueue[renderPass][threadIndex]->ProcessLight(threadIndex, pCommandQueue, pCommandListPool, pManager, pDescriptorPool, 100);
 			break;
 
@@ -106,7 +106,7 @@ void Renderer::ProcessByThread(UINT threadIndex, ResourceManager* pManager, int 
 			ID3D12GraphicsCommandList* pCommandList = pCommandListPool->GetCurrentCommandList();
 			CD3DX12_CPU_DESCRIPTOR_HANDLE floatBufferRtvHandle(pManager->m_pRTVHeap->GetCPUDescriptorHandleForHeapStart(), m_FloatBufferRTVOffset, m_pResourceManager->m_RTVDescriptorSize);
 			CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(pManager->m_pDSVHeap->GetCPUDescriptorHandleForHeapStart());
-			pCommandQueue = m_ppCommandQueue[RenderPass_MainRender];
+			// pCommandQueue = m_ppCommandQueue[RenderPass_MainRender];
 
 			pCommandList->RSSetViewports(1, &m_ScreenViewport);
 			pCommandList->RSSetScissorRects(1, &m_ScissorRect);
@@ -1168,7 +1168,8 @@ void Renderer::beginRender()
 	pCommandList1->ClearRenderTargetView(floatRtvHandle, COLOR, 0, nullptr);
 	pCommandList1->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 
-	pCommandListPool1->ClosedAndExecute(m_ppCommandQueue[RenderPass_MainRender]);
+	// pCommandListPool1->ClosedAndExecute(m_ppCommandQueue[RenderPass_MainRender]);
+	pCommandListPool1->ClosedAndExecute(m_pCommandQueue);
 	pCommandListPool2->ClosedAndExecute(m_pCommandQueue);
 
 #else
@@ -1260,7 +1261,8 @@ void Renderer::shadowMapRender()
 		}
 	}
 
-	pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Shadow]);
+	// pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Shadow]);
+	pCommandListPool->ClosedAndExecute(m_pCommandQueue);
 
 #else
 
@@ -1634,8 +1636,9 @@ void Renderer::endRender()
 
 		pCommandList->ResourceBarrier(1, &barrier);
 	}
-	pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Shadow]);
-	fence();
+	// pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Shadow]);
+	pCommandListPool->ClosedAndExecute(m_pCommandQueue);
+	// fence();
 
 	// default render pass.
 	for (UINT i = 0; i < m_RenderThreadCount; ++i)
@@ -1662,7 +1665,8 @@ void Renderer::endRender()
 		pCommandList->SetDescriptorHeaps(2, ppDescriptorHeaps);
 		m_pResourceManager->SetCommonState(0, pCommandList, m_pppDescriptorPool[m_FrameIndex][0], RenderPSOType_StencilMask);
 		m_pMirror->Render(0, pCommandList, pDescriptorPool, m_pResourceManager, RenderPSOType_StencilMask);
-		pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_MainRender]);
+		// pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_MainRender]);
+		pCommandListPool->ClosedAndExecute(m_pCommandQueue);
 	}
 	for (UINT i = 0; i < m_RenderThreadCount; ++i)
 	{
@@ -1690,9 +1694,10 @@ void Renderer::endRender()
 		const CD3DX12_RESOURCE_BARRIER BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(m_pFloatBuffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON);
 		pCommandList->ResourceBarrier(1, &BARRIER);
 
-		pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_MainRender]);
+		// pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_MainRender]);
+		pCommandListPool->ClosedAndExecute(m_pCommandQueue);
 	}
-	fence();
+	// fence();
 
 	// postprocessing pass.
 	{
@@ -1713,7 +1718,7 @@ void Renderer::endRender()
 		pCommandList->ResourceBarrier(1, &RTV_AFTER_BARRIER);
 		pCommandListPool->ClosedAndExecute(m_pCommandQueue);
 	}
-	fence();
+	// fence();
 
 	for (int i = 0; i < RenderPass_RenderPassCount; ++i)
 	{
