@@ -161,6 +161,29 @@ void PostProcessor::Render(ResourceManager* pManager, UINT frameIndex)
 	renderPostProcessing(pManager, frameIndex);
 }
 
+void PostProcessor::Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, DynamicDescriptorPool* pDescriptorPool, ResourceManager* pManager, UINT frameIndex)
+{
+	_ASSERT(pCommandList);
+	_ASSERT(pDescriptorPool);
+	_ASSERT(pManager);
+
+	ID3D12Device5* pDevice = pManager->m_pDevice;
+
+	pCommandList->RSSetViewports(1, &m_Viewport);
+	pCommandList->RSSetScissorRects(1, &m_ScissorRect);
+
+	// 스크린 렌더링을 위한 정점 버퍼와 인텍스 버퍼를 미리 설정.
+	pCommandList->IASetVertexBuffers(threadIndex, 1, &m_pScreenMesh->Vertex.VertexBufferView);
+	pCommandList->IASetIndexBuffer(&m_pScreenMesh->Index.IndexBufferView);
+
+	// basic sampling.
+	pManager->SetCommonState(threadIndex, pCommandList, pDescriptorPool, Sampling);
+	renderImageFilter(threadIndex, pCommandList, pDescriptorPool, pManager, m_BasicSamplingFilter, Sampling);
+
+	// post processing.
+	renderPostProcessing(threadIndex, pCommandList, pDescriptorPool, pManager);
+}
+
 void PostProcessor::Clear()
 {
 	m_ppBackBuffers[0] = nullptr;
@@ -215,6 +238,14 @@ void PostProcessor::SetDescriptorHeap(ResourceManager* pManager)
 	{
 		m_BloomUpFilters[i].SetDescriptorHeap(pManager);
 	}
+}
+
+void PostProcessor::SetViewportsAndScissorRects(ID3D12GraphicsCommandList* pCommandList)
+{
+	_ASSERT(pCommandList);
+
+	pCommandList->RSSetViewports(1, &m_Viewport);
+	pCommandList->RSSetScissorRects(1, &m_ScissorRect);
 }
 
 void PostProcessor::createPostBackBuffers(ResourceManager* pManager)
@@ -418,11 +449,51 @@ void PostProcessor::renderPostProcessing(ResourceManager* pManager, UINT frameIn
 	pCommandList->ResourceBarrier(1, &AFTER_BARRIER);
 }
 
+void PostProcessor::renderPostProcessing(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, DynamicDescriptorPool* pDescriptorPool, ResourceManager* pManager)
+{
+	_ASSERT(pCommandList);
+	_ASSERT(pDescriptorPool);
+	_ASSERT(pManager);
+
+	// bloom pass.
+	pManager->SetCommonState(threadIndex, pCommandList, pDescriptorPool, BloomDown);
+	for (UINT64 i = 0, size = m_BloomDownFilters.size(); i < size; ++i)
+	{
+		renderImageFilter(threadIndex, pCommandList, pDescriptorPool, pManager, m_BloomDownFilters[i], BloomDown);
+	}
+	pManager->SetCommonState(threadIndex, pCommandList, pDescriptorPool, BloomUp);
+	for (UINT64 i = 0, size = m_BloomUpFilters.size(); i < size; ++i)
+	{
+		renderImageFilter(threadIndex, pCommandList, pDescriptorPool, pManager, m_BloomUpFilters[i], BloomUp);
+	}
+
+	// combine pass
+	pManager->SetCommonState(threadIndex, pCommandList, pDescriptorPool, Combine);
+	renderImageFilter(threadIndex, pCommandList, pDescriptorPool, pManager, m_CombineFilter, Combine);
+
+	const CD3DX12_RESOURCE_BARRIER BEFORE_BARRIERs[2] =
+	{
+		CD3DX12_RESOURCE_BARRIER::Transition(m_ppBackBuffers[*(pManager->m_pFrameIndex)], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE),
+		CD3DX12_RESOURCE_BARRIER::Transition(m_pPrevBuffer, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST)
+	};
+	const CD3DX12_RESOURCE_BARRIER AFTER_BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(m_pPrevBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
+	pCommandList->ResourceBarrier(2, BEFORE_BARRIERs);
+	pCommandList->CopyResource(m_pPrevBuffer, m_ppBackBuffers[*(pManager->m_pFrameIndex)]);
+	pCommandList->ResourceBarrier(1, &AFTER_BARRIER);
+}
+
 void PostProcessor::renderImageFilter(ResourceManager* pManager, ImageFilter& imageFilter, ePipelineStateSetting psoSetting, UINT frameIndex)
 {
 	imageFilter.BeforeRender(pManager, psoSetting, frameIndex);
 	pManager->GetCommandList()->DrawIndexedInstanced(m_pScreenMesh->Index.Count, 1, 0, 0, 0);
 	imageFilter.AfterRender(pManager, psoSetting, frameIndex);
+}
+
+void PostProcessor::renderImageFilter(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, DynamicDescriptorPool* pDescriptorPool, ResourceManager* pManager, ImageFilter& imageFilter, int psoSetting)
+{
+	imageFilter.BeforeRender(threadIndex, pCommandList, pDescriptorPool, pManager, psoSetting);
+	pCommandList->DrawIndexedInstanced(m_pScreenMesh->Index.Count, 1, 0, 0, 0);
+	imageFilter.AfterRender(pCommandList, psoSetting);
 }
 
 void PostProcessor::setRenderConfig(const PostProcessingBuffers& CONFIG)

@@ -39,7 +39,7 @@ LB_RET:
 	return hr;
 }
 
-void Normalize(const Vector3 CENTER, const float LONGEST_LENGTH, std::vector<MeshInfo>& meshes, AnimationData& animData)
+void Normalize(const Vector3& CENTER, const float LONGEST_LENGTH, std::vector<MeshInfo>& meshes, AnimationData& animData)
 {
 	// 모델의 중심을 원점으로 옮기고 크기를 [-1,1]^3으로 스케일 -> 박스 형태로.
 	using namespace DirectX;
@@ -305,7 +305,7 @@ void MakeBox(MeshInfo* pDst, const float SCALE)
 	};
 }
 
-void MakeWireBox(MeshInfo* pDst, const Vector3 CENTER, const Vector3 EXTENTS)
+void MakeWireBox(MeshInfo* pDst, const Vector3& CENTER, const Vector3& EXTENTS)
 {
 	// 상자를 와이어 프레임으로 그리는 용도.
 
@@ -364,7 +364,7 @@ void MakeWireBox(MeshInfo* pDst, const Vector3 CENTER, const Vector3 EXTENTS)
 	};
 }
 
-void MakeWireSphere(MeshInfo* pDst, const Vector3 CENTER, const float RADIUS)
+void MakeWireSphere(MeshInfo* pDst, const Vector3& CENTER, const float RADIUS)
 {
 	_ASSERT(pDst);
 
@@ -375,58 +375,186 @@ void MakeWireSphere(MeshInfo* pDst, const Vector3 CENTER, const float RADIUS)
 	const float D_THETA = DirectX::XM_2PI / (float)NUM_POINT;
 
 	// XY plane
+	int offset = (int)(vertices.size());
+	Vector3 start(1.0f, 0.0f, 0.0f);
+	for (int i = 0; i < NUM_POINT; ++i)
 	{
-		int offset = (int)(vertices.size());
-		Vector3 start(1.0f, 0.0f, 0.0f);
-		for (int i = 0; i < NUM_POINT; ++i)
+		Vertex v;
+		v.Position = CENTER + Vector3::Transform(start, Matrix::CreateRotationZ(D_THETA * (float)i)) * RADIUS;
+		vertices.push_back(v);
+		indices.push_back(i + offset);
+		if (i != 0)
 		{
-			Vertex v;
-			v.Position = CENTER + Vector3::Transform(start, Matrix::CreateRotationZ(D_THETA * (float)i)) * RADIUS;
-			vertices.push_back(v);
 			indices.push_back(i + offset);
-			if (i != 0)
-			{
-				indices.push_back(i + offset);
-			}
 		}
-		indices.push_back(offset);
 	}
+	indices.push_back(offset);
 
 	// YZ
+	offset = (int)(vertices.size());
+	start = Vector3(0.0f, 1.0f, 0.0f);
+	for (int i = 0; i < NUM_POINT; ++i)
 	{
-		int offset = (int)(vertices.size());
-		Vector3 start(0.0f, 1.0f, 0.0f);
-		for (int i = 0; i < NUM_POINT; ++i)
+		Vertex v;
+		v.Position = CENTER + Vector3::Transform(start, Matrix::CreateRotationX(D_THETA * (float)i)) * RADIUS;
+		vertices.push_back(v);
+		indices.push_back(i + offset);
+		if (i != 0)
 		{
-			Vertex v;
-			v.Position = CENTER + Vector3::Transform(start, Matrix::CreateRotationX(D_THETA * (float)i)) * RADIUS;
-			vertices.push_back(v);
 			indices.push_back(i + offset);
-			if (i != 0)
-			{
-				indices.push_back(i + offset);
-			}
 		}
-		indices.push_back(offset);
 	}
+	indices.push_back(offset);
 
 	// XZ
+	offset = (int)(vertices.size());
+	start = Vector3(1.0f, 0.0f, 0.0f);
+	for (int i = 0; i < NUM_POINT; ++i)
 	{
-		int offset = (int)(vertices.size());
-		Vector3 start(1.0f, 0.0f, 0.0f);
-		for (int i = 0; i < NUM_POINT; ++i)
+		Vertex v;
+		v.Position = CENTER + Vector3::Transform(start, Matrix::CreateRotationY(D_THETA * (float)i)) * RADIUS;
+		vertices.push_back(v);
+		indices.push_back(i + offset);
+		if (i != 0)
 		{
-			Vertex v;
-			v.Position = CENTER + Vector3::Transform(start, Matrix::CreateRotationY(D_THETA * (float)i)) * RADIUS;
-			vertices.push_back(v);
 			indices.push_back(i + offset);
-			if (i != 0)
-			{
-				indices.push_back(i + offset);
-			}
 		}
-		indices.push_back(offset);
 	}
+	indices.push_back(offset);
+}
+
+void MakeWireCapsule(MeshInfo* pDst, const Vector3& CENTER, const float RADIUS, const float TOTAL_LENGTH)
+{
+	_ASSERT(pDst);
+
+	std::vector<Vertex>& vertices = pDst->Vertices;
+	std::vector<UINT>& indices = pDst->Indices;
+
+	const int NUM_POINT = 30;
+	const int HALF_NUM_POINT = NUM_POINT / 2;
+	const float D_THETA = DirectX::XM_2PI / (float)NUM_POINT;
+	const float HALF_L = (TOTAL_LENGTH - RADIUS * 2.0f) * 0.5f;
+	Vector3 newCenter = Vector3(0.0f, HALF_L, 0.0f) + CENTER;
+
+	// xy plane.
+	int offset = (int)(vertices.size());
+	Vector3 start(1.0f, 0.0f, 0.0f);
+	Vertex v;
+	for (int i = 0; i < HALF_NUM_POINT; ++i)
+	{
+		v.Position = newCenter + Vector3::Transform(start, Matrix::CreateRotationZ(D_THETA * (float)i)) * RADIUS;
+		vertices.push_back(v);
+		indices.push_back(i + offset);
+		if (i != 0)
+		{
+			indices.push_back(i + offset);
+		}
+	}
+
+	Vertex& lastV = vertices.back();
+	v.Position = lastV.Position;
+	v.Position.y -= HALF_L * 2.0f;
+	vertices.push_back(v);
+	indices.push_back(HALF_NUM_POINT + offset);
+	indices.push_back(HALF_NUM_POINT + offset);
+
+	newCenter = Vector3(0.0f, -HALF_L, 0.0f) + CENTER;
+	for (int i = HALF_NUM_POINT; i < NUM_POINT; ++i)
+	{
+		v.Position = newCenter + Vector3::Transform(start, Matrix::CreateRotationZ(D_THETA * (float)i)) * RADIUS;
+		vertices.push_back(v);
+		indices.push_back(i + offset);
+		if (i != 0)
+		{
+			indices.push_back(i + offset);
+		}
+	}
+
+	lastV = vertices.back();
+	v.Position = lastV.Position;
+	v.Position.y -= HALF_L * 2.0f;
+	vertices.push_back(v);
+	indices.push_back(NUM_POINT + offset);
+	indices.push_back(NUM_POINT + offset);
+
+	indices.push_back(offset);
+
+
+	// zy plane
+	offset = (int)(vertices.size());
+	start = Vector3(0.0f, 0.0f, 1.0f);
+	newCenter = Vector3(0.0f, HALF_L, 0.0f) + CENTER;
+	for (int i = 0; i < HALF_NUM_POINT; ++i)
+	{
+		v.Position = newCenter - Vector3::Transform(start, Matrix::CreateRotationX(D_THETA * (float)i)) * RADIUS;
+		vertices.push_back(v);
+		indices.push_back(i + offset);
+		if (i != 0)
+		{
+			indices.push_back(i + offset);
+		}
+	}
+
+	lastV = vertices.back();
+	v.Position = lastV.Position;
+	v.Position.y -= HALF_L * 2.0f;
+	vertices.push_back(v);
+	indices.push_back(HALF_NUM_POINT + offset);
+	indices.push_back(HALF_NUM_POINT + offset);
+
+	newCenter = Vector3(0.0f, -HALF_L, 0.0f) + CENTER;
+	for (int i = HALF_NUM_POINT; i < NUM_POINT; ++i)
+	{
+		v.Position = newCenter - Vector3::Transform(start, Matrix::CreateRotationX(D_THETA * (float)i)) * RADIUS;
+		vertices.push_back(v);
+		indices.push_back(i + offset);
+		if (i != 0)
+		{
+			indices.push_back(i + offset);
+		}
+	}
+
+	lastV = vertices.back();
+	v.Position = lastV.Position;
+	v.Position.y -= HALF_L * 2.0f;
+	vertices.push_back(v);
+	indices.push_back(NUM_POINT + offset);
+	indices.push_back(NUM_POINT + offset);
+
+	indices.push_back(offset);
+
+
+	// zx plane.
+	offset = (int)(vertices.size());
+	start = Vector3(1.0f, 0.0f, 0.0f);
+	newCenter = Vector3(0.0f, HALF_L, 0.0f) + CENTER;
+	for (int i = 0; i < NUM_POINT; ++i)
+	{
+		Vertex v;
+		v.Position = newCenter + Vector3::Transform(start, Matrix::CreateRotationY(D_THETA * (float)i)) * RADIUS;
+		vertices.push_back(v);
+		indices.push_back(i + offset);
+		if (i != 0)
+		{
+			indices.push_back(i + offset);
+		}
+	}
+	indices.push_back(offset);
+
+	offset = (int)(vertices.size());
+	newCenter = Vector3(0.0f, -HALF_L, 0.0f) + CENTER;
+	for (int i = 0; i < NUM_POINT; ++i)
+	{
+		Vertex v;
+		v.Position = newCenter + Vector3::Transform(start, Matrix::CreateRotationY(D_THETA * (float)i)) * RADIUS;
+		vertices.push_back(v);
+		indices.push_back(i + offset);
+		if (i != 0)
+		{
+			indices.push_back(i + offset);
+		}
+	}
+	indices.push_back(offset);
 }
 
 void MakeCylinder(MeshInfo* pDst, const float BOTTOM_RADIUS, const float TOP_RADIUS, float height, int numSlices)

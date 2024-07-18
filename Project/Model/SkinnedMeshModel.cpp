@@ -14,6 +14,7 @@ void SkinnedMeshModel::Initialize(ResourceManager* pManager, const std::vector<M
 {
 	Model::Initialize(pManager, MESH_INFOS);
 	InitAnimationData(pManager, ANIM_DATA);
+	initBoundingCapsule(pManager);
 	initJointSpheres(pManager);
 	initChain();
 
@@ -129,6 +130,7 @@ void SkinnedMeshModel::UpdateConstantBuffers()
 	}
 
 	Model::UpdateConstantBuffers();
+	m_pBoundingCapsuleMesh->MeshConstant.Upload();
 	for (int i = 0; i < 4; ++i)
 	{
 		m_ppRightArm[i]->MeshConstant.Upload();
@@ -346,19 +348,50 @@ void SkinnedMeshModel::Render(UINT threadIndex, ID3D12GraphicsCommandList* pComm
 				break;
 		}
 
-		ID3D12DescriptorHeap* ppDescriptorHeaps[2] =
-		{
-			pDescriptorPool->GetDescriptorHeap(),
-			pManager->m_pSamplerHeap,
-		};
-		pCommandList->SetDescriptorHeaps(2, ppDescriptorHeaps);
 		pCommandList->IASetVertexBuffers(0, 1, &pCurMesh->Vertex.VertexBufferView);
 		pCommandList->IASetIndexBuffer(&pCurMesh->Index.IndexBufferView);
 		pCommandList->DrawIndexedInstanced(pCurMesh->Index.Count, 1, 0, 0, 0);
 	}
 }
 
-void SkinnedMeshModel::RenderEndEffectorSphere(ResourceManager* pManager, ePipelineStateSetting psoSetting)
+void SkinnedMeshModel::RenderBoundingCapsule(ResourceManager* pManager, ePipelineStateSetting psoSetting)
+{
+	_ASSERT(pManager);
+
+	HRESULT hr = S_OK;
+
+	ID3D12Device5* pDevice = pManager->m_pDevice;
+	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
+	ID3D12DescriptorHeap* pCBVSRVHeap = pManager->m_pCBVSRVUAVHeap;
+	DynamicDescriptorPool* pDynamicDescriptorPool = pManager->m_pDynamicDescriptorPool;
+	const UINT CBV_SRV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable = {};
+	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorTable = {};
+
+	hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 3);
+	BREAK_IF_FAILED(hr);
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_DESCRIPTOR_SIZE);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE nullHandle(pCBVSRVHeap->GetCPUDescriptorHandleForHeapStart(), 14, CBV_SRV_DESCRIPTOR_SIZE);
+
+	// b2, b3
+	pDevice->CopyDescriptorsSimple(1, dstHandle, m_pBoundingCapsuleMesh->MeshConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	dstHandle.Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+	pDevice->CopyDescriptorsSimple(1, dstHandle, m_pBoundingCapsuleMesh->MaterialConstant.GetCBVHandle(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	dstHandle.Offset(1, CBV_SRV_DESCRIPTOR_SIZE);
+
+	// t6(null)
+	pDevice->CopyDescriptorsSimple(1, dstHandle, nullHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
+
+	pCommandList->IASetVertexBuffers(0, 1, &m_pBoundingCapsuleMesh->Vertex.VertexBufferView);
+	pCommandList->IASetIndexBuffer(&m_pBoundingCapsuleMesh->Index.IndexBufferView);
+	pCommandList->DrawIndexedInstanced(m_pBoundingCapsuleMesh->Index.Count, 1, 0, 0, 0);
+}
+
+void SkinnedMeshModel::RenderJointSphere(ResourceManager* pManager, ePipelineStateSetting psoSetting)
 {
 	_ASSERT(pManager);
 
@@ -484,6 +517,11 @@ void SkinnedMeshModel::Clear()
 			delete m_ppLeftLeg[i];
 			m_ppLeftLeg[i] = nullptr;
 		}
+	}
+	if (m_pBoundingCapsuleMesh)
+	{
+		delete m_pBoundingCapsuleMesh;
+		m_pBoundingCapsuleMesh = nullptr;
 	}
 }
 
@@ -615,6 +653,21 @@ void SkinnedMeshModel::SetDescriptorHeap(ResourceManager* pManager)
 	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 	++(pManager->m_CBVSRVUAVHeapSize);
 
+	// bounding capsule.
+	cbvDesc.BufferLocation = m_pBoundingCapsuleMesh->MeshConstant.GetGPUMemAddr();
+	cbvDesc.SizeInBytes = (UINT)m_pBoundingCapsuleMesh->MeshConstant.GetBufferSize();
+	pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
+	m_pBoundingCapsuleMesh->MeshConstant.SetCBVHandle(cbvSrvLastHandle);
+	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+	++(pManager->m_CBVSRVUAVHeapSize);
+
+	cbvDesc.BufferLocation = m_pBoundingCapsuleMesh->MaterialConstant.GetGPUMemAddr();
+	cbvDesc.SizeInBytes = (UINT)m_pBoundingCapsuleMesh->MaterialConstant.GetBufferSize();
+	pDevice->CreateConstantBufferView(&cbvDesc, cbvSrvLastHandle);
+	m_pBoundingCapsuleMesh->MaterialConstant.SetCBVHandle(cbvSrvLastHandle);
+	cbvSrvLastHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+	++(pManager->m_CBVSRVUAVHeapSize);
+
 	// all chains.
 	for (int i = 0; i < 4; ++i)
 	{
@@ -681,6 +734,24 @@ void SkinnedMeshModel::SetDescriptorHeap(ResourceManager* pManager)
 	}
 }
 
+void SkinnedMeshModel::initBoundingCapsule(ResourceManager* pManager)
+{
+	MeshInfo meshData = INIT_MESH_INFO;
+	MeshConstant* pMeshConst = nullptr;
+	MaterialConstant* pMaterialConst = nullptr;
+
+	MakeWireCapsule(&meshData, BoundingSphere.Center, 0.2f, BoundingSphere.Radius * 1.3f);
+	m_pBoundingCapsuleMesh = new Mesh;
+	m_pBoundingCapsuleMesh->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
+	m_pBoundingCapsuleMesh->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
+	pMeshConst = (MeshConstant*)m_pBoundingCapsuleMesh->MeshConstant.pData;
+	pMaterialConst = (MaterialConstant*)m_pBoundingCapsuleMesh->MaterialConstant.pData;
+
+	pMeshConst->World = Matrix();
+
+	Model::InitMeshBuffers(pManager, meshData, m_pBoundingCapsuleMesh);
+}
+
 void SkinnedMeshModel::initJointSpheres(ResourceManager* pManager)
 {
 	_ASSERT(pManager);
@@ -691,11 +762,11 @@ void SkinnedMeshModel::initJointSpheres(ResourceManager* pManager)
 
 	// for chain debugging.
 	meshData = INIT_MESH_INFO;
-	MakeWireSphere(&meshData, BoundingSphere.Center, 0.05f);
-	RightHandMiddle.Radius = 0.05f + 1e-3f;
-	LeftHandMiddle.Radius = 0.05f + 1e-3f;
-	RightToe.Radius = 0.05f + 1e-3f;
-	LeftToe.Radius = 0.05f + 1e-3f;
+	MakeWireSphere(&meshData, BoundingSphere.Center, 0.03f);
+	RightHandMiddle.Radius = 0.03f + 1e-3f;
+	LeftHandMiddle.Radius = 0.03f + 1e-3f;
+	RightToe.Radius = 0.03f + 1e-3f;
+	LeftToe.Radius = 0.03f + 1e-3f;
 
 	for (int i = 0; i < 4; ++i)
 	{
@@ -727,7 +798,7 @@ void SkinnedMeshModel::initJointSpheres(ResourceManager* pManager)
 		pMeshConst->World = Matrix();
 		pMeshConst = (MeshConstant*)(*ppLeftLegPart)->MeshConstant.pData;
 		pMeshConst->World = Matrix();
-
+		
 		// need to be for pp ver.
 		InitMeshBuffers(pManager, meshData, ppRightArmPart);
 		InitMeshBuffers(pManager, meshData, ppLeftArmPart);
@@ -794,15 +865,15 @@ void SkinnedMeshModel::initChain()
 	const Vector2 ANGLE_LIMITATION[16][3] = 
 	{
 		// right arm
-		{ Vector2(-FLT_MAX, FLT_MAX), Vector2(-FLT_MAX, FLT_MAX), Vector2(-FLT_MAX, FLT_MAX) },
-		{ Vector2(-FLT_MAX, FLT_MAX), Vector2(-FLT_MAX, FLT_MAX), Vector2(-FLT_MAX, FLT_MAX) },
-		{ Vector2(-FLT_MAX, FLT_MAX), Vector2(-FLT_MAX, FLT_MAX), Vector2(-FLT_MAX, FLT_MAX) },
+		{ Vector2(-1.0f, 1.0f), Vector2(0.0f), Vector2(-57.0f * TO_RADIAN, 85.0f * TO_RADIAN) },
+		{ Vector2(0.0f), Vector2(0.0f), Vector2(0.0f, 85.0f * TO_RADIAN) },
+		{ Vector2(-75.0f * TO_RADIAN, 75.0f * TO_RADIAN), Vector2(0.0f), Vector2(-25.0f * TO_RADIAN, 25.0f * TO_RADIAN) },
 		{ Vector2(0.0f), Vector2(0.0f), Vector2(0.0f) },
 
 		// left arm
-		{ Vector2(-FLT_MAX, FLT_MAX), Vector2(-FLT_MAX, FLT_MAX), Vector2(-FLT_MAX, FLT_MAX) },
-		{ Vector2(-FLT_MAX, FLT_MAX), Vector2(-FLT_MAX, FLT_MAX), Vector2(-FLT_MAX, FLT_MAX) },
-		{ Vector2(-FLT_MAX, FLT_MAX), Vector2(-FLT_MAX, FLT_MAX), Vector2(-FLT_MAX, FLT_MAX) },
+		{ Vector2(0.0f), Vector2(0.0f), Vector2(-85.0f * TO_RADIAN, 57.0f * TO_RADIAN) },
+		{ Vector2(0.0f), Vector2(0.0f), Vector2(-85.0f * TO_RADIAN, 0.0f) },
+		{ Vector2(-75.0f * TO_RADIAN, 75.0f * TO_RADIAN), Vector2(0.0f), Vector2(-25.0f * TO_RADIAN, 25.0f * TO_RADIAN) },
 		{ Vector2(0.0f), Vector2(0.0f), Vector2(0.0f) },
 
 		// right leg
@@ -928,15 +999,16 @@ void SkinnedMeshModel::updateJointSpheres(int clipID, int frame)
 
 	const int ROOT_BONE_ID = CharacterAnimationData.BoneNameToID["mixamorig:Hips"];
 	const Matrix ROOT_BONE_TRANSFORM = CharacterAnimationData.Get(ROOT_BONE_ID);
-	// const Matrix ROOT_BONE_TRANSFORM = CharacterAnimationData.GetBonePositionMatrix(ROOT_BONE_ID, clipID, frame);
-	const Matrix CORRECTION_CENTER = Matrix::CreateTranslation(Vector3(0.2f, 0.0f, 0.0f));
+	const Matrix CORRECTION_CENTER = Matrix::CreateTranslation(Vector3(0.2f, 0.05f, 0.0f));
 
 	MeshConstant* pBoxMeshConst = (MeshConstant*)m_pBoundingBoxMesh->MeshConstant.pData;
 	MeshConstant* pSphereMeshConst = (MeshConstant*)m_pBoundingSphereMesh->MeshConstant.pData;
+	MeshConstant* pCapsuleMeshConst = (MeshConstant*)m_pBoundingCapsuleMesh->MeshConstant.pData;
 
 	pBoxMeshConst->World = (CORRECTION_CENTER * ROOT_BONE_TRANSFORM * World).Transpose();
 	// pBoxMeshConst->World = (ROOT_BONE_TRANSFORM * World).Transpose();
 	pSphereMeshConst->World = pBoxMeshConst->World;
+	pCapsuleMeshConst->World = pBoxMeshConst->World;
 	BoundingBox.Center = pBoxMeshConst->World.Transpose().Translation();
 	BoundingSphere.Center = BoundingBox.Center;
 
@@ -982,7 +1054,7 @@ void SkinnedMeshModel::updateJointSpheres(int clipID, int frame)
 		};
 		const Matrix BONE_CORRECTION_TRANSFORM[16] =
 		{
-			Matrix::CreateTranslation(Vector3(0.09f, 0.52f, 0.048f)),
+			/*Matrix::CreateTranslation(Vector3(0.09f, 0.52f, 0.048f)),
 			Matrix::CreateTranslation(Vector3(-0.18f, 0.51f, 0.048f)),
 			Matrix::CreateTranslation(Vector3(-0.32f, 0.52f, 0.048f)),
 			Matrix::CreateTranslation(Vector3(-0.44f, 0.52f, 0.048f)),
@@ -1000,7 +1072,27 @@ void SkinnedMeshModel::updateJointSpheres(int clipID, int frame)
 			Matrix::CreateTranslation(Vector3(0.26f, 0.05f, 0.04f)),
 			Matrix::CreateTranslation(Vector3(0.26f, -0.18f, 0.05f)),
 			Matrix::CreateTranslation(Vector3(0.25f, -0.38f, 0.05f)),
-			Matrix::CreateTranslation(Vector3(0.26f, -0.43f, -0.09f)),
+			Matrix::CreateTranslation(Vector3(0.26f, -0.43f, -0.09f)),*/
+
+			Matrix::CreateTranslation(Vector3(0.085f, 0.33f, 0.06f)),
+			Matrix::CreateTranslation(Vector3(-0.04f, 0.32f, 0.06f)),
+			Matrix::CreateTranslation(Vector3(-0.18f, 0.32f, 0.06f)),
+			Matrix::CreateTranslation(Vector3(-0.235f, 0.32f, 0.055f)),
+
+			Matrix::CreateTranslation(Vector3(0.32f, 0.34f, 0.05f)),
+			Matrix::CreateTranslation(Vector3(0.45f, 0.32f, 0.05f)),
+			Matrix::CreateTranslation(Vector3(0.59f, 0.32f, 0.05f)),
+			Matrix::CreateTranslation(Vector3(0.65f, 0.32f, 0.05f)),
+
+			Matrix::CreateTranslation(Vector3(0.16f, 0.02f, 0.04f)),
+			Matrix::CreateTranslation(Vector3(0.15f, -0.17f, 0.04f)),
+			Matrix::CreateTranslation(Vector3(0.16f, -0.39f, 0.05f)),
+			Matrix::CreateTranslation(Vector3(0.15f, -0.42f, 0.0f)),
+
+			Matrix::CreateTranslation(Vector3(0.26f, 0.025f, 0.05f)),
+			Matrix::CreateTranslation(Vector3(0.26f, -0.165f, 0.05f)),
+			Matrix::CreateTranslation(Vector3(0.25f, -0.38f, 0.05f)),
+			Matrix::CreateTranslation(Vector3(0.26f, -0.42f, 0.0f)),
 		};
 		int boneIDs[16] = {};
 		Matrix transformMatrics[16] = {};
@@ -1027,7 +1119,6 @@ void SkinnedMeshModel::updateJointSpheres(int clipID, int frame)
 		for (int i = 0; i < 16; ++i)
 		{
 			boneIDs[i] = CharacterAnimationData.BoneNameToID[BONE_NAME[i]];
-			// transformMatrics[i] = CharacterAnimationData.GetBonePositionMatrix(boneIDs[i], clipID, frame);
 			transformMatrics[i] = CharacterAnimationData.Get(boneIDs[i]);
 
 			ppMeshConstants[i]->World = (BONE_CORRECTION_TRANSFORM[i] * transformMatrics[i] * World).Transpose();

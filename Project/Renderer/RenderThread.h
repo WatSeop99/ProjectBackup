@@ -7,7 +7,7 @@ enum eRenderThreadEventType
 	RenderThreadEventType_Object,
 	RenderThreadEventType_Mirror,
 	RenderThreadEventType_Collider,
-	RenderThreadEventType_Post,
+	RenderThreadEventType_MainRender,
 	RenderThreadEventType_Desctroy,
 	RenderThreadEventType_Count
 };

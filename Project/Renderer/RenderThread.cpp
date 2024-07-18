@@ -22,7 +22,7 @@ UINT WINAPI RenderThread(void* pArg)
 			case RenderThreadEventType_Object:
 			case RenderThreadEventType_Mirror:
 			case RenderThreadEventType_Collider:
-			case RenderThreadEventType_Post:
+			case RenderThreadEventType_MainRender:
 				pRenderer->ProcessByThread(threadIndex, pManager, eventIndex);
 				break;
 

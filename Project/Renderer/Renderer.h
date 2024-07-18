@@ -16,7 +16,7 @@ enum eRenderPass
 	RenderPass_Object,
 	RenderPass_Mirror,
 	RenderPass_Collider,
-	RenderPass_Post,
+	RenderPass_MainRender,
 	RenderPass_RenderPassCount,
 };
 

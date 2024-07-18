@@ -43,11 +43,12 @@ public:
 
 	void Update(int clipID, int frame);
 
+	void ResetAllUpdateRotationInClip(int clipID);
+
 	inline Matrix Get(int boneID)
 	{
 		return (InverseDefaultTransform * OffsetMatrices[boneID] * BoneTransforms[boneID] * DefaultTransform);
 	}
-	Matrix GetBonePositionMatrix(int boneID, int clipID, int frame);
 
 public:
 	std::unordered_map<std::string, int> BoneNameToID; // »À ÀÌ¸§°ú ÀÎµ¦½º Á¤¼ö.

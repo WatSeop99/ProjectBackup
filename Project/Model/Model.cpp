@@ -366,12 +366,6 @@ void Model::Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, Dy
 				break;
 		}
 
-		ID3D12DescriptorHeap* ppDescriptorHeaps[2] =
-		{
-			pDescriptorPool->GetDescriptorHeap(),
-			pManager->m_pSamplerHeap,
-		};
-		pCommandList->SetDescriptorHeaps(2, ppDescriptorHeaps);
 		pCommandList->IASetVertexBuffers(0, 1, &pCurMesh->Vertex.VertexBufferView);
 		pCommandList->IASetIndexBuffer(&(pCurMesh->Index.IndexBufferView));
 		pCommandList->DrawIndexedInstanced(pCurMesh->Index.Count, 1, 0, 0, 0);
@@ -623,7 +617,6 @@ void Model::initBoundingSphere(ResourceManager* pManager, const std::vector<Mesh
 	}
 
 	maxRadius += 1e-2f; // 살짝 크게 설정.
-	// maxRadius -= 1e-2f; // 살짝 작게 설정.
 	BoundingSphere = DirectX::BoundingSphere(BoundingBox.Center, maxRadius);
 
 	MeshInfo meshData = INIT_MESH_INFO;
@@ -631,6 +624,7 @@ void Model::initBoundingSphere(ResourceManager* pManager, const std::vector<Mesh
 	MaterialConstant* pMaterialConst = nullptr;
 
 	MakeWireSphere(&meshData, BoundingSphere.Center, BoundingSphere.Radius);
+	// MakeWireCapsule(&meshData, BoundingSphere.Center, BoundingSphere.Radius, 3.0f);
 	m_pBoundingSphereMesh = new Mesh;
 	m_pBoundingSphereMesh->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
 	m_pBoundingSphereMesh->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));

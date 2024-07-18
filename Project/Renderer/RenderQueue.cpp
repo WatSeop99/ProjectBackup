@@ -125,7 +125,6 @@ UINT RenderQueue::Process(UINT threadIndex, ID3D12CommandQueue* pCommandQueue, C
 
 UINT RenderQueue::ProcessLight(UINT threadIndex, ID3D12CommandQueue* pCommandQueue, CommandListPool* pCommandListPool, ResourceManager* pManager, DynamicDescriptorPool* pDescriptorPool, int processCountPerCommandList)
 {
-	// pDepthStencilResource에 대한 resource barrier 처리 필요.
 	_ASSERT(threadIndex >= 0 && threadIndex < MAX_RENDER_THREAD_COUNT);
 	_ASSERT(pCommandQueue);
 	_ASSERT(pCommandListPool);
@@ -133,11 +132,11 @@ UINT RenderQueue::ProcessLight(UINT threadIndex, ID3D12CommandQueue* pCommandQue
 	_ASSERT(pDescriptorPool);
 
 	ID3D12GraphicsCommandList* ppCommandLists[64] = { };
-	UINT commandListCount = 0;
+	int commandListCount = 0;
 
 	ID3D12GraphicsCommandList* pCommandList = nullptr;
-	UINT processedCount = 0;
-	UINT processedPerCommandList = 0;
+	int processedCount = 0;
+	int processedPerCommandList = 0;
 	const RenderItem* pRenderItem = nullptr;
 
 	while (pRenderItem = dispatch())
@@ -171,16 +170,19 @@ UINT RenderQueue::ProcessLight(UINT threadIndex, ID3D12CommandQueue* pCommandQue
 
 			case LIGHT_SPOT:
 				pShadowBuffer = pCurLight->LightShadowMap.GetSpotLightShadowBufferPtr();
+				pCommandList->SetGraphicsRootConstantBufferView(1, pCurLight->LightShadowMap.GetShadowConstantBufferForGSPtr()->GetGPUMemAddr());
 				break;
 
 			default:
 				__debugbreak();
 				break;
 		}
-
 		dsvHandle = pShadowBuffer->GetDSVHandle();
 		pDepthStencilResource = pShadowBuffer->GetResource();
+
+		pCurLight->LightShadowMap.SetViewportsAndScissorRect(pCommandList);
 		pCommandList->OMSetRenderTargets(0, nullptr, FALSE, &dsvHandle);
+
 		switch (pRenderItem->ModelType)
 		{
 			case RenderObjectType_DefaultType:
@@ -243,11 +245,11 @@ UINT RenderQueue::ProcessPostProcessing(UINT threadIndex, ID3D12CommandQueue* pC
 	_ASSERT(pDescriptorPool);
 
 	ID3D12GraphicsCommandList* ppCommandLists[64] = { };
-	UINT commandListCount = 0;
+	int commandListCount = 0;
 
 	ID3D12GraphicsCommandList* pCommandList = nullptr;
-	UINT processedCount = 0;
-	UINT processedPerCommandList = 0;
+	int processedCount = 0;
+	int processedPerCommandList = 0;
 	const RenderItem* pRenderItem = nullptr;
 
 	while (pRenderItem = dispatch())
@@ -265,7 +267,8 @@ UINT RenderQueue::ProcessPostProcessing(UINT threadIndex, ID3D12CommandQueue* pC
 		pCommandList->SetDescriptorHeaps(2, ppDescriptorHeaps);
 
 		pManager->SetCommonState(threadIndex, pCommandList, pDescriptorPool, pRenderItem->PSOType);
-		pImageFilter->BeforeRender(threadIndex, pCommandList, pManager, pRenderItem->PSOType);
+		
+		pImageFilter->BeforeRender(threadIndex, pCommandList, pDescriptorPool, pManager, pRenderItem->PSOType);
 		pCommandList->IASetVertexBuffers(0, 1, &pScreenMesh->Vertex.VertexBufferView);
 		pCommandList->IASetIndexBuffer(&pScreenMesh->Index.IndexBufferView);
 		pCommandList->DrawIndexedInstanced(pScreenMesh->Index.Count, 1, 0, 0, 0);

@@ -48,5 +48,7 @@ private:
 	ListElem* m_pAllocatedCmdLinkTail = nullptr;
 	ListElem* m_pAvailableCmdLinkHead = nullptr;
 	ListElem* m_pAvailableCmdLinkTail = nullptr;
+
+	UINT m_PoolIndex = 0;
 };
 

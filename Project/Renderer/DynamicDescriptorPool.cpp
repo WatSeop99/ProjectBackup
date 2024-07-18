@@ -32,12 +32,12 @@ HRESULT DynamicDescriptorPool::AllocDescriptorTable(D3D12_CPU_DESCRIPTOR_HANDLE*
 
 #ifdef _DEBUG
 	char debugString[256];
-	sprintf_s(debugString, 256, "Before: %u  DescriptorCount: %u  After: %u\n", m_AllocatedDescriptorCount, descriptorCount, m_AllocatedDescriptorCount + descriptorCount);
+	sprintf_s(debugString, 256, "Before: %llu  DescriptorCount: %u  After: %llu\n", m_AllocatedDescriptorCount, descriptorCount, m_AllocatedDescriptorCount + descriptorCount);
 	OutputDebugStringA(debugString);
 #endif
 
-	*pCPUDescriptor = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_CPUDescriptorHandle, m_AllocatedDescriptorCount, m_CBVSRVUAVDescriptorSize);
-	*pGPUDescriptorHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_GPUDescriptorHandle, m_AllocatedDescriptorCount, m_CBVSRVUAVDescriptorSize);
+	*pCPUDescriptor = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_CPUDescriptorHandle, (int)m_AllocatedDescriptorCount, m_CBVSRVUAVDescriptorSize);
+	*pGPUDescriptorHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_GPUDescriptorHandle, (int)m_AllocatedDescriptorCount, m_CBVSRVUAVDescriptorSize);
 	m_AllocatedDescriptorCount += descriptorCount;
 
 	return S_OK;

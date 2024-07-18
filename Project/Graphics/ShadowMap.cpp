@@ -389,6 +389,12 @@ void ShadowMap::SetDescriptorHeap(ResourceManager* pManager)
 	++(pManager->m_CBVSRVUAVHeapSize);
 }
 
+void ShadowMap::SetViewportsAndScissorRect(ID3D12GraphicsCommandList* pCommandList)
+{
+	setShadowViewport(pCommandList);
+	setShadowScissorRect(pCommandList);
+}
+
 void ShadowMap::setShadowViewport(ID3D12GraphicsCommandList* pCommandList)
 {
 	_ASSERT(pCommandList);

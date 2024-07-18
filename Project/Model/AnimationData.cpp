@@ -31,7 +31,7 @@ void AnimationData::Update(int clipID, int frame)
 		else
 		{
 			Vector3 rootBoneTranslation = AccumulatedRootTransform.Translation();
-			rootBoneTranslation.y = key.Position.y;
+			rootBoneTranslation.y = key.Position.y - 0.01f;
 			AccumulatedRootTransform.Translation(rootBoneTranslation);
 		}
 
@@ -71,13 +71,19 @@ void AnimationData::Update(int clipID, int frame)
 	}
 }
 
-Matrix AnimationData::GetBonePositionMatrix(int boneID, int clipID, int frame)
+void AnimationData::ResetAllUpdateRotationInClip(int clipID)
 {
-	std::vector<AnimationClip::Key>& keys = Clips[clipID].Keys[boneID];
-	const UINT64 KEY_SIZE = keys.size();
-	AnimationClip::Key& key = keys[frame % KEY_SIZE];
+	for (UINT64 i = 0, totalBone = BoneIDToNames.size(); i < totalBone; ++i)
+	{
+		std::vector<AnimationClip::Key>& keys = Clips[clipID].Keys[i];
+		const UINT64 KEY_SIZE = keys.size();
 
-	return (InverseDefaultTransform * OffsetMatrices[boneID] * BoneTransforms[boneID] * DefaultTransform);
+		for (UINT j = 0; j < KEY_SIZE; ++j)
+		{
+			AnimationClip::Key& key = keys[j];
+			key.UpdateRotation = Quaternion();
+		}
+	}
 }
 
 Joint::Joint()
@@ -119,13 +125,6 @@ void Joint::Update(float deltaThetaX, float deltaThetaY, float deltaThetaZ, std:
 	Quaternion newUpdateRot = Quaternion::Concatenate(prevUpdateRot, deltaRot);
 
 	// 적용 전, joint 전체 제한 값 테스트.
-	// Quaternion jointAngle = Quaternion::Concatenate(key.Rotation, newUpdateRot);
-	/*float roll = atan2f(2.0f * (newUpdateRot.w * newUpdateRot.x + newUpdateRot.y * newUpdateRot.z), 1.0f - 2.0f * (newUpdateRot.x * newUpdateRot.x + newUpdateRot.y * newUpdateRot.y));
-	float pitch = asinf(2.0f * (newUpdateRot.w * newUpdateRot.y - newUpdateRot.z * newUpdateRot.x));
-	float yaw = atan2f(2.0f * (newUpdateRot.w * newUpdateRot.z + newUpdateRot.x * newUpdateRot.y), 1.0f - 2.0f * (newUpdateRot.y * newUpdateRot.y + newUpdateRot.z * newUpdateRot.z));*/
-	/*float yaw = atan2(2.0f * (prevUpdateRot.y * prevUpdateRot.z + prevUpdateRot.w * prevUpdateRot.x), prevUpdateRot.w * prevUpdateRot.w - prevUpdateRot.x * prevUpdateRot.x - prevUpdateRot.y * prevUpdateRot.y + prevUpdateRot.z * prevUpdateRot.z);
-	float pitch = asin(-2.0f * (prevUpdateRot.x * prevUpdateRot.z - prevUpdateRot.w * prevUpdateRot.y));
-	float roll = atan2(2.0f * (prevUpdateRot.x * prevUpdateRot.y + prevUpdateRot.w * prevUpdateRot.z), prevUpdateRot.w * prevUpdateRot.w + prevUpdateRot.x * prevUpdateRot.x - prevUpdateRot.y * prevUpdateRot.y - prevUpdateRot.z * prevUpdateRot.z);*/
 	Matrix newUpdateRotMat = Matrix::CreateFromQuaternion(newUpdateRot);
 	float pitch = asin(-newUpdateRotMat._23);
 	float yaw = atan2(newUpdateRotMat._13, newUpdateRotMat._33);
@@ -159,7 +158,12 @@ void Joint::Update(float deltaThetaX, float deltaThetaY, float deltaThetaZ, std:
 	}*/
 
 	// 적용.
-	key.UpdateRotation = newUpdateRot;
+	// key.UpdateRotation = newUpdateRot;
+	for (UINT64 i = 0; i < KEY_SIZE; ++i)
+	{
+		AnimationClip::Key& key = keys[i % KEY_SIZE];
+		key.UpdateRotation = newUpdateRot;
+	}
 }
 
 void Joint::JacobianX(Vector3* pOutput, Vector3& parentPos)

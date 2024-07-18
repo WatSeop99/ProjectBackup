@@ -20,7 +20,8 @@ public:
 
 	void Render(ResourceManager* pManager, ePipelineStateSetting psoSetting) override;
 	void Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, DynamicDescriptorPool* pDescriptorPool, ResourceManager* pManager, int psoSetting) override;
-	void RenderEndEffectorSphere(ResourceManager* pManager, ePipelineStateSetting psoSetting);
+	void RenderBoundingCapsule(ResourceManager* pManager, ePipelineStateSetting psoSetting);
+	void RenderJointSphere(ResourceManager* pManager, ePipelineStateSetting psoSetting);
 
 	void Clear();
 
@@ -32,6 +33,7 @@ public:
 	inline Mesh** GetLeftLegsMesh() { return m_ppLeftLeg; }
 
 protected:
+	void initBoundingCapsule(ResourceManager* pManager);
 	void initJointSpheres(ResourceManager* pManager);
 	void initChain();
 
@@ -51,9 +53,12 @@ public:
 	Chain RightLeg;
 	Chain LeftLeg;
 
+	// capsule 계산용 클래스 필요.
+
 private:
 	Mesh* m_ppRightArm[4] = { nullptr, }; // right arm - right fore arm - right hand - right hand middle.
 	Mesh* m_ppLeftArm[4] = { nullptr, }; // left arm - left fore arm - left hand - left hand middle.
 	Mesh* m_ppRightLeg[4] = { nullptr, }; // right up leg - right leg - right foot - right toe.
 	Mesh* m_ppLeftLeg[4] = { nullptr, }; // left up leg - left leg - left foot - left toe.
+	Mesh* m_pBoundingCapsuleMesh = nullptr;
 };

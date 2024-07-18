@@ -259,7 +259,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		ReadAnimationFromFile(characterMeshInfo, characterDefaultAnimData, path, filename);
 
 		// 애니메이션 클립들.
-		/*for (UINT64 i = 0, size = clipNames.size(); i < size; ++i)
+		for (UINT64 i = 0, size = clipNames.size(); i < size; ++i)
 		{
 			std::wstring& name = clipNames[i];
 			std::vector<MeshInfo> animationMeshInfo;
@@ -274,7 +274,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 			{
 				animationData.Clips.push_back(animDataInClip.Clips[0]);
 			}
-		}*/
+		}
 
 		if (animationData.Clips.size() > 1)
 		{
@@ -316,14 +316,6 @@ void App::updateAnimationState(const float DELTA_TIME)
 	// 별도의 애니메이션 클립이 없을 경우.
 	if (m_pCharacter->CharacterAnimationData.Clips.size() == 1)
 	{
-		/*if (!m_pPickedEndEffector)
-		{
-			goto LB_UPDATE;
-		}
-
-		m_pCharacter->UpdateCharacterIK(m_PickedTranslation, m_PickedEndEffectorType, s_State, s_FrameCount, DELTA_TIME);
-		goto LB_UPDATE;*/
-
 		goto LB_IK_PROCESS;
 	}
 
@@ -334,6 +326,9 @@ void App::updateAnimationState(const float DELTA_TIME)
 			case 0:
 				if (m_Keyboard.bPressed[VK_UP])
 				{
+					// reset all update rot.
+					m_pCharacter->CharacterAnimationData.ResetAllUpdateRotationInClip(s_State);
+
 					s_State = 1;
 					s_FrameCount = 0;
 				}
@@ -346,6 +341,9 @@ void App::updateAnimationState(const float DELTA_TIME)
 			case 1:
 				if (s_FrameCount == ANIMATION_CLIP_SIZE)
 				{
+					// reset all update rot.
+					m_pCharacter->CharacterAnimationData.ResetAllUpdateRotationInClip(s_State);
+
 					s_State = 2;
 					s_FrameCount = 0;
 				}
@@ -369,6 +367,9 @@ void App::updateAnimationState(const float DELTA_TIME)
 					// 방향키를 누르고 있지 않으면 정지. (누르고 있으면 계속 걷기)
 					if (!m_Keyboard.bPressed[VK_UP])
 					{
+						// reset all update rot.
+						m_pCharacter->CharacterAnimationData.ResetAllUpdateRotationInClip(s_State);
+
 						s_State = 3;
 					}
 					s_FrameCount = 0;
@@ -378,6 +379,9 @@ void App::updateAnimationState(const float DELTA_TIME)
 			case 3:
 				if (s_FrameCount == ANIMATION_CLIP_SIZE)
 				{
+					// reset all update rot.
+					m_pCharacter->CharacterAnimationData.ResetAllUpdateRotationInClip(s_State);
+
 					s_State = 0;
 					s_FrameCount = 0;
 				}

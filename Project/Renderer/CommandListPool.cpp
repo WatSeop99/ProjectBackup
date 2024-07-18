@@ -1,6 +1,8 @@
 #include "../pch.h"
 #include "CommandListPool.h"
 
+static UINT s_Count = 0;
+
 void CommandListPool::Initialize(ID3D12Device5* pDevice, D3D12_COMMAND_LIST_TYPE type, UINT maxCommandListNum)
 {
 	_ASSERT(pDevice);
@@ -9,6 +11,7 @@ void CommandListPool::Initialize(ID3D12Device5* pDevice, D3D12_COMMAND_LIST_TYPE
 	m_pDevice = pDevice;
 	m_MaxCmdListNum = maxCommandListNum;
 	m_CommandListType = type;
+	m_PoolIndex = s_Count++;
 }
 
 void CommandListPool::Close()
@@ -151,6 +154,11 @@ bool CommandListPool::addCmdList()
 		__debugbreak();
 #endif
 		goto LB_RETURN;
+	} // m_PoolIndex
+	{
+		WCHAR debugName[256];
+		swprintf_s(debugName, 256, L"CommandAllocator%u", m_PoolIndex);
+		pCommandAllocator->SetName(debugName);
 	}
 
 	hr = m_pDevice->CreateCommandList(0, m_CommandListType, pCommandAllocator, nullptr, IID_PPV_ARGS(&pCommandList));
@@ -162,6 +170,11 @@ bool CommandListPool::addCmdList()
 		pCommandAllocator->Release();
 		pCommandAllocator = nullptr;
 		goto LB_RETURN;
+	}
+	{
+		WCHAR debugName[256];
+		swprintf_s(debugName, 256, L"CommandList%u", m_PoolIndex);
+		pCommandList->SetName(debugName);
 	}
 
 	pCmdList = new CommandList;

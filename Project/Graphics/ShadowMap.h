@@ -34,6 +34,7 @@ public:
 	void SetShadowHeight(const UINT HEIGHT);
 
 	void SetDescriptorHeap(ResourceManager* pManager);
+	void SetViewportsAndScissorRect(ID3D12GraphicsCommandList* pCommandList);
 
 protected:
 	void setShadowViewport(ID3D12GraphicsCommandList* pCommandList);

@@ -1,5 +1,6 @@
 #include "../pch.h"
 #include "ConstantDataType.h"
+#include "../Renderer/DynamicDescriptorPool.h"
 #include "ImageFilter.h"
 
 void ImageFilter::Initialize(ResourceManager* pManager, const int WIDTH, const int HEIGHT)
@@ -95,9 +96,10 @@ void ImageFilter::BeforeRender(ResourceManager* pManager, ePipelineStateSetting 
 	}
 }
 
-void ImageFilter::BeforeRender(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, ResourceManager* pManager, int psoSetting)
+void ImageFilter::BeforeRender(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, DynamicDescriptorPool* pDescriptorPool, ResourceManager* pManager, int psoSetting)
 {
 	_ASSERT(pCommandList);
+	_ASSERT(pDescriptorPool);
 	_ASSERT(pManager);
 	_ASSERT(m_RTVHandles.size() > 0);
 	_ASSERT(m_SRVHandles.size() > 0);
@@ -105,7 +107,6 @@ void ImageFilter::BeforeRender(UINT threadIndex, ID3D12GraphicsCommandList* pCom
 	HRESULT hr = S_OK;
 
 	ID3D12Device5* pDevice = pManager->m_pDevice;
-	DynamicDescriptorPool* pDynamicDescriptorPool = *(pManager->m_ppppDynamicDescriptorPools[*(pManager->m_pFrameIndex)][threadIndex]);
 	const UINT CBV_SRV_UAV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable = {};
@@ -116,7 +117,7 @@ void ImageFilter::BeforeRender(UINT threadIndex, ID3D12GraphicsCommandList* pCom
 		case Sampling:
 		case BloomDown: case BloomUp:
 		{
-			hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 2);
+			hr = pDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 2);
 			BREAK_IF_FAILED(hr);
 
 			const CD3DX12_RESOURCE_BARRIER BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(m_RTVHandles[0].pResource, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -137,7 +138,7 @@ void ImageFilter::BeforeRender(UINT threadIndex, ID3D12GraphicsCommandList* pCom
 
 		case Combine:
 		{
-			hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 4);
+			hr = pDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 4);
 			BREAK_IF_FAILED(hr);
 
 			CD3DX12_CPU_DESCRIPTOR_HANDLE dstHandle(cpuDescriptorTable, 0, CBV_SRV_UAV_DESCRIPTOR_SIZE);

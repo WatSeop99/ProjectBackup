@@ -28,10 +28,12 @@ public:
 	void Update(ResourceManager* pManager);
 
 	void Render(ResourceManager* pManager, UINT frameIndex);
+	void Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, DynamicDescriptorPool* pDescriptorPool, ResourceManager* pManager, UINT frameIndex);
 
 	void Clear();
 
 	void SetDescriptorHeap(ResourceManager* pManager);
+	void SetViewportsAndScissorRects(ID3D12GraphicsCommandList* pCommandList);
 
 	inline Mesh* GetScreenMeshPtr() { return m_pScreenMesh; }
 	inline ImageFilter* GetSamplingFilterPtr() { return &m_BasicSamplingFilter; }
@@ -44,7 +46,9 @@ protected:
 	void createImageResources(ResourceManager* pManager, const int WIDTH, const int HEIGHT, ImageFilter::ImageResource* pImageResource);
 
 	void renderPostProcessing(ResourceManager* pManager, UINT frameIndex);
+	void renderPostProcessing(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, DynamicDescriptorPool* pDescriptorPool, ResourceManager* pManager);
 	void renderImageFilter(ResourceManager* pManager, ImageFilter& imageFilter, ePipelineStateSetting psoSetting, UINT frameIndex);
+	void renderImageFilter(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, DynamicDescriptorPool* pDescriptorPool, ResourceManager* pManager, ImageFilter& imageFilter, int psoSetting);
 
 	void setRenderConfig(const PostProcessingBuffers& CONFIG);
 
