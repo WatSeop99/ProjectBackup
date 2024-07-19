@@ -444,7 +444,7 @@ LRESULT Renderer::MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 						// prev buffer srv
 						srvHandle = startSrvHandle;
 						srvHandle.Offset(m_PrevBufferSRVOffset, SRV_DESCRIPTOR_SIZE);
-						srvDesc.Format = DXGI_FORMAT_R10G10B10A2_UNORM;
+						// srvDesc.Format = DXGI_FORMAT_R10G10B10A2_UNORM;
 						m_pDevice->CreateShaderResourceView(m_pPrevBuffer, &srvDesc, srvHandle);
 					}
 
@@ -692,7 +692,8 @@ LB_EXIT:
 		DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
 		swapChainDesc.Width = m_ScreenWidth;
 		swapChainDesc.Height = m_ScreenHeight;
-		swapChainDesc.Format = DXGI_FORMAT_R10G10B10A2_UNORM;
+		// swapChainDesc.Format = DXGI_FORMAT_R10G10B10A2_UNORM;
+		swapChainDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 		swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 		swapChainDesc.BufferCount = SWAP_CHAIN_FRAME_COUNT;
 		swapChainDesc.SampleDesc.Count = 1;
@@ -722,16 +723,16 @@ LB_EXIT:
 	{
 		for (UINT i = 0; i < SWAP_CHAIN_FRAME_COUNT; ++i)
 		{
-			wchar_t debugName[256];
+			WCHAR debugName[256];
 
 			hr = m_pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_ppCommandAllocator[i]));
 			BREAK_IF_FAILED(hr);
-			swprintf_s(debugName, 256, L"CommandAllocator%d", i);
+			swprintf_s(debugName, 256, L"CommandAllocator%u", i);
 			m_ppCommandAllocator[i]->SetName(debugName);
 
 			hr = m_pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_ppCommandAllocator[i], nullptr, IID_PPV_ARGS(&m_ppCommandList[i]));
 			BREAK_IF_FAILED(hr);
-			swprintf_s(debugName, 256, L"CommandList%d", i);
+			swprintf_s(debugName, 256, L"CommandList%u", i);
 			m_ppCommandList[i]->SetName(debugName);
 
 			// Command lists are created in the recording state, but there is nothing
@@ -806,7 +807,7 @@ LB_EXIT:
 		m_pFloatBuffer->SetName(L"FloatBuffer");
 
 
-		resourceDesc.Format = DXGI_FORMAT_R10G10B10A2_UNORM;
+		// resourceDesc.Format = DXGI_FORMAT_R10G10B10A2_UNORM;
 		resourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 		hr = m_pDevice->CreateCommittedResource(&heapProps,
 												D3D12_HEAP_FLAG_NONE,
@@ -997,7 +998,7 @@ void Renderer::initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceText
 		++(m_pResourceManager->m_CBVSRVUAVHeapSize);
 
 		// prev buffer srv
-		srvDesc.Format = DXGI_FORMAT_R10G10B10A2_UNORM;
+		// srvDesc.Format = DXGI_FORMAT_R10G10B10A2_UNORM;
 		m_pDevice->CreateShaderResourceView(m_pPrevBuffer, &srvDesc, cbvSrvHandle);
 		m_PrevBufferSRVOffset = m_pResourceManager->m_CBVSRVUAVHeapSize;
 		cbvSrvHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
@@ -1390,6 +1391,7 @@ void Renderer::mirrorRender()
 	if (!m_pMirror)
 	{
 		return;
+		// goto LB_OBB;
 	}
 
 #ifdef USE_MULTI_THREAD
@@ -1488,6 +1490,7 @@ void Renderer::mirrorRender()
 	m_pMirror->Render(m_pResourceManager, MirrorBlend);
 
 
+LB_OBB:
 	// obb rendering
 	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
 	{
@@ -1638,7 +1641,7 @@ void Renderer::endRender()
 	}
 	// pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_Shadow]);
 	pCommandListPool->ClosedAndExecute(m_pCommandQueue);
-	// fence();
+	fence();
 
 	// default render pass.
 	for (UINT i = 0; i < m_RenderThreadCount; ++i)
@@ -1697,7 +1700,7 @@ void Renderer::endRender()
 		// pCommandListPool->ClosedAndExecute(m_ppCommandQueue[RenderPass_MainRender]);
 		pCommandListPool->ClosedAndExecute(m_pCommandQueue);
 	}
-	// fence();
+	fence();
 
 	// postprocessing pass.
 	{
@@ -1718,7 +1721,7 @@ void Renderer::endRender()
 		pCommandList->ResourceBarrier(1, &RTV_AFTER_BARRIER);
 		pCommandListPool->ClosedAndExecute(m_pCommandQueue);
 	}
-	// fence();
+	fence();
 
 	for (int i = 0; i < RenderPass_RenderPassCount; ++i)
 	{
@@ -1745,7 +1748,7 @@ void Renderer::endRender()
 
 void Renderer::present()
 {
-	// fence();
+	fence();
 
 	UINT syncInterval = 1;	  // VSync On
 	// UINT syncInterval = 0;  // VSync Off
@@ -1770,8 +1773,8 @@ void Renderer::present()
 
 	for (UINT i = 0; i < m_RenderThreadCount; ++i)
 	{
-		m_pppCommandListPool[m_FrameIndex][i]->Reset();
-		m_pppDescriptorPool[m_FrameIndex][i]->Reset();
+		m_pppCommandListPool[nextFrameIndex][i]->Reset();
+		m_pppDescriptorPool[nextFrameIndex][i]->Reset();
 	}
 
 #else

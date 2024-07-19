@@ -49,6 +49,7 @@ public:
 	{
 		return (InverseDefaultTransform * OffsetMatrices[boneID] * BoneTransforms[boneID] * DefaultTransform);
 	}
+	Matrix GetRootBoneTransformWithoutLocalRot(int clipID, int frame);
 
 public:
 	std::unordered_map<std::string, int> BoneNameToID; // »À ÀÌ¸§°ú ÀÎµ¦½º Á¤¼ö.

@@ -998,7 +998,8 @@ void SkinnedMeshModel::updateJointSpheres(int clipID, int frame)
 	// 캐릭터에서는 이를 방지하기 위해 bounding object만 따로 변환시킴.
 
 	const int ROOT_BONE_ID = CharacterAnimationData.BoneNameToID["mixamorig:Hips"];
-	const Matrix ROOT_BONE_TRANSFORM = CharacterAnimationData.Get(ROOT_BONE_ID);
+	// const Matrix ROOT_BONE_TRANSFORM = CharacterAnimationData.Get(ROOT_BONE_ID);
+	const Matrix ROOT_BONE_TRANSFORM = CharacterAnimationData.GetRootBoneTransformWithoutLocalRot(clipID, frame);
 	const Matrix CORRECTION_CENTER = Matrix::CreateTranslation(Vector3(0.2f, 0.05f, 0.0f));
 
 	MeshConstant* pBoxMeshConst = (MeshConstant*)m_pBoundingBoxMesh->MeshConstant.pData;
@@ -1014,22 +1015,6 @@ void SkinnedMeshModel::updateJointSpheres(int clipID, int frame)
 
 	// update debugging sphere for chain.
 	{
-		/*const Matrix CORRECTION_RIGHT_ARM = Matrix::CreateTranslation(Vector3(0.085f, 0.33f, 0.06f));
-		const Matrix CORRECTION_RIGHT_FORE_ARM = Matrix::CreateTranslation(Vector3(-0.04f, 0.32f, 0.06f));
-		const Matrix CORRECTION_RIGHT_HAND = Matrix::CreateTranslation(Vector3(-0.18f, 0.32f, 0.06f));
-		const Matrix CORRECTION_RIGHT_HAND_MIDDLE = Matrix::CreateTranslation(Vector3(-0.235f, 0.32f, 0.055f));
-		const Matrix CORRECTION_LEFT_ARM = Matrix::CreateTranslation(Vector3(0.32f, 0.34f, 0.05f));
-		const Matrix CORRECTION_LEFT_FORE_ARM = Matrix::CreateTranslation(Vector3(0.45f, 0.32f, 0.05f));
-		const Matrix CORRECTION_LEFT_HAND = Matrix::CreateTranslation(Vector3(0.59f, 0.32f, 0.05f));
-		const Matrix CORRECTION_LEFT_HAND_MIDDLE = Matrix::CreateTranslation(Vector3(0.65f, 0.32f, 0.05f));
-		const Matrix CORRECTION_RIGHT_UP_LEG = Matrix::CreateTranslation(Vector3(0.16f, 0.02f, 0.04f));
-		const Matrix CORRECTION_RIGHT_LEG = Matrix::CreateTranslation(Vector3(0.15f, -0.17f, 0.04f));
-		const Matrix CORRECTION_RIGHT_FOOT = Matrix::CreateTranslation(Vector3(0.16f, -0.39f, 0.05f));
-		const Matrix CORRECTION_RIGHT_TOE = Matrix::CreateTranslation(Vector3(0.15f, -0.42f, 0.0f));
-		const Matrix CORRECTION_LEFT_UP_LEG = Matrix::CreateTranslation(Vector3(0.26f, 0.025f, 0.05f));
-		const Matrix CORRECTION_LEFT_LEG = Matrix::CreateTranslation(Vector3(0.26f, -0.165f, 0.05f));
-		const Matrix CORRECTION_LEFT_FOOT = Matrix::CreateTranslation(Vector3(0.25f, -0.38f, 0.05f));
-		const Matrix CORRECTION_LEFT_TOE = Matrix::CreateTranslation(Vector3(0.26f, -0.42f, 0.0f));*/
 		const char* BONE_NAME[16] =
 		{
 			"mixamorig:RightArm",

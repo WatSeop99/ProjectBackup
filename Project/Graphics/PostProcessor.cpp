@@ -126,8 +126,8 @@ void PostProcessor::Initizlie(ResourceManager* pManager, const PostProcessingBuf
 	m_CombineFilter.SetRTVOffsets(pManager, { { m_ppBackBuffers[0], m_BackBufferRTV1Offset, 0xffffffff }, { m_ppBackBuffers[1], m_BackBufferRTV2Offset, 0xffffffff } });
 
 	ImageFilterConstant* pCombineConst = (ImageFilterConstant*)m_CombineFilter.GetConstantPtr()->pData;
-	pCombineConst->Option1 = 1.0f;  // exposure.
-	pCombineConst->Option2 = 2.1f;  // gamma.
+	pCombineConst->Option1 = 0.8f;  // exposure.
+	pCombineConst->Option2 = 1.8f;  // gamma.
 	m_CombineFilter.UpdateConstantBuffers();
 }
 
@@ -423,7 +423,7 @@ void PostProcessor::renderPostProcessing(ResourceManager* pManager, UINT frameIn
 	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
 	
 	// bloom pass.
-	pManager->SetCommonState(BloomDown);
+	/*pManager->SetCommonState(BloomDown);
 	for (UINT64 i = 0, size = m_BloomDownFilters.size(); i < size; ++i)
 	{
 		renderImageFilter(pManager, m_BloomDownFilters[i], BloomDown, frameIndex);
@@ -432,7 +432,7 @@ void PostProcessor::renderPostProcessing(ResourceManager* pManager, UINT frameIn
 	for (UINT64 i = 0, size = m_BloomUpFilters.size(); i < size; ++i)
 	{
 		renderImageFilter(pManager, m_BloomUpFilters[i], BloomUp, frameIndex);
-	}
+	}*/
 
 	// combine pass
 	pManager->SetCommonState(Combine);
@@ -456,7 +456,7 @@ void PostProcessor::renderPostProcessing(UINT threadIndex, ID3D12GraphicsCommand
 	_ASSERT(pManager);
 
 	// bloom pass.
-	pManager->SetCommonState(threadIndex, pCommandList, pDescriptorPool, BloomDown);
+	/*pManager->SetCommonState(threadIndex, pCommandList, pDescriptorPool, BloomDown);
 	for (UINT64 i = 0, size = m_BloomDownFilters.size(); i < size; ++i)
 	{
 		renderImageFilter(threadIndex, pCommandList, pDescriptorPool, pManager, m_BloomDownFilters[i], BloomDown);
@@ -465,7 +465,7 @@ void PostProcessor::renderPostProcessing(UINT threadIndex, ID3D12GraphicsCommand
 	for (UINT64 i = 0, size = m_BloomUpFilters.size(); i < size; ++i)
 	{
 		renderImageFilter(threadIndex, pCommandList, pDescriptorPool, pManager, m_BloomUpFilters[i], BloomUp);
-	}
+	}*/
 
 	// combine pass
 	pManager->SetCommonState(threadIndex, pCommandList, pDescriptorPool, Combine);

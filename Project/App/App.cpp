@@ -240,6 +240,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		m_MirrorPlane = DirectX::SimpleMath::Plane(position, Vector3(0.0f, 1.0f, 0.0f));
 		m_pMirror = pGround; // 바닥에 거울처럼 반사 구현.
 		pGround->ModelType = MirrorModel;
+		// pGround->ModelType = DefaultModel;
 		m_RenderObjects.push_back(pGround);
 	}
 

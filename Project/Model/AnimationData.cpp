@@ -31,7 +31,7 @@ void AnimationData::Update(int clipID, int frame)
 		else
 		{
 			Vector3 rootBoneTranslation = AccumulatedRootTransform.Translation();
-			rootBoneTranslation.y = key.Position.y - 0.01f;
+			rootBoneTranslation.y = key.Position.y - 8.0f;
 			AccumulatedRootTransform.Translation(rootBoneTranslation);
 		}
 
@@ -84,6 +84,23 @@ void AnimationData::ResetAllUpdateRotationInClip(int clipID)
 			key.UpdateRotation = Quaternion();
 		}
 	}
+}
+
+Matrix AnimationData::GetRootBoneTransformWithoutLocalRot(int clipID, int frame)
+{
+	AnimationClip& clip = Clips[clipID];
+
+	// root bone id은 0(아닐 수 있음).
+	// root bone에 대한 bone transform update.
+	const int ROOT_BONE_ID = 0;
+	std::vector<AnimationClip::Key>& keys = clip.Keys[ROOT_BONE_ID];
+	const UINT64 KEY_SIZE = keys.size();
+
+	const int PARENT_ID = BoneParents[ROOT_BONE_ID];
+	const Matrix& PARENT_MATRIX = AccumulatedRootTransform;
+	AnimationClip::Key& key = keys[frame % KEY_SIZE];
+
+	return InverseDefaultTransform * OffsetMatrices[ROOT_BONE_ID] * Matrix::CreateScale(key.Scale) * Matrix::CreateTranslation(Vector3(0.0f)) * PARENT_MATRIX * DefaultTransform;
 }
 
 Joint::Joint()
