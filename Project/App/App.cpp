@@ -155,7 +155,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		m_Lights[0].Property.Position = Vector3(0.0f, 0.0f, 0.0f);
 		m_Lights[0].Property.Direction = Vector3(0.0f, 0.0f, 1.0f);
 		m_Lights[0].Property.SpotPower = 3.0f;
-		m_Lights[0].Property.LightType = LIGHT_POINT | LIGHT_SHADOW;
+		m_Lights[0].Property.LightType = LIGHT_POINT;
 		m_Lights[0].Property.Radius = 0.03f;
 		m_Lights[0].Initialize(pResourceManager);
 
@@ -175,7 +175,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		m_Lights[2].Property.Position = Vector3(5.0f, 5.0f, 5.0f);
 		m_Lights[2].Property.Direction = Vector3(-1.0f, -1.0f, -1.0f);
 		m_Lights[2].Property.Direction.Normalize();
-		m_Lights[2].Property.LightType = LIGHT_DIRECTIONAL | LIGHT_SHADOW;
+		m_Lights[2].Property.LightType = LIGHT_DIRECTIONAL;
 		m_Lights[2].Property.Radius = 0.05f;
 		m_Lights[2].Initialize(pResourceManager);
 	}
