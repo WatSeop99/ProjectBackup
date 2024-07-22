@@ -9,17 +9,8 @@
 #include "RenderThread.h"
 #include "ResourceManager.h"
 #include "../Model/SkinnedMeshModel.h"
+#include "../Physics/PhysicsManager.h"
 #include "../Graphics/PostProcessor.h"
-
-enum eRenderPass
-{
-	RenderPass_Shadow = 0,
-	RenderPass_Object,
-	RenderPass_Mirror,
-	RenderPass_Collider,
-	RenderPass_MainRender,
-	RenderPass_RenderPassCount,
-};
 
 class Renderer
 {
@@ -50,11 +41,12 @@ public:
 	void Render();
 	void ProcessByThread(UINT threadIndex, ResourceManager* pManager, int renderPass);
 
-	void Clear();
+	void Cleanup();
 
 	LRESULT MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 	inline ResourceManager* GetResourceManager() { return m_pResourceManager; }
+	inline PhysicsManager* GetPhysicsManager() { return &m_PhysicsManager; }
 	inline HWND GetWindow() { return m_hMainWindow; }
 
 protected:
@@ -64,7 +56,6 @@ protected:
 	void initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceTexture, Texture* pSpecularTexture, Texture* pBRDFTexture);
 	void initRenderThreadPool(UINT renderThreadCount);
 
-	// for single thread.
 	void beginRender();
 	void renderShadowmap();
 	void renderObject();
@@ -141,6 +132,8 @@ private:
 	long volatile m_pActiveThreadCounts[RenderPass_RenderPassCount] = { 0, };
 	HANDLE m_phCompletedEvents[RenderPass_RenderPassCount] = { nullptr, };
 	/////////////////////////////////////////////
+
+	PhysicsManager m_PhysicsManager;
 
 	// main resources.
 	DynamicDescriptorPool m_DynamicDescriptorPool;

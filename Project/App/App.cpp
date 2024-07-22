@@ -78,12 +78,12 @@ void App::Update(const float DELTA_TIME)
 
 		switch (pModel->ModelType)
 		{
-			case DefaultModel:
-			case MirrorModel:
+			case RenderObjectType_DefaultType:
+			case RenderObjectType_MirrorType:
 				pModel->UpdateConstantBuffers();
 				break;
 
-			case SkinnedModel:
+			case RenderObjectType_SkinnedType:
 			{
 				SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pModel;
 				updateAnimationState(DELTA_TIME);
@@ -122,17 +122,17 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 {
 	_ASSERT(pTotalRenderObjectCount);
 
-	ResourceManager* pResourceManager = GetResourceManager();
+	Renderer* pRenderer = this;
 
 	m_Lights.resize(MAX_LIGHTS);
 	m_LightSpheres.resize(MAX_LIGHTS);
 
 	// 환경맵 텍스쳐 로드.
 	{
-		m_EnvTexture.InitializeWithDDS(pResourceManager, L"./Assets/Textures/Cubemaps/HDRI/clear_pureskyEnvHDR.dds");
-		m_IrradianceTexture.InitializeWithDDS(pResourceManager, L"./Assets/Textures/Cubemaps/HDRI/clear_pureskyEnvHDR.dds");
-		m_SpecularTexture.InitializeWithDDS(pResourceManager, L"./Assets/Textures/Cubemaps/HDRI/clear_pureskyEnvHDR.dds");
-		m_BRDFTexture.InitializeWithDDS(pResourceManager, L"./Assets/Textures/Cubemaps/HDRI/clear_pureskyEnvHDR.dds");
+		m_EnvTexture.InitializeWithDDS(pRenderer, L"./Assets/Textures/Cubemaps/HDRI/clear_pureskyEnvHDR.dds");
+		m_IrradianceTexture.InitializeWithDDS(pRenderer, L"./Assets/Textures/Cubemaps/HDRI/clear_pureskyEnvHDR.dds");
+		m_SpecularTexture.InitializeWithDDS(pRenderer, L"./Assets/Textures/Cubemaps/HDRI/clear_pureskyEnvHDR.dds");
+		m_BRDFTexture.InitializeWithDDS(pRenderer, L"./Assets/Textures/Cubemaps/HDRI/clear_pureskyEnvHDR.dds");
 	}
 
 	// 환경 박스 초기화.
@@ -141,9 +141,9 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		MakeBox(&skyboxMeshInfo, 40.0f);
 
 		std::reverse(skyboxMeshInfo.Indices.begin(), skyboxMeshInfo.Indices.end());
-		Model* pSkybox = new Model(pResourceManager, { skyboxMeshInfo });
+		Model* pSkybox = new Model(pRenderer, { skyboxMeshInfo });
 		pSkybox->Name = "SkyBox";
-		pSkybox->ModelType = SkyboxModel;
+		pSkybox->ModelType = RenderObjectType_SkyboxType;
 		m_RenderObjects.push_back(pSkybox);
 	}
 
@@ -157,7 +157,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		m_Lights[0].Property.SpotPower = 3.0f;
 		m_Lights[0].Property.LightType = LIGHT_POINT | LIGHT_SHADOW;
 		m_Lights[0].Property.Radius = 0.04f;
-		m_Lights[0].Initialize(pResourceManager);
+		m_Lights[0].Initialize(pRenderer);
 
 		// 조명 1.
 		m_Lights[1].Property.Radiance = Vector3(3.0f);
@@ -168,7 +168,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		m_Lights[1].Property.Direction.Normalize();
 		m_Lights[1].Property.LightType = LIGHT_SPOT | LIGHT_SHADOW;
 		m_Lights[1].Property.Radius = 0.02f;
-		m_Lights[1].Initialize(pResourceManager);
+		m_Lights[1].Initialize(pRenderer);
 
 		// 조명 2.
 		m_Lights[2].Property.Radiance = Vector3(5.0f);
@@ -177,7 +177,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		m_Lights[2].Property.Direction.Normalize();
 		m_Lights[2].Property.LightType = LIGHT_DIRECTIONAL | LIGHT_SHADOW;
 		m_Lights[2].Property.Radius = 0.05f;
-		m_Lights[2].Initialize(pResourceManager);
+		m_Lights[2].Initialize(pRenderer);
 	}
 
 	// 조명 위치 표시.
@@ -187,7 +187,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 			MeshInfo sphere = INIT_MESH_INFO;
 			MakeSphere(&sphere, 1.0f, 20, 20);
 
-			m_LightSpheres[i] = new Model(pResourceManager, { sphere });
+			m_LightSpheres[i] = new Model(pRenderer, { sphere });
 			m_LightSpheres[i]->UpdateWorld(Matrix::CreateTranslation(m_Lights[i].Property.Position));
 
 			MaterialConstant* pSphereMaterialConst = (MaterialConstant*)m_LightSpheres[i]->Meshes[0]->MaterialConstant.pData;
@@ -224,7 +224,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		mesh.szNormalTextureFileName = path + L"stringy_marble_Normal-dx.png";
 		mesh.szRoughnessTextureFileName = path + L"stringy_marble_Roughness.png";
 
-		pGround = new Model(pResourceManager, { mesh });
+		pGround = new Model(pRenderer, { mesh });
 
 		MaterialConstant* pGroundMaterialConst = (MaterialConstant*)pGround->Meshes[0]->MaterialConstant.pData;
 		pGroundMaterialConst->AlbedoFactor = Vector3(0.7f);
@@ -239,7 +239,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 
 		m_MirrorPlane = DirectX::SimpleMath::Plane(position, Vector3(0.0f, 1.0f, 0.0f));
 		m_pMirror = pGround; // 바닥에 거울처럼 반사 구현.
-		pGround->ModelType = MirrorModel;
+		pGround->ModelType = RenderObjectType_MirrorType;
 		// pGround->ModelType = DefaultModel;
 		m_RenderObjects.push_back(pGround);
 	}
@@ -279,11 +279,11 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 
 		if (animationData.Clips.size() > 1)
 		{
-			m_pCharacter = new SkinnedMeshModel(pResourceManager, characterMeshInfo, animationData);
+			m_pCharacter = new SkinnedMeshModel(pRenderer, characterMeshInfo, animationData);
 		}
 		else
 		{
-			m_pCharacter = new SkinnedMeshModel(pResourceManager, characterMeshInfo, characterDefaultAnimData);
+			m_pCharacter = new SkinnedMeshModel(pRenderer, characterMeshInfo, characterDefaultAnimData);
 		}
 
 		Vector3 center(0.0f, 0.0f, 2.0f);
@@ -317,7 +317,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		mesh.szNormalTextureFileName = path + L"stringy_marble_Normal-dx.png";
 		mesh.szRoughnessTextureFileName = path + L"stringy_marble_Roughness.png";
 	
-		pSlope = new Model(pResourceManager, { mesh });
+		pSlope = new Model(pRenderer, { mesh });
 
 		MaterialConstant* pGroundMaterialConst = (MaterialConstant*)pSlope->Meshes[0]->MaterialConstant.pData;
 		pGroundMaterialConst->AlbedoFactor = Vector3(0.7f);
@@ -330,7 +330,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		Matrix newWorld = Matrix::CreateRotationY(90.0f * DirectX::XM_PI / 180.0f) * Matrix::CreateTranslation(position);
 		pSlope->UpdateWorld(newWorld);
 
-		pSlope->ModelType = DefaultModel;
+		pSlope->ModelType = RenderObjectType_DefaultType;
 		m_RenderObjects.push_back(pSlope);
 	}
 }

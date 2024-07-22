@@ -4,28 +4,29 @@
 #include "../Graphics/GraphicsUtil.h"
 #include "SkinnedMeshModel.h"
 
-SkinnedMeshModel::SkinnedMeshModel(ResourceManager* pManager, const std::vector<MeshInfo>& MESHES, const AnimationData& ANIM_DATA)
+SkinnedMeshModel::SkinnedMeshModel(Renderer* pRenderer, const std::vector<MeshInfo>& MESHES, const AnimationData& ANIM_DATA)
 {
-	ModelType = SkinnedModel;
-	Initialize(pManager, MESHES, ANIM_DATA);
+	ModelType = RenderObjectType_SkinnedType;
+	Initialize(pRenderer, MESHES, ANIM_DATA);
 }
 
-void SkinnedMeshModel::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& MESH_INFOS, const AnimationData& ANIM_DATA)
+void SkinnedMeshModel::Initialize(Renderer* pRenderer, const std::vector<MeshInfo>& MESH_INFOS, const AnimationData& ANIM_DATA)
 {
-	Model::Initialize(pManager, MESH_INFOS);
-	InitAnimationData(pManager, ANIM_DATA);
-	initBoundingCapsule(pManager);
-	initJointSpheres(pManager);
+	Model::Initialize(pRenderer, MESH_INFOS);
+	InitAnimationData(pRenderer, ANIM_DATA);
+	initBoundingCapsule(pRenderer);
+	initJointSpheres(pRenderer);
 	initChain();
 
 	return;
 }
 
-void SkinnedMeshModel::InitMeshBuffers(ResourceManager* pManager, const MeshInfo& MESH_INFO, Mesh* pNewMesh)
+void SkinnedMeshModel::InitMeshBuffers(Renderer* pRenderer, const MeshInfo& MESH_INFO, Mesh* pNewMesh)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 
 	HRESULT hr = S_OK;
+	ResourceManager* pManager = pRenderer->GetResourceManager();
 
 	// vertex buffer.
 	if (MESH_INFO.SkinnedVertices.size() > 0)
@@ -60,11 +61,12 @@ void SkinnedMeshModel::InitMeshBuffers(ResourceManager* pManager, const MeshInfo
 	pNewMesh->Index.Count = (UINT)MESH_INFO.Indices.size();
 }
 
-void SkinnedMeshModel::InitMeshBuffers(ResourceManager* pManager, const MeshInfo& MESH_INFO, Mesh** ppNewMesh)
+void SkinnedMeshModel::InitMeshBuffers(Renderer* pRenderer, const MeshInfo& MESH_INFO, Mesh** ppNewMesh)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 
 	HRESULT hr = S_OK;
+	ResourceManager* pManager = pRenderer->GetResourceManager();
 
 	// vertex buffer.
 	if (MESH_INFO.SkinnedVertices.size() > 0)
@@ -99,7 +101,7 @@ void SkinnedMeshModel::InitMeshBuffers(ResourceManager* pManager, const MeshInfo
 	(*ppNewMesh)->Index.Count = (UINT)MESH_INFO.Indices.size();
 }
 
-void SkinnedMeshModel::InitAnimationData(ResourceManager* pManager, const AnimationData& ANIM_DATA)
+void SkinnedMeshModel::InitAnimationData(Renderer* pRenderer, const AnimationData& ANIM_DATA)
 {
 	if (ANIM_DATA.Clips.empty())
 	{
@@ -111,7 +113,7 @@ void SkinnedMeshModel::InitAnimationData(ResourceManager* pManager, const Animat
 	// 여기서는 AnimationClip이 SkinnedMesh라고 가정.
 	// ANIM_DATA.Clips[0].Keys.size() -> 뼈의 수.
 
-	BoneTransforms.Initialize(pManager, (UINT)ANIM_DATA.Clips[0].Keys.size(), sizeof(Matrix));
+	BoneTransforms.Initialize(pRenderer, (UINT)ANIM_DATA.Clips[0].Keys.size(), sizeof(Matrix));
 
 	// 단위행렬로 초기화.
 	Matrix* pBoneTransformConstData = (Matrix*)BoneTransforms.pData;
@@ -191,9 +193,9 @@ void SkinnedMeshModel::UpdateCharacterIK(Vector3& target, int chainPart, int cli
 	}
 }
 
-void SkinnedMeshModel::Render(ResourceManager* pManager, ePipelineStateSetting psoSetting)
+void SkinnedMeshModel::Render(Renderer* pRenderer, eRenderPSOType psoSetting)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 
 	if (!bIsVisible)
 	{
@@ -201,6 +203,7 @@ void SkinnedMeshModel::Render(ResourceManager* pManager, ePipelineStateSetting p
 	}
 
 	HRESULT hr = S_OK;
+	ResourceManager* pManager = pRenderer->GetResourceManager();
 
 	ID3D12Device5* pDevice = pManager->m_pDevice;
 	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
@@ -217,7 +220,8 @@ void SkinnedMeshModel::Render(ResourceManager* pManager, ePipelineStateSetting p
 
 		switch (psoSetting)
 		{
-			case Skinned: case ReflectionSkinned:
+			case RenderPSOType_Skinned:
+			case RenderPSOType_ReflectionSkinned:
 			{
 				hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 10);
 				BREAK_IF_FAILED(hr);
@@ -244,7 +248,9 @@ void SkinnedMeshModel::Render(ResourceManager* pManager, ePipelineStateSetting p
 			}
 			break;
 
-			case DepthOnlySkinned: case DepthOnlyCubeSkinned: case DepthOnlyCascadeSkinned:
+			case RenderPSOType_DepthOnlySkinned:
+			case RenderPSOType_DepthOnlyCubeSkinned:
+			case RenderPSOType_DepthOnlyCascadeSkinned:
 			{
 				hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 3);
 				BREAK_IF_FAILED(hr);
@@ -298,7 +304,8 @@ void SkinnedMeshModel::Render(UINT threadIndex, ID3D12GraphicsCommandList* pComm
 
 		switch (psoSetting)
 		{
-			case Skinned: case ReflectionSkinned:
+			case RenderPSOType_Skinned: 
+			case RenderPSOType_ReflectionSkinned:
 			{
 				hr = pDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 10);
 				BREAK_IF_FAILED(hr);
@@ -325,7 +332,9 @@ void SkinnedMeshModel::Render(UINT threadIndex, ID3D12GraphicsCommandList* pComm
 			}
 			break;
 
-			case DepthOnlySkinned: case DepthOnlyCubeSkinned: case DepthOnlyCascadeSkinned:
+			case RenderPSOType_DepthOnlySkinned:
+			case RenderPSOType_DepthOnlyCubeSkinned:
+			case RenderPSOType_DepthOnlyCascadeSkinned:
 			{
 				hr = pDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 3);
 				BREAK_IF_FAILED(hr);
@@ -354,11 +363,12 @@ void SkinnedMeshModel::Render(UINT threadIndex, ID3D12GraphicsCommandList* pComm
 	}
 }
 
-void SkinnedMeshModel::RenderBoundingCapsule(ResourceManager* pManager, ePipelineStateSetting psoSetting)
+void SkinnedMeshModel::RenderBoundingCapsule(Renderer* pRenderer, eRenderPSOType psoSetting)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 
 	HRESULT hr = S_OK;
+	ResourceManager* pManager = pRenderer->GetResourceManager();
 
 	ID3D12Device5* pDevice = pManager->m_pDevice;
 	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
@@ -391,11 +401,12 @@ void SkinnedMeshModel::RenderBoundingCapsule(ResourceManager* pManager, ePipelin
 	pCommandList->DrawIndexedInstanced(m_pBoundingCapsuleMesh->Index.Count, 1, 0, 0, 0);
 }
 
-void SkinnedMeshModel::RenderJointSphere(ResourceManager* pManager, ePipelineStateSetting psoSetting)
+void SkinnedMeshModel::RenderJointSphere(Renderer* pRenderer, eRenderPSOType psoSetting)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 
 	HRESULT hr = S_OK;
+	ResourceManager* pManager = pRenderer->GetResourceManager();
 
 	ID3D12Device5* pDevice = pManager->m_pDevice;
 	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
@@ -491,7 +502,7 @@ void SkinnedMeshModel::RenderJointSphere(ResourceManager* pManager, ePipelineSta
 	}
 }
 
-void SkinnedMeshModel::Clear()
+void SkinnedMeshModel::Cleanup()
 {
 	BoneTransforms.Clear();
 
@@ -525,10 +536,11 @@ void SkinnedMeshModel::Clear()
 	}
 }
 
-void SkinnedMeshModel::SetDescriptorHeap(ResourceManager* pManager)
+void SkinnedMeshModel::SetDescriptorHeap(Renderer* pRenderer)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 
+	ResourceManager* pManager = pRenderer->GetResourceManager();
 	ID3D12Device5* pDevice = pManager->m_pDevice;
 	ID3D12DescriptorHeap* pCBVSRVHeap = pManager->m_pCBVSRVUAVHeap;
 
@@ -734,7 +746,7 @@ void SkinnedMeshModel::SetDescriptorHeap(ResourceManager* pManager)
 	}
 }
 
-void SkinnedMeshModel::initBoundingCapsule(ResourceManager* pManager)
+void SkinnedMeshModel::initBoundingCapsule(Renderer* pRenderer)
 {
 	MeshInfo meshData = INIT_MESH_INFO;
 	MeshConstant* pMeshConst = nullptr;
@@ -742,20 +754,18 @@ void SkinnedMeshModel::initBoundingCapsule(ResourceManager* pManager)
 
 	MakeWireCapsule(&meshData, BoundingSphere.Center, 0.2f, BoundingSphere.Radius * 1.3f);
 	m_pBoundingCapsuleMesh = new Mesh;
-	m_pBoundingCapsuleMesh->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
-	m_pBoundingCapsuleMesh->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
+	m_pBoundingCapsuleMesh->MeshConstant.Initialize(pRenderer, sizeof(MeshConstant));
+	m_pBoundingCapsuleMesh->MaterialConstant.Initialize(pRenderer, sizeof(MaterialConstant));
 	pMeshConst = (MeshConstant*)m_pBoundingCapsuleMesh->MeshConstant.pData;
 	pMaterialConst = (MaterialConstant*)m_pBoundingCapsuleMesh->MaterialConstant.pData;
 
 	pMeshConst->World = Matrix();
 
-	Model::InitMeshBuffers(pManager, meshData, m_pBoundingCapsuleMesh);
+	Model::InitMeshBuffers(pRenderer, meshData, m_pBoundingCapsuleMesh);
 }
 
-void SkinnedMeshModel::initJointSpheres(ResourceManager* pManager)
+void SkinnedMeshModel::initJointSpheres(Renderer* pRenderer)
 {
-	_ASSERT(pManager);
-
 	MeshInfo meshData;
 	MeshConstant* pMeshConst = nullptr;
 	MaterialConstant* pMaterialConst = nullptr;
@@ -780,15 +790,15 @@ void SkinnedMeshModel::initJointSpheres(ResourceManager* pManager)
 		*ppRightLegPart = new Mesh;
 		*ppLeftLegPart = new Mesh;
 
-		(*ppRightArmPart)->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
-		(*ppLeftArmPart)->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
-		(*ppRightLegPart)->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
-		(*ppLeftLegPart)->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
+		(*ppRightArmPart)->MeshConstant.Initialize(pRenderer, sizeof(MeshConstant));
+		(*ppLeftArmPart)->MeshConstant.Initialize(pRenderer, sizeof(MeshConstant));
+		(*ppRightLegPart)->MeshConstant.Initialize(pRenderer, sizeof(MeshConstant));
+		(*ppLeftLegPart)->MeshConstant.Initialize(pRenderer, sizeof(MeshConstant));
 
-		(*ppRightArmPart)->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
-		(*ppLeftArmPart)->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
-		(*ppRightLegPart)->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
-		(*ppLeftLegPart)->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
+		(*ppRightArmPart)->MaterialConstant.Initialize(pRenderer, sizeof(MaterialConstant));
+		(*ppLeftArmPart)->MaterialConstant.Initialize(pRenderer, sizeof(MaterialConstant));
+		(*ppRightLegPart)->MaterialConstant.Initialize(pRenderer, sizeof(MaterialConstant));
+		(*ppLeftLegPart)->MaterialConstant.Initialize(pRenderer, sizeof(MaterialConstant));
 
 		pMeshConst = (MeshConstant*)(*ppRightArmPart)->MeshConstant.pData;
 		pMeshConst->World = Matrix();
@@ -800,10 +810,10 @@ void SkinnedMeshModel::initJointSpheres(ResourceManager* pManager)
 		pMeshConst->World = Matrix();
 		
 		// need to be for pp ver.
-		InitMeshBuffers(pManager, meshData, ppRightArmPart);
-		InitMeshBuffers(pManager, meshData, ppLeftArmPart);
-		InitMeshBuffers(pManager, meshData, ppRightLegPart);
-		InitMeshBuffers(pManager, meshData, ppLeftLegPart);
+		InitMeshBuffers(pRenderer, meshData, ppRightArmPart);
+		InitMeshBuffers(pRenderer, meshData, ppLeftArmPart);
+		InitMeshBuffers(pRenderer, meshData, ppRightLegPart);
+		InitMeshBuffers(pRenderer, meshData, ppLeftLegPart);
 	}
 }
 

@@ -10,15 +10,15 @@ class ShadowMap
 {
 public:
 	ShadowMap(UINT width = 1280, UINT height = 1280) : m_ShadowMapWidth(width), m_ShadowMapHeight(height) { }
-	~ShadowMap() { Clear(); }
+	~ShadowMap() { Cleanup(); }
 
-	void Initialize(ResourceManager* pManager, UINT lightType);
+	void Initialize(Renderer* pRenderer, UINT lightType);
 
-	void Update(ResourceManager* pManager, LightProperty& property, Camera& lightCam, Camera& mainCamera);
+	void Update(Renderer* pRenderer, LightProperty& property, Camera& lightCam, Camera& mainCamera);
 
-	void Render(ResourceManager* pManager, std::vector<Model*>* pRenderObjects);
+	void Render(Renderer* pRenderer, std::vector<Model*>* pRenderObjects);
 
-	void Clear();
+	void Cleanup();
 
 	inline UINT GetShadowWidth() { return m_ShadowMapWidth; }
 	inline UINT GetShadowHeight() { return m_ShadowMapHeight; }
@@ -33,7 +33,7 @@ public:
 	void SetShadowWidth(const UINT WIDTH);
 	void SetShadowHeight(const UINT HEIGHT);
 
-	void SetDescriptorHeap(ResourceManager* pManager);
+	void SetDescriptorHeap(Renderer* pRenderer);
 	void SetViewportsAndScissorRect(ID3D12GraphicsCommandList* pCommandList);
 
 protected:

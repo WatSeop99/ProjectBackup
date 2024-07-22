@@ -7,15 +7,15 @@ class Light
 {
 public:
 	Light(UINT width = 1280, UINT height = 1280);
-	~Light() { Clear(); }
+	~Light() { Cleanup(); }
 
-	void Initialize(ResourceManager* pManager);
+	void Initialize(Renderer* pRenderer);
 
-	void Update(ResourceManager* pManager, const float DELTA_TIME, Camera& mainCamera);
+	void Update(Renderer* pRenderer, const float DELTA_TIME, Camera& mainCamera);
 
-	void RenderShadowMap(ResourceManager* pManager, std::vector<Model*>* pRenderObjects);
+	void RenderShadowMap(Renderer* pRenderer, std::vector<Model*>* pRenderObjects);
 
-	void Clear();
+	void Cleanup();
 
 	inline void SetPosition(const Vector3& POS) { m_LightViewCamera.SetEyePos(POS); }
 	inline void SetDirection(const Vector3& DIR) { m_LightViewCamera.SetViewDir(DIR); }

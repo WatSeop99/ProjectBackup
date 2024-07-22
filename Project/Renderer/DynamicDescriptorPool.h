@@ -4,7 +4,7 @@ class DynamicDescriptorPool
 {
 public:
 	DynamicDescriptorPool() = default;
-	~DynamicDescriptorPool() { Clear(); }
+	~DynamicDescriptorPool() { Cleanup(); }
 
 	void Initialize(ID3D12Device5* pDevice, UINT maxDescriptorCount);
 
@@ -12,7 +12,7 @@ public:
 
 	void Reset();
 
-	void Clear();
+	void Cleanup();
 
 	inline ID3D12DescriptorHeap* GetDescriptorHeap() { return m_pDescriptorHeap; }
 

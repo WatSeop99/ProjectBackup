@@ -2,10 +2,12 @@
 
 #include <directxtk12/SimpleMath.h>
 #include <minwindef.h>
-#include "../pch.h"
+// #include "../pch.h"
 
 using DirectX::SimpleMath::Vector3;
 using DirectX::SimpleMath::Matrix;
+
+#define ALIGN(size) __declspec(align(size))
 
 #define MAX_LIGHTS 3
 #define LIGHT_OFF 0x00

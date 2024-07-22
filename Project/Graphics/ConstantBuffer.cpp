@@ -6,7 +6,7 @@ void ConstantBuffer::Initialize(Renderer* pRenderer, UINT64 bufferSize)
 {
 	_ASSERT(pRenderer);
 
-	Clear();
+	Cleanup();
 
 	HRESULT hr = S_OK;
 	ResourceManager* pManager = pRenderer->GetResourceManager();
@@ -62,7 +62,7 @@ void ConstantBuffer::Upload()
 	memcpy(m_pSystemMemAddr, pData, m_DataSize);
 }
 
-void ConstantBuffer::Clear()
+void ConstantBuffer::Cleanup()
 {
 	if (pData)
 	{

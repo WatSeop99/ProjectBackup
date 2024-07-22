@@ -13,9 +13,9 @@ Light::Light(UINT width, UINT height) : LightShadowMap(width, height)
 	m_LightViewCamera.SetFarZ(50.0f);
 }
 
-void Light::Initialize(ResourceManager* pManager)
+void Light::Initialize(Renderer* pRenderer)
 {
-	Clear();
+	Cleanup();
 
 	switch (Property.LightType & m_TOTAL_LIGHT_TYPE)
 	{
@@ -36,10 +36,10 @@ void Light::Initialize(ResourceManager* pManager)
 			break;
 	}
 
-	LightShadowMap.Initialize(pManager, Property.LightType);
+	LightShadowMap.Initialize(pRenderer, Property.LightType);
 }
 
-void Light::Update(ResourceManager* pManager, const float DELTA_TIME, Camera& mainCamera)
+void Light::Update(Renderer* pRenderer, const float DELTA_TIME, Camera& mainCamera)
 {
 	static Vector3 s_LightDev = Vector3(1.0f, 0.0f, 0.0f);
 	if (bRotated)
@@ -67,7 +67,7 @@ void Light::Update(ResourceManager* pManager, const float DELTA_TIME, Camera& ma
 		// 그림자 맵 생성시 필요.
 		Matrix lightView = DirectX::XMMatrixLookAtLH(Property.Position, Property.Position + Property.Direction, up); // 카메라를 이용하면 pitch, yaw를 고려하게됨. 이를 방지하기 위함.
 		Matrix lightProjection = m_LightViewCamera.GetProjection();
-		LightShadowMap.Update(pManager, Property, m_LightViewCamera, mainCamera);
+		LightShadowMap.Update(pRenderer, Property, m_LightViewCamera, mainCamera);
 
 		ConstantBuffer* pShadowGlobalConstants = LightShadowMap.GetShadowConstantsBufferPtr();
 		switch (Property.LightType & m_TOTAL_LIGHT_TYPE)
@@ -104,17 +104,17 @@ void Light::Update(ResourceManager* pManager, const float DELTA_TIME, Camera& ma
 	}
 }
 
-void Light::RenderShadowMap(ResourceManager* pManager, std::vector<Model*>* pRenderObjects)
+void Light::RenderShadowMap(Renderer* pRenderer, std::vector<Model*>* pRenderObjects)
 {
 	if (Property.LightType & LIGHT_SHADOW)
 	{
-		LightShadowMap.Render(pManager, pRenderObjects);
+		LightShadowMap.Render(pRenderer, pRenderObjects);
 	}
 }
 
-void Light::Clear()
+void Light::Cleanup()
 {
-	LightShadowMap.Clear();
+	LightShadowMap.Cleanup();
 	bRotated = false;
 	bVisible = true;
 }

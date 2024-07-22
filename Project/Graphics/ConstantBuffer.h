@@ -8,13 +8,13 @@ class ConstantBuffer
 {
 public:
 	ConstantBuffer() = default;
-	~ConstantBuffer() { Clear(); }
+	~ConstantBuffer() { Cleanup(); }
 
 	void Initialize(Renderer* pRenderer, UINT64 bufferSize);
 
 	void Upload();
 
-	void Clear();
+	void Cleanup();
 
 	inline void SetCBVHandle(const D3D12_CPU_DESCRIPTOR_HANDLE HANDLE) { m_CBVHandle = HANDLE; }
 

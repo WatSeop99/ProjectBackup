@@ -1,16 +1,7 @@
 #pragma once
 
-enum eRenderThreadEventType
-{
-	// RenderThreadEventType_Process,
-	RenderThreadEventType_Shadow,
-	RenderThreadEventType_Object,
-	RenderThreadEventType_Mirror,
-	RenderThreadEventType_Collider,
-	RenderThreadEventType_MainRender,
-	RenderThreadEventType_Desctroy,
-	RenderThreadEventType_Count
-};
+#include "../Graphics/EnumType.h"
+
 struct RenderThreadDesc
 {
 	Renderer* pRenderer;

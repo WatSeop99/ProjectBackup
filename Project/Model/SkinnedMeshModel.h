@@ -6,35 +6,35 @@
 class SkinnedMeshModel final : public Model
 {
 public:
-	SkinnedMeshModel(ResourceManager* pManager, const std::vector<MeshInfo>& MESHES, const AnimationData& ANIM_DATA);
-	~SkinnedMeshModel() { Clear(); }
+	SkinnedMeshModel(Renderer* pRenderer, const std::vector<MeshInfo>& MESHES, const AnimationData& ANIM_DATA);
+	~SkinnedMeshModel() { Cleanup(); }
 
-	void Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& MESH_INFOS, const AnimationData& ANIM_DATA);
-	void InitMeshBuffers(ResourceManager* pManager, const MeshInfo& MESH_INFO, Mesh* pNewMesh) override;
-	void InitMeshBuffers(ResourceManager* pManager, const MeshInfo& MESH_INFO, Mesh** ppNewMesh);
-	void InitAnimationData(ResourceManager* pManager, const AnimationData& ANIM_DATA);
+	void Initialize(Renderer* pRenderer, const std::vector<MeshInfo>& MESH_INFOS, const AnimationData& ANIM_DATA);
+	void InitMeshBuffers(Renderer* pRenderer, const MeshInfo& MESH_INFO, Mesh* pNewMesh) override;
+	void InitMeshBuffers(Renderer* pRenderer, const MeshInfo& MESH_INFO, Mesh** ppNewMesh);
+	void InitAnimationData(Renderer* pRenderer, const AnimationData& ANIM_DATA);
 
 	void UpdateConstantBuffers() override;
 	void UpdateAnimation(int clipID, int frame) override;
 	void UpdateCharacterIK(Vector3& target, int chainPart, int clipID, int frame, const float DELTA_TIME);
 
-	void Render(ResourceManager* pManager, ePipelineStateSetting psoSetting) override;
+	void Render(Renderer* pRenderer, eRenderPSOType psoSetting) override;
 	void Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, DynamicDescriptorPool* pDescriptorPool, ResourceManager* pManager, int psoSetting) override;
-	void RenderBoundingCapsule(ResourceManager* pManager, ePipelineStateSetting psoSetting);
-	void RenderJointSphere(ResourceManager* pManager, ePipelineStateSetting psoSetting);
+	void RenderBoundingCapsule(Renderer* pRenderer, eRenderPSOType psoSetting);
+	void RenderJointSphere(Renderer* pRenderer, eRenderPSOType psoSetting);
 
-	void Clear();
-
-	void SetDescriptorHeap(ResourceManager* pManager) override;
+	void Cleanup();
 
 	inline Mesh** GetRightArmsMesh() { return m_ppRightArm; }
 	inline Mesh** GetLeftArmsMesh() { return m_ppLeftArm; }
 	inline Mesh** GetRightLegsMesh() { return m_ppRightLeg; }
 	inline Mesh** GetLeftLegsMesh() { return m_ppLeftLeg; }
 
+	void SetDescriptorHeap(Renderer* pRenderer) override;
+
 protected:
-	void initBoundingCapsule(ResourceManager* pManager);
-	void initJointSpheres(ResourceManager* pManager);
+	void initBoundingCapsule(Renderer* pRenderer);
+	void initJointSpheres(Renderer* pRenderer);
 	void initChain();
 
 	void updateJointSpheres(int clipID, int frame);

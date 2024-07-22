@@ -31,10 +31,19 @@ public:
 	Mesh() = default;
 	~Mesh()
 	{
-		SAFE_RELEASE(Vertex.pBuffer);
-		SAFE_RELEASE(Index.pBuffer);
-		MeshConstant.Clear();
-		MaterialConstant.Clear();
+		if (Vertex.pBuffer)
+		{
+			Vertex.pBuffer->Release();
+			Vertex.pBuffer = nullptr;
+		}
+		if (Index.pBuffer)
+		{
+			Index.pBuffer->Release();
+			Index.pBuffer = nullptr;
+		}
+
+		MeshConstant.Cleanup();
+		MaterialConstant.Cleanup();
 	}
 
 public:

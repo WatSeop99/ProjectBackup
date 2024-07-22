@@ -1,36 +1,9 @@
 #pragma once
 
-enum eRenderObjectType // same with eModelType
-{
-	RenderObjectType_DefaultType = 0,
-	RenderObjectType_SkinnedType,
-	RenderObjectType_SkyboxType,
-	RenderObjectType_MirrorType,
-	RenderObjectType_TotalObjectType
-};
-enum eRenderPSOType // same with ePipelineStateSetting
-{
-	RenderPSOType_Default,
-	RenderPSOType_Skinned,
-	RenderPSOType_Skybox,
-	RenderPSOType_StencilMask,
-	RenderPSOType_MirrorBlend,
-	RenderPSOType_ReflectionDefault,
-	RenderPSOType_ReflectionSkinned,
-	RenderPSOType_ReflectionSkybox,
-	RenderPSOType_DepthOnlyDefault,
-	RenderPSOType_DepthOnlySkinned,
-	RenderPSOType_DepthOnlyCubeDefault,
-	RenderPSOType_DepthOnlyCubeSkinned,
-	RenderPSOType_DepthOnlyCascadeDefault,
-	RenderPSOType_DepthOnlyCascadeSkinned,
-	RenderPSOType_Sampling,
-	RenderPSOType_BloomDown,
-	RenderPSOType_BloomUp,
-	RenderPSOType_Combine,
-	RenderPSOType_Wire,
-	RenderPSOType_PipelineStateCount,
-};
+#include "ResourceManager.h"
+
+class ResourceManager;
+
 struct RenderItem
 {
 	eRenderObjectType ModelType;
@@ -44,7 +17,7 @@ class RenderQueue
 {
 public:
 	RenderQueue() = default;
-	~RenderQueue() { Clear(); }
+	~RenderQueue() { Cleanup(); }
 
 	void Initialize(UINT maxItemCount);
 
@@ -56,7 +29,7 @@ public:
 
 	void Reset();
 
-	void Clear();
+	void Cleanup();
 
 protected:
 	const RenderItem* dispatch();

@@ -48,7 +48,7 @@ void DynamicDescriptorPool::Reset()
 	m_AllocatedDescriptorCount = 0;
 }
 
-void DynamicDescriptorPool::Clear()
+void DynamicDescriptorPool::Cleanup()
 {
 	m_AllocatedDescriptorCount = 0;
 	m_MaxDescriptorCount = 0;

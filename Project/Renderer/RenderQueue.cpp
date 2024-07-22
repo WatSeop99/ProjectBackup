@@ -310,7 +310,7 @@ void RenderQueue::Reset()
 	m_ReadBufferPos = 0;
 }
 
-void RenderQueue::Clear()
+void RenderQueue::Cleanup()
 {
 	if (m_pBuffer)
 	{

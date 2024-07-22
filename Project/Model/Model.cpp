@@ -5,30 +5,31 @@
 #include "../Util/Utility.h"
 #include "Model.h"
 
-Model::Model(ResourceManager* pManager, std::wstring& basePath, std::wstring& fileName)
+Model::Model(Renderer* pRenderer, std::wstring& basePath, std::wstring& fileName)
 {
-	Initialize(pManager, basePath, fileName);
+	Initialize(pRenderer, basePath, fileName);
 }
 
-Model::Model(ResourceManager* pManager, const std::vector<MeshInfo>& MESH_INFOS)
+Model::Model(Renderer* pRenderer, const std::vector<MeshInfo>& MESH_INFOS)
 {
-	Initialize(pManager, MESH_INFOS);
+	Initialize(pRenderer, MESH_INFOS);
 }
 
-void Model::Initialize(ResourceManager* pManager, std::wstring& basePath, std::wstring& fileName)
+void Model::Initialize(Renderer* pRenderer, std::wstring& basePath, std::wstring& fileName)
 {
 	std::vector<MeshInfo> meshInfos;
 	ReadFromFile(meshInfos, basePath, fileName);
-	Initialize(pManager, meshInfos);
+	Initialize(pRenderer, meshInfos);
 }
 
-void Model::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& MESH_INFOS)
+void Model::Initialize(Renderer* pRenderer, const std::vector<MeshInfo>& MESH_INFOS)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 
 	HRESULT hr = S_OK;
 	struct _stat64 sourceFileStat;
 
+	ResourceManager* pManager = pRenderer->GetResourceManager();
 	ID3D12Device5* pDevice = pManager->m_pDevice;
 	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
 
@@ -41,14 +42,14 @@ void Model::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& M
 		MeshConstant* pMeshConst = nullptr;
 		MaterialConstant* pMaterialConst = nullptr;
 
-		pNewMesh->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
-		pNewMesh->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
+		pNewMesh->MeshConstant.Initialize(pRenderer, sizeof(MeshConstant));
+		pNewMesh->MaterialConstant.Initialize(pRenderer, sizeof(MaterialConstant));
 		pMeshConst = (MeshConstant*)pNewMesh->MeshConstant.pData;
 		pMaterialConst = (MaterialConstant*)pNewMesh->MaterialConstant.pData;
 
 		pMeshConst->World = Matrix();
 
-		InitMeshBuffers(pManager, MESH_DATA, pNewMesh);
+		InitMeshBuffers(pRenderer, MESH_DATA, pNewMesh);
 
 		if (!MESH_DATA.szAlbedoTextureFileName.empty())
 		{
@@ -56,7 +57,7 @@ void Model::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& M
 
 			if (_stat64(albedoTextureA.c_str(), &sourceFileStat) != -1)
 			{
-				pNewMesh->Material.Albedo.Initialize(pManager, MESH_DATA.szAlbedoTextureFileName.c_str(), true);
+				pNewMesh->Material.Albedo.Initialize(pRenderer, MESH_DATA.szAlbedoTextureFileName.c_str(), true);
 				pMaterialConst->bUseAlbedoMap = TRUE;
 			}
 			else
@@ -71,7 +72,7 @@ void Model::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& M
 
 			if (_stat64(emissiveTextureA.c_str(), &sourceFileStat) != -1)
 			{
-				pNewMesh->Material.Emissive.Initialize(pManager, MESH_DATA.szEmissiveTextureFileName.c_str(), true);
+				pNewMesh->Material.Emissive.Initialize(pRenderer, MESH_DATA.szEmissiveTextureFileName.c_str(), true);
 				pMaterialConst->bUseEmissiveMap = TRUE;
 			}
 			else
@@ -86,7 +87,7 @@ void Model::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& M
 
 			if (_stat64(normalTextureA.c_str(), &sourceFileStat) != -1)
 			{
-				pNewMesh->Material.Normal.Initialize(pManager, MESH_DATA.szNormalTextureFileName.c_str(), false);
+				pNewMesh->Material.Normal.Initialize(pRenderer, MESH_DATA.szNormalTextureFileName.c_str(), false);
 				pMaterialConst->bUseNormalMap = TRUE;
 			}
 			else
@@ -101,7 +102,7 @@ void Model::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& M
 
 			if (_stat64(heightTextureA.c_str(), &sourceFileStat) != -1)
 			{
-				pNewMesh->Material.Height.Initialize(pManager, MESH_DATA.szHeightTextureFileName.c_str(), false);
+				pNewMesh->Material.Height.Initialize(pRenderer, MESH_DATA.szHeightTextureFileName.c_str(), false);
 				pMeshConst->bUseHeightMap = TRUE;
 			}
 			else
@@ -116,7 +117,7 @@ void Model::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& M
 
 			if (_stat64(aoTextureA.c_str(), &sourceFileStat) != -1)
 			{
-				pNewMesh->Material.AmbientOcclusion.Initialize(pManager, MESH_DATA.szAOTextureFileName.c_str(), false);
+				pNewMesh->Material.AmbientOcclusion.Initialize(pRenderer, MESH_DATA.szAOTextureFileName.c_str(), false);
 				pMaterialConst->bUseAOMap = TRUE;
 			}
 			else
@@ -131,7 +132,7 @@ void Model::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& M
 
 			if (_stat64(metallicTextureA.c_str(), &sourceFileStat) != -1)
 			{
-				pNewMesh->Material.Metallic.Initialize(pManager, MESH_DATA.szMetallicTextureFileName.c_str(), false);
+				pNewMesh->Material.Metallic.Initialize(pRenderer, MESH_DATA.szMetallicTextureFileName.c_str(), false);
 				pMaterialConst->bUseMetallicMap = TRUE;
 			}
 			else
@@ -146,7 +147,7 @@ void Model::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& M
 
 			if (_stat64(roughnessTextureA.c_str(), &sourceFileStat) != -1)
 			{
-				pNewMesh->Material.Roughness.Initialize(pManager, MESH_DATA.szRoughnessTextureFileName.c_str(), false);
+				pNewMesh->Material.Roughness.Initialize(pRenderer, MESH_DATA.szRoughnessTextureFileName.c_str(), false);
 				pMaterialConst->bUseRoughnessMap = TRUE;
 			}
 			else
@@ -159,15 +160,16 @@ void Model::Initialize(ResourceManager* pManager, const std::vector<MeshInfo>& M
 		Meshes.push_back(pNewMesh);
 	}
 
-	initBoundingBox(pManager, MESH_INFOS);
-	initBoundingSphere(pManager, MESH_INFOS);
+	initBoundingBox(pRenderer, MESH_INFOS);
+	initBoundingSphere(pRenderer, MESH_INFOS);
 }
 
-void Model::InitMeshBuffers(ResourceManager* pManager, const MeshInfo& MESH_INFO, Mesh* pNewMesh)
+void Model::InitMeshBuffers(Renderer* pRenderer, const MeshInfo& MESH_INFO, Mesh* pNewMesh)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 
 	HRESULT hr = S_OK;
+	ResourceManager* pManager = pRenderer->GetResourceManager();
 
 	// vertex buffer.
 	hr = pManager->CreateVertexBuffer(sizeof(Vertex),
@@ -237,11 +239,12 @@ void Model::UpdateWorld(const Matrix& WORLD)
 	}
 }
 
-void Model::Render(ResourceManager* pManager, ePipelineStateSetting psoSetting)
+void Model::Render(Renderer* pRenderer, eRenderPSOType psoSetting)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 
 	HRESULT hr = S_OK;
+	ResourceManager* pManager = pRenderer->GetResourceManager();
 
 	ID3D12Device5* pDevice = pManager->m_pDevice;
 	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
@@ -257,8 +260,11 @@ void Model::Render(ResourceManager* pManager, ePipelineStateSetting psoSetting)
 
 		switch (psoSetting)
 		{
-			case Default: case Skybox:
-			case MirrorBlend: case ReflectionDefault: case ReflectionSkybox:
+			case RenderPSOType_Default: 
+			case RenderPSOType_Skybox:
+			case RenderPSOType_MirrorBlend: 
+			case RenderPSOType_ReflectionDefault: 
+			case RenderPSOType_ReflectionSkybox:
 			{
 				hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 9);
 				BREAK_IF_FAILED(hr);
@@ -280,7 +286,10 @@ void Model::Render(ResourceManager* pManager, ePipelineStateSetting psoSetting)
 			}
 			break;
 
-			case DepthOnlyDefault: case DepthOnlyCubeDefault: case DepthOnlyCascadeDefault: case StencilMask:
+			case RenderPSOType_StencilMask:
+			case RenderPSOType_DepthOnlyDefault: 
+			case RenderPSOType_DepthOnlyCubeDefault: 
+			case RenderPSOType_DepthOnlyCascadeDefault: 
 			{
 				hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 2);
 				BREAK_IF_FAILED(hr);
@@ -324,8 +333,11 @@ void Model::Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, Dy
 
 		switch (psoSetting)
 		{
-			case Default: case Skybox:
-			case MirrorBlend: case ReflectionDefault: case ReflectionSkybox:
+			case RenderPSOType_Default: 
+			case RenderPSOType_Skybox:
+			case RenderPSOType_MirrorBlend: 
+			case RenderPSOType_ReflectionDefault:
+			case RenderPSOType_ReflectionSkybox:
 			{
 				hr = pDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 9);
 				BREAK_IF_FAILED(hr);
@@ -347,7 +359,10 @@ void Model::Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, Dy
 			}
 			break;
 
-			case DepthOnlyDefault: case DepthOnlyCubeDefault: case DepthOnlyCascadeDefault: case StencilMask:
+			case RenderPSOType_StencilMask:
+			case RenderPSOType_DepthOnlyDefault:
+			case RenderPSOType_DepthOnlyCubeDefault:
+			case RenderPSOType_DepthOnlyCascadeDefault:
 			{
 				hr = pDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 2);
 				BREAK_IF_FAILED(hr);
@@ -372,11 +387,12 @@ void Model::Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, Dy
 	}
 }
 
-void Model::RenderBoundingBox(ResourceManager* pManager, ePipelineStateSetting psoSetting)
+void Model::RenderBoundingBox(Renderer* pRenderer, eRenderPSOType psoSetting)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 
 	HRESULT hr = S_OK;
+	ResourceManager* pManager = pRenderer->GetResourceManager();
 
 	ID3D12Device5* pDevice = pManager->m_pDevice;
 	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
@@ -409,11 +425,12 @@ void Model::RenderBoundingBox(ResourceManager* pManager, ePipelineStateSetting p
 	pCommandList->DrawIndexedInstanced(m_pBoundingBoxMesh->Index.Count, 1, 0, 0, 0);
 }
 
-void Model::RenderBoundingSphere(ResourceManager* pManager, ePipelineStateSetting psoSetting)
+void Model::RenderBoundingSphere(Renderer* pRenderer, eRenderPSOType psoSetting)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 
 	HRESULT hr = S_OK;
+	ResourceManager* pManager = pRenderer->GetResourceManager();
 
 	ID3D12Device5* pDevice = pManager->m_pDevice;
 	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
@@ -446,7 +463,7 @@ void Model::RenderBoundingSphere(ResourceManager* pManager, ePipelineStateSettin
 	pCommandList->DrawIndexedInstanced(m_pBoundingSphereMesh->Index.Count, 1, 0, 0, 0);
 }
 
-void Model::Clear()
+void Model::Cleanup()
 {
 	if (m_pBoundingSphereMesh)
 	{
@@ -467,10 +484,11 @@ void Model::Clear()
 	Meshes.clear();
 }
 
-void Model::SetDescriptorHeap(ResourceManager* pManager)
+void Model::SetDescriptorHeap(Renderer* pRenderer)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 
+	ResourceManager* pManager = pRenderer->GetResourceManager();
 	ID3D12Device5* pDevice = pManager->m_pDevice;
 	ID3D12DescriptorHeap* pCBVSRVHeap = pManager->m_pCBVSRVUAVHeap;
 
@@ -578,7 +596,7 @@ void Model::SetDescriptorHeap(ResourceManager* pManager)
 	++(pManager->m_CBVSRVUAVHeapSize);
 }
 
-void Model::initBoundingBox(ResourceManager* pManager, const std::vector<MeshInfo>& MESH_INFOS)
+void Model::initBoundingBox(Renderer* pRenderer, const std::vector<MeshInfo>& MESH_INFOS)
 {
 	BoundingBox = getBoundingBox(MESH_INFOS[0].Vertices);
 	for (UINT64 i = 1, size = MESH_INFOS.size(); i < size; ++i)
@@ -593,17 +611,17 @@ void Model::initBoundingBox(ResourceManager* pManager, const std::vector<MeshInf
 
 	MakeWireBox(&meshData, BoundingBox.Center, Vector3(BoundingBox.Extents) + Vector3(1e-3f));
 	m_pBoundingBoxMesh = new Mesh;
-	m_pBoundingBoxMesh->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
-	m_pBoundingBoxMesh->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
+	m_pBoundingBoxMesh->MeshConstant.Initialize(pRenderer, sizeof(MeshConstant));
+	m_pBoundingBoxMesh->MaterialConstant.Initialize(pRenderer, sizeof(MaterialConstant));
 	pMeshConst = (MeshConstant*)m_pBoundingBoxMesh->MeshConstant.pData;
 	pMaterialConst = (MaterialConstant*)m_pBoundingBoxMesh->MaterialConstant.pData;
 
 	pMeshConst->World = Matrix();
 
-	InitMeshBuffers(pManager, meshData, m_pBoundingBoxMesh);
+	InitMeshBuffers(pRenderer, meshData, m_pBoundingBoxMesh);
 }
 
-void Model::initBoundingSphere(ResourceManager* pManager, const std::vector<MeshInfo>& MESH_INFOS)
+void Model::initBoundingSphere(Renderer* pRenderer, const std::vector<MeshInfo>& MESH_INFOS)
 {
 	float maxRadius = 0.0f;
 	for (UINT64 i = 0, size = MESH_INFOS.size(); i < size; ++i)
@@ -626,14 +644,14 @@ void Model::initBoundingSphere(ResourceManager* pManager, const std::vector<Mesh
 	MakeWireSphere(&meshData, BoundingSphere.Center, BoundingSphere.Radius);
 	// MakeWireCapsule(&meshData, BoundingSphere.Center, BoundingSphere.Radius, 3.0f);
 	m_pBoundingSphereMesh = new Mesh;
-	m_pBoundingSphereMesh->MeshConstant.Initialize(pManager, sizeof(MeshConstant));
-	m_pBoundingSphereMesh->MaterialConstant.Initialize(pManager, sizeof(MaterialConstant));
+	m_pBoundingSphereMesh->MeshConstant.Initialize(pRenderer, sizeof(MeshConstant));
+	m_pBoundingSphereMesh->MaterialConstant.Initialize(pRenderer, sizeof(MaterialConstant));
 	pMeshConst = (MeshConstant*)m_pBoundingSphereMesh->MeshConstant.pData;
 	pMaterialConst = (MaterialConstant*)m_pBoundingSphereMesh->MaterialConstant.pData;
 
 	pMeshConst->World = Matrix();
 
-	InitMeshBuffers(pManager, meshData, m_pBoundingSphereMesh);
+	InitMeshBuffers(pRenderer, meshData, m_pBoundingSphereMesh);
 }
 
 DirectX::BoundingBox Model::getBoundingBox(const std::vector<Vertex>& VERTICES)

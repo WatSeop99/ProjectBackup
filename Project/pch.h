@@ -1,6 +1,8 @@
 #ifndef PCH_H
 #define PCH_H
 
+#include <PxPhysicsAPI.h>
+
 #ifdef _DEBUG
 #define _CRTDBG_MAP_ALLOC
 #define _CRTDBG_MAP_ALLOC_NEW
@@ -49,8 +51,8 @@
 
 // #define USE_MULTI_THREAD
 
+#include "Graphics/EnumType.h"
 #include "Renderer/Renderer.h"
-// #include "Renderer/ResourceManager.h"
 
 #define BREAK_IF_FAILED(hr) \
 		if (FAILED(hr))		\
@@ -63,7 +65,7 @@
 			(p)->Release(); \
 			(p) = nullptr;	\
 		}
-#define ALIGN(size) __declspec(align(size))
+// #define ALIGN(size) __declspec(align(size))
 
 
 #endif

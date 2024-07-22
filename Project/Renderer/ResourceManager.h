@@ -9,30 +9,6 @@
 
 class ConstantBuffer;
 
-enum ePipelineStateSetting
-{
-	Default,
-	Skinned,
-	Skybox,
-	StencilMask,
-	MirrorBlend,
-	ReflectionDefault,
-	ReflectionSkinned,
-	ReflectionSkybox,
-	DepthOnlyDefault,
-	DepthOnlySkinned,
-	DepthOnlyCubeDefault,
-	DepthOnlyCubeSkinned,
-	DepthOnlyCascadeDefault,
-	DepthOnlyCascadeSkinned,
-	Sampling,
-	BloomDown,
-	BloomUp,
-	Combine,
-	Wire,
-	PipelineStateCount,
-};
-
 static const UINT SWAP_CHAIN_FRAME_COUNT = 2;
 static const UINT MAX_RENDER_THREAD_COUNT = 6;
 static const UINT MAX_DESCRIPTOR_NUM = 1024;
@@ -57,7 +33,7 @@ public:
 
 public:
 	ResourceManager() = default;
-	~ResourceManager() { Clear(); }
+	~ResourceManager() { Cleanup(); }
 
 	void Initialize(InitialData* pInitialData);
 	void InitRTVDescriptorHeap(UINT maxDescriptorNum);
@@ -69,13 +45,13 @@ public:
 	
 	HRESULT UpdateTexture(ID3D12Resource* pDestResource, ID3D12Resource* pSrcResource, D3D12_RESOURCE_STATES* originalState);
 
-	void Clear();
+	void Cleanup();
+
+	inline ID3D12GraphicsCommandList* GetCommandList() { return m_ppSingleCommandList[*m_pFrameIndex]; }
 
 	void SetGlobalConstants(ConstantBuffer* pGlobal, ConstantBuffer* pLight, ConstantBuffer* pReflection);
-	void SetCommonState(ePipelineStateSetting psoState);
+	void SetCommonState(eRenderPSOType psoState);
 	void SetCommonState(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, DynamicDescriptorPool* pDescriptorPool, int psoState);
-	
-	inline ID3D12GraphicsCommandList* GetCommandList() { return m_ppSingleCommandList[*m_pFrameIndex]; }
 
 protected:
 	void initSamplers();
@@ -99,11 +75,6 @@ public:
 	ID3D12DescriptorHeap* m_pCBVSRVUAVHeap = nullptr;
 	ID3D12DescriptorHeap* m_pSamplerHeap = nullptr;
 	DynamicDescriptorPool* m_pDynamicDescriptorPool = nullptr;
-
-	// for multi-thread
-	DynamicDescriptorPool**** m_ppppDynamicDescriptorPools = nullptr;
-
-	/////////////////////////////
 
 	UINT* m_pFrameIndex = nullptr;
 

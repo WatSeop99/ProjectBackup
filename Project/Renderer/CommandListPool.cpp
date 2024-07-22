@@ -59,7 +59,7 @@ void CommandListPool::ClosedAndExecute(ID3D12CommandQueue* pCommandQueue)
 	m_pCurCmdList = nullptr;
 }
 
-void CommandListPool::Clear()
+void CommandListPool::Cleanup()
 {
 	HRESULT hr = S_OK;
 

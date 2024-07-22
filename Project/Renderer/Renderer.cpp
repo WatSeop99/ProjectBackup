@@ -19,7 +19,7 @@ Renderer::Renderer()
 Renderer::~Renderer()
 {
 	g_pRendrer = nullptr;
-	Clear();
+	Cleanup();
 }
 
 void Renderer::Initizlie(InitialData* pIntialData)
@@ -42,8 +42,9 @@ void Renderer::Initizlie(InitialData* pIntialData)
 		&m_GlobalConstant,
 		m_MainRenderTargetOffset, m_MainRenderTargetOffset + 1, m_FloatBufferSRVOffset, m_PrevBufferSRVOffset
 	};
-	m_PostProcessor.Initizlie(m_pResourceManager, config, m_ScreenWidth, m_ScreenHeight, 2);
-	m_PostProcessor.SetDescriptorHeap(m_pResourceManager);
+	Renderer* pRenderer = this;
+	m_PostProcessor.Initizlie(pRenderer, config, m_ScreenWidth, m_ScreenHeight, 2);
+	m_PostProcessor.SetDescriptorHeap(pRenderer);
 
 	m_DynamicDescriptorPool.Initialize(m_pDevice, 1024);
 
@@ -58,6 +59,8 @@ void Renderer::Initizlie(InitialData* pIntialData)
 	m_ScissorRect.top = 0;
 	m_ScissorRect.right = m_ScreenWidth;
 	m_ScissorRect.bottom = m_ScreenHeight;
+
+	m_PhysicsManager.Initialize(2);
 }
 
 void Renderer::Update(const float DELTA_TIME)
@@ -128,7 +131,7 @@ void Renderer::ProcessByThread(UINT threadIndex, ResourceManager* pManager, int 
 	}
 }
 
-void Renderer::Clear()
+void Renderer::Cleanup()
 {
 #ifdef USE_MULTI_THREAD
 
@@ -180,9 +183,9 @@ void Renderer::Clear()
 	m_FenceValue = 0;
 	SAFE_RELEASE(m_pFence);
 
-	m_GlobalConstant.Clear();
-	m_LightConstant.Clear();
-	m_ReflectionGlobalConstant.Clear();
+	m_GlobalConstant.Cleanup();
+	m_LightConstant.Cleanup();
+	m_ReflectionGlobalConstant.Cleanup();
 
 	for (UINT i = 0; i < SWAP_CHAIN_FRAME_COUNT; ++i)
 	{
@@ -213,8 +216,8 @@ void Renderer::Clear()
 		}
 	}
 
-	m_PostProcessor.Clear();
-	m_DynamicDescriptorPool.Clear();
+	m_PostProcessor.Cleanup();
+	m_DynamicDescriptorPool.Cleanup();
 
 	SAFE_RELEASE(m_pDefaultDepthStencil);
 
@@ -304,7 +307,7 @@ LRESULT Renderer::MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					m_pPrevBuffer = nullptr;
 					m_pDefaultDepthStencil->Release();
 					m_pDefaultDepthStencil = nullptr;
-					m_PostProcessor.Clear();
+					m_PostProcessor.Cleanup();
 					m_FrameIndex = m_pSwapChain->GetCurrentBackBufferIndex();
 
 					// swap chain resize.
@@ -457,8 +460,9 @@ LRESULT Renderer::MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 						&m_GlobalConstant,
 						m_MainRenderTargetOffset, m_MainRenderTargetOffset + 1, m_FloatBufferSRVOffset, m_PrevBufferSRVOffset
 					};
-					m_PostProcessor.Initizlie(m_pResourceManager, config, m_ScreenWidth, m_ScreenHeight, 4);
-					m_PostProcessor.SetDescriptorHeap(m_pResourceManager);
+					Renderer* pRenderer = this;
+					m_PostProcessor.Initizlie(pRenderer, config, m_ScreenWidth, m_ScreenHeight, 4);
+					m_PostProcessor.SetDescriptorHeap(pRenderer);
 					m_Camera.SetAspectRatio((float)m_ScreenWidth / (float)m_ScreenHeight);
 				}
 			}
@@ -826,8 +830,7 @@ LB_EXIT:
 	m_pResourceManager->InitRTVDescriptorHeap(16);
 	m_pResourceManager->InitDSVDescriptorHeap(8);
 	m_pResourceManager->InitCBVSRVUAVDescriptorHeap(1024);
-	m_pResourceManager->m_ppppDynamicDescriptorPools = (DynamicDescriptorPool****)&m_pppDescriptorPool;
-
+	
 #ifdef USE_MULTI_THREAD
 	// create thread and event
 	{
@@ -849,9 +852,10 @@ void Renderer::initScene()
 	// m_Camera.Reset(Vector3(3.74966f, 5.03645f, -2.54918f), -0.819048f, 0.741502f);
 	m_Camera.Reset(Vector3(0.0f, 3.0f, -2.0f), -0.819048f, 0.741502f);
 
-	m_GlobalConstant.Initialize(m_pResourceManager, sizeof(GlobalConstant));
-	m_LightConstant.Initialize(m_pResourceManager, sizeof(LightConstant));
-	m_ReflectionGlobalConstant.Initialize(m_pResourceManager, sizeof(GlobalConstant));
+	Renderer* pRenderer = this;
+	m_GlobalConstant.Initialize(pRenderer, sizeof(GlobalConstant));
+	m_LightConstant.Initialize(pRenderer, sizeof(LightConstant));
+	m_ReflectionGlobalConstant.Initialize(pRenderer, sizeof(GlobalConstant));
 	m_pResourceManager->SetGlobalConstants(&m_GlobalConstant, &m_LightConstant, &m_ReflectionGlobalConstant);
 
 	// 공용 global constant 설정.
@@ -875,7 +879,7 @@ void Renderer::initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceText
 	_ASSERT(pBRDFTexture);
 
 	HRESULT hr = S_OK;
-
+	Renderer* pRenderer = this;
 	const UINT RTV_DESCRITOR_SIZE = m_pResourceManager->m_RTVDescriptorSize;
 	const UINT CBV_SRV_UAV_DESCRIPTOR_SIZE = m_pResourceManager->m_CBVSRVUAVDescriptorSize;
 
@@ -1009,7 +1013,7 @@ void Renderer::initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceText
 		m_pResourceManager->m_GlobalShaderResourceViewStartOffset = m_pResourceManager->m_CBVSRVUAVHeapSize;
 
 		srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		(*m_pLights)[1].LightShadowMap.SetDescriptorHeap(m_pResourceManager);
+		(*m_pLights)[1].LightShadowMap.SetDescriptorHeap(this);
 		cbvSrvHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 
 		m_pDevice->CreateShaderResourceView(nullptr, &srvDesc, cbvSrvHandle);
@@ -1021,11 +1025,11 @@ void Renderer::initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceText
 		++(m_pResourceManager->m_CBVSRVUAVHeapSize);
 
 		// t11
-		(*m_pLights)[0].LightShadowMap.SetDescriptorHeap(m_pResourceManager);
+		(*m_pLights)[0].LightShadowMap.SetDescriptorHeap(this);
 		cbvSrvHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 
 		// t12
-		(*m_pLights)[2].LightShadowMap.SetDescriptorHeap(m_pResourceManager);
+		(*m_pLights)[2].LightShadowMap.SetDescriptorHeap(this);
 		cbvSrvHandle.Offset(1, CBV_SRV_UAV_DESCRIPTOR_SIZE);
 
 		// t13
@@ -1082,14 +1086,16 @@ void Renderer::initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceText
 
 			switch (pModel->ModelType)
 			{
-				case DefaultModel: case SkyboxModel: case MirrorModel:
-					pModel->SetDescriptorHeap(m_pResourceManager);
+				case RenderObjectType_DefaultType: 
+				case RenderObjectType_SkyboxType:
+				case RenderObjectType_MirrorType:
+					pModel->SetDescriptorHeap(pRenderer);
 					break;
 
-				case SkinnedModel:
+				case RenderObjectType_SkinnedType:
 				{
 					SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pModel;
-					pCharacter->SetDescriptorHeap(m_pResourceManager);
+					pCharacter->SetDescriptorHeap(pRenderer);
 				}
 				break;
 
@@ -1268,9 +1274,10 @@ void Renderer::renderShadowmap()
 
 #else
 
+	Renderer* pRenderer = this;
 	for (int i = 0; i < MAX_LIGHTS; ++i)
 	{
-		(*m_pLights)[i].RenderShadowMap(m_pResourceManager, m_pRenderObjects);
+		(*m_pLights)[i].RenderShadowMap(pRenderer, m_pRenderObjects);
 	}
 
 #endif
@@ -1325,6 +1332,8 @@ void Renderer::renderObject()
 
 #else
 
+	Renderer* pRenderer = this;
+
 	const UINT RTV_DESCRIPTOR_SIZE = m_pResourceManager->m_RTVDescriptorSize;
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_pResourceManager->m_pRTVHeap->GetCPUDescriptorHandleForHeapStart(), m_MainRenderTargetOffset + m_FrameIndex, RTV_DESCRIPTOR_SIZE);
 	CD3DX12_CPU_DESCRIPTOR_HANDLE floatRtvHandle(m_pResourceManager->m_pRTVHeap->GetCPUDescriptorHandleForHeapStart(), m_FloatBufferRTVOffset, RTV_DESCRIPTOR_SIZE);
@@ -1357,25 +1366,25 @@ void Renderer::renderObject()
 
 		switch (pCurModel->ModelType)
 		{
-			case DefaultModel:
+			case RenderObjectType_DefaultType:
 			{
-				m_pResourceManager->SetCommonState(Default);
-				pCurModel->Render(m_pResourceManager, Default);
+				m_pResourceManager->SetCommonState(RenderPSOType_Default);
+				pCurModel->Render(pRenderer, RenderPSOType_Default);
 			}
 			break;
 
-			case SkinnedModel:
+			case RenderObjectType_SkinnedType:
 			{
 				SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pCurModel;
-				m_pResourceManager->SetCommonState(Skinned);
-				pCharacter->Render(m_pResourceManager, Skinned);
+				m_pResourceManager->SetCommonState(RenderPSOType_Skinned);
+				pCharacter->Render(pRenderer, RenderPSOType_Skinned);
 			}
 			break;
 
-			case SkyboxModel:
+			case RenderObjectType_SkyboxType:
 			{
-				m_pResourceManager->SetCommonState(Skybox);
-				pCurModel->Render(m_pResourceManager, Skybox);
+				m_pResourceManager->SetCommonState(RenderPSOType_Skybox);
+				pCurModel->Render(pRenderer, RenderPSOType_Skybox);
 			}
 			break;
 
@@ -1441,10 +1450,12 @@ void Renderer::renderMirror()
 
 #else
 
+	Renderer* pRenderer = this;
+
 	// 0.5의 투명도를 가진다고 가정.
 	// 거울 위치만 StencilBuffer에 1로 표기.
-	m_pResourceManager->SetCommonState(StencilMask);
-	m_pMirror->Render(m_pResourceManager, StencilMask);
+	m_pResourceManager->SetCommonState(RenderPSOType_StencilMask);
+	m_pMirror->Render(pRenderer, RenderPSOType_StencilMask);
 
 	// 거울 위치에 반사된 물체들을 렌더링.
 	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
@@ -1458,25 +1469,25 @@ void Renderer::renderMirror()
 
 		switch (pCurModel->ModelType)
 		{
-			case DefaultModel:
+			case RenderObjectType_DefaultType:
 			{
-				m_pResourceManager->SetCommonState(ReflectionDefault);
-				pCurModel->Render(m_pResourceManager, ReflectionDefault);
+				m_pResourceManager->SetCommonState(RenderPSOType_ReflectionDefault);
+				pCurModel->Render(pRenderer, RenderPSOType_ReflectionDefault);
 			}
 			break;
 
-			case SkinnedModel:
+			case RenderObjectType_SkinnedType:
 			{
 				SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pCurModel;
-				m_pResourceManager->SetCommonState(ReflectionSkinned);
-				pCharacter->Render(m_pResourceManager, ReflectionSkinned);
+				m_pResourceManager->SetCommonState(RenderPSOType_ReflectionSkinned);
+				pCharacter->Render(pRenderer, RenderPSOType_ReflectionSkinned);
 			}
 			break;
 
-			case SkyboxModel:
+			case RenderObjectType_SkyboxType:
 			{
-				m_pResourceManager->SetCommonState(ReflectionSkybox);
-				pCurModel->Render(m_pResourceManager, ReflectionSkybox);
+				m_pResourceManager->SetCommonState(RenderPSOType_ReflectionSkybox);
+				pCurModel->Render(pRenderer, RenderPSOType_ReflectionSkybox);
 			}
 			break;
 
@@ -1486,14 +1497,16 @@ void Renderer::renderMirror()
 	}
 
 	// 거울 렌더링.
-	m_pResourceManager->SetCommonState(MirrorBlend);
-	m_pMirror->Render(m_pResourceManager, MirrorBlend);
+	m_pResourceManager->SetCommonState(RenderPSOType_MirrorBlend);
+	m_pMirror->Render(pRenderer, RenderPSOType_MirrorBlend);
 
 #endif
 }
 
 void Renderer::renderObjectBoundingModel()
 {
+	Renderer* pRenderer = this;
+
 	// obb rendering
 	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
 	{
@@ -1504,18 +1517,18 @@ void Renderer::renderObjectBoundingModel()
 			continue;
 		}
 
-		m_pResourceManager->SetCommonState(Wire);
+		m_pResourceManager->SetCommonState(RenderPSOType_Wire);
 		switch (pCurModel->ModelType)
 		{
-			case DefaultModel:
-				// pCurModel->RenderBoundingSphere(m_pResourceManager, Wire);
+			case RenderObjectType_DefaultType:
+				// pCurModel->RenderBoundingSphere(pRenderer, RenderPSOType_Wire);
 				break;
 
-			case SkinnedModel:
+			case RenderObjectType_SkinnedType:
 			{
 				SkinnedMeshModel* pCharacter = (SkinnedMeshModel*)pCurModel;
-				pCharacter->RenderBoundingCapsule(m_pResourceManager, Wire);
-				pCharacter->RenderJointSphere(m_pResourceManager, Wire);
+				pCharacter->RenderBoundingCapsule(pRenderer, RenderPSOType_Wire);
+				pCharacter->RenderJointSphere(pRenderer, RenderPSOType_Wire);
 			}
 			break;
 
@@ -1586,9 +1599,11 @@ void Renderer::postProcess()
 
 #else
 
+	Renderer* pRenderer = this;
+
 	const CD3DX12_RESOURCE_BARRIER BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(m_pFloatBuffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON);
 	m_ppCommandList[m_FrameIndex]->ResourceBarrier(1, &BARRIER);
-	m_PostProcessor.Render(m_pResourceManager, m_FrameIndex);
+	m_PostProcessor.Render(pRenderer, m_FrameIndex);
 
 #endif
 }
@@ -1817,13 +1832,14 @@ void Renderer::updateGlobalConstants(const float DELTA_TIME)
 
 void Renderer::updateLightConstants(const float DELTA_TIME)
 {
+	Renderer* pRenderer = this;
 	LightConstant* pLightConstData = (LightConstant*)m_LightConstant.pData;
 
 	for (int i = 0; i < MAX_LIGHTS; ++i)
 	{
 		Light* pLight = &(*m_pLights)[i];
 
-		pLight->Update(m_pResourceManager, DELTA_TIME, m_Camera);
+		pLight->Update(pRenderer, DELTA_TIME, m_Camera);
 		(*m_pLightSpheres)[i]->UpdateWorld(Matrix::CreateScale(Max(0.01f, pLight->Property.Radius)) * Matrix::CreateTranslation(pLight->Property.Position));
 		memcpy(&pLightConstData->Lights[i], &pLight->Property, sizeof(LightProperty));
 	}
@@ -2073,7 +2089,7 @@ Model* Renderer::pickClosest(const DirectX::SimpleMath::Ray& PICKING_RAY, float*
 
 		switch (pCurModel->ModelType)
 		{
-			case DefaultModel:
+			case RenderObjectType_DefaultType:
 			{
 				if (pCurModel->bIsPickable &&
 					PICKING_RAY.Intersects(pCurModel->BoundingSphere, dist) &&
@@ -2085,7 +2101,7 @@ Model* Renderer::pickClosest(const DirectX::SimpleMath::Ray& PICKING_RAY, float*
 			}
 			break;
 
-			case SkinnedModel:
+			case RenderObjectType_SkinnedType:
 			{
 				if (pCurModel->bIsPickable &&
 					PICKING_RAY.Intersects(pCurModel->BoundingSphere, dist) &&

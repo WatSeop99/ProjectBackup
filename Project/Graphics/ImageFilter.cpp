@@ -3,15 +3,15 @@
 #include "../Renderer/DynamicDescriptorPool.h"
 #include "ImageFilter.h"
 
-void ImageFilter::Initialize(ResourceManager* pManager, const int WIDTH, const int HEIGHT)
+void ImageFilter::Initialize(Renderer* pRenderer, const int WIDTH, const int HEIGHT)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 
 	HRESULT hr = S_OK;
 
-	Clear();
+	Cleanup();
 
-	m_ConstantBuffer.Initialize(pManager, sizeof(ImageFilterConstant));
+	m_ConstantBuffer.Initialize(pRenderer, sizeof(ImageFilterConstant));
 
 	ImageFilterConstant* pConstantData = (ImageFilterConstant*)m_ConstantBuffer.pData;
 	pConstantData->DX = 1.0f / WIDTH;
@@ -23,14 +23,14 @@ void ImageFilter::UpdateConstantBuffers()
 	m_ConstantBuffer.Upload();
 }
 
-void ImageFilter::BeforeRender(ResourceManager* pManager, ePipelineStateSetting psoSetting, UINT frameIndex)
+void ImageFilter::BeforeRender(Renderer* pRenderer, eRenderPSOType psoSetting, UINT frameIndex)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 	_ASSERT(m_RTVHandles.size() > 0);
 	_ASSERT(m_SRVHandles.size() > 0);
 
 	HRESULT hr = S_OK;
-
+	ResourceManager* pManager = pRenderer->GetResourceManager();
 	ID3D12Device5* pDevice = pManager->m_pDevice;
 	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
 	DynamicDescriptorPool* pDynamicDescriptorPool = pManager->m_pDynamicDescriptorPool;
@@ -41,8 +41,9 @@ void ImageFilter::BeforeRender(ResourceManager* pManager, ePipelineStateSetting 
 
 	switch (psoSetting)
 	{
-		case Sampling:
-		case BloomDown: case BloomUp:
+		case RenderPSOType_Sampling:
+		case RenderPSOType_BloomDown:
+		case RenderPSOType_BloomUp:
 		{
 			hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 2);
 			BREAK_IF_FAILED(hr);
@@ -63,7 +64,7 @@ void ImageFilter::BeforeRender(ResourceManager* pManager, ePipelineStateSetting 
 		}
 		break;
 
-		case Combine:
+		case RenderPSOType_Combine:
 		{
 			hr = pDynamicDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 4);
 			BREAK_IF_FAILED(hr);
@@ -114,8 +115,9 @@ void ImageFilter::BeforeRender(UINT threadIndex, ID3D12GraphicsCommandList* pCom
 
 	switch (psoSetting)
 	{
-		case Sampling:
-		case BloomDown: case BloomUp:
+		case RenderPSOType_Sampling:
+		case RenderPSOType_BloomDown:
+		case RenderPSOType_BloomUp:
 		{
 			hr = pDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 2);
 			BREAK_IF_FAILED(hr);
@@ -136,7 +138,7 @@ void ImageFilter::BeforeRender(UINT threadIndex, ID3D12GraphicsCommandList* pCom
 		}
 		break;
 
-		case Combine:
+		case RenderPSOType_Combine:
 		{
 			hr = pDescriptorPool->AllocDescriptorTable(&cpuDescriptorTable, &gpuDescriptorTable, 4);
 			BREAK_IF_FAILED(hr);
@@ -169,23 +171,27 @@ void ImageFilter::BeforeRender(UINT threadIndex, ID3D12GraphicsCommandList* pCom
 	}
 }
 
-void ImageFilter::AfterRender(ResourceManager* pManager, ePipelineStateSetting psoSetting, UINT frameIndex)
+void ImageFilter::AfterRender(Renderer* pRenderer, eRenderPSOType psoSetting, UINT frameIndex)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 	_ASSERT(m_RTVHandles.size() > 0);
 	_ASSERT(m_SRVHandles.size() > 0);
 
+	ResourceManager* pManager = pRenderer->GetResourceManager();
+	ID3D12GraphicsCommandList* pCommandList = pManager->GetCommandList();
+
 	switch (psoSetting)
 	{
-		case Sampling:
-		case BloomDown: case BloomUp:
+		case RenderPSOType_Sampling:
+		case RenderPSOType_BloomDown:
+		case RenderPSOType_BloomUp:
 		{
 			const CD3DX12_RESOURCE_BARRIER BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(m_RTVHandles[0].pResource, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON);
-			pManager->GetCommandList()->ResourceBarrier(1, &BARRIER);
+			pCommandList->ResourceBarrier(1, &BARRIER);
 		}
 		break;
 
-		case Combine:
+		case RenderPSOType_Combine:
 			break;
 
 		default:
@@ -202,15 +208,16 @@ void ImageFilter::AfterRender(ID3D12GraphicsCommandList* pCommandList, int psoSe
 
 	switch (psoSetting)
 	{
-		case Sampling:
-		case BloomDown: case BloomUp:
+		case RenderPSOType_Sampling:
+		case RenderPSOType_BloomDown:
+		case RenderPSOType_BloomUp:
 		{
 			const CD3DX12_RESOURCE_BARRIER BARRIER = CD3DX12_RESOURCE_BARRIER::Transition(m_RTVHandles[0].pResource, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON);
 			pCommandList->ResourceBarrier(1, &BARRIER);
 		}
 		break;
 
-		case Combine:
+		case RenderPSOType_Combine:
 			break;
 
 		default:
@@ -219,17 +226,18 @@ void ImageFilter::AfterRender(ID3D12GraphicsCommandList* pCommandList, int psoSe
 	}
 }
 
-void ImageFilter::Clear()
+void ImageFilter::Cleanup()
 {
 	m_SRVHandles.clear();
 	m_RTVHandles.clear();
-	m_ConstantBuffer.Clear();
+	m_ConstantBuffer.Cleanup();
 }
 
-void ImageFilter::SetSRVOffsets(ResourceManager* pManager, const std::vector<ImageResource>& SRVs)
+void ImageFilter::SetSRVOffsets(Renderer* pRenderer, const std::vector<ImageResource>& SRVs)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 
+	ResourceManager* pManager = pRenderer->GetResourceManager();
 	CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(pManager->m_pCBVSRVUAVHeap->GetCPUDescriptorHandleForHeapStart());
 	CD3DX12_CPU_DESCRIPTOR_HANDLE startSrvHandle(srvHandle);
 	const UINT CBV_SRV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
@@ -243,10 +251,11 @@ void ImageFilter::SetSRVOffsets(ResourceManager* pManager, const std::vector<Ima
 	}
 }
 
-void ImageFilter::SetRTVOffsets(ResourceManager* pManager, const std::vector<ImageResource>& RTVs)
+void ImageFilter::SetRTVOffsets(Renderer* pRenderer, const std::vector<ImageResource>& RTVs)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 
+	ResourceManager* pManager = pRenderer->GetResourceManager();
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(pManager->m_pRTVHeap->GetCPUDescriptorHandleForHeapStart());
 	CD3DX12_CPU_DESCRIPTOR_HANDLE startRtvHandle(rtvHandle);
 	const UINT RTV_DESCRIPTOR_SIZE = pManager->m_RTVDescriptorSize;
@@ -260,10 +269,11 @@ void ImageFilter::SetRTVOffsets(ResourceManager* pManager, const std::vector<Ima
 	}
 }
 
-void ImageFilter::SetDescriptorHeap(ResourceManager* pManager)
+void ImageFilter::SetDescriptorHeap(Renderer* pRenderer)
 {
-	_ASSERT(pManager);
+	_ASSERT(pRenderer);
 
+	ResourceManager* pManager = pRenderer->GetResourceManager();
 	ID3D12Device5* pDevice = pManager->m_pDevice;
 	ID3D12DescriptorHeap* pCBVSRVHeap = pManager->m_pCBVSRVUAVHeap;
 	const UINT CBV_SRV_UAV_DESCRIPTOR_SIZE = pManager->m_CBVSRVUAVDescriptorSize;
