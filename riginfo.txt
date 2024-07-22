@@ -29,3 +29,6 @@ https://stackoverflow.com/questions/50143649/what-does-moffsetmatrix-actually-do
 https://ogldev.org/www/tutorial38/tutorial38.html
 https://assimp.sourceforge.net/lib_html/structai_bone.html
 https://github.com/assimp/assimp/pull/1803
+
+physx 샘플 코드는 별 다른게 없음..
+낼 뭐 해보면서 만들어야 할듯..

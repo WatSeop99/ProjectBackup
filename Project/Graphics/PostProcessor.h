@@ -54,8 +54,8 @@ protected:
 
 private:
 	Mesh* m_pScreenMesh = nullptr;
-	D3D12_VIEWPORT m_Viewport = { 0.0f, };
-	D3D12_RECT m_ScissorRect = { 0.0f, };
+	D3D12_VIEWPORT m_Viewport = { 0, };
+	D3D12_RECT m_ScissorRect = { 0, };
 	UINT m_ScreenWidth = 0;
 	UINT m_ScreenHeight = 0;
 

@@ -1766,8 +1766,8 @@ void Renderer::present()
 {
 	fence();
 
-	UINT syncInterval = 1;	  // VSync On
-	// UINT syncInterval = 0;  // VSync Off
+	// UINT syncInterval = 1;	  // VSync On
+	UINT syncInterval = 0;  // VSync Off
 	UINT presentFlags = 0;
 
 	if (!syncInterval)
