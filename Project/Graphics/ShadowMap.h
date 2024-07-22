@@ -48,8 +48,8 @@ private:
 	UINT m_LightType = LIGHT_OFF;
 	const UINT m_TOTAL_LIGHT_TYPE = (LIGHT_DIRECTIONAL | LIGHT_POINT | LIGHT_SPOT);
 
-	D3D12_VIEWPORT m_pViewPorts[6];
-	D3D12_RECT m_pScissorRects[6];
+	D3D12_VIEWPORT m_pViewPorts[6] = { 0.0f, };
+	D3D12_RECT m_pScissorRects[6] = { 0.0f, };
 
 	union
 	{
