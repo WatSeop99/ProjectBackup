@@ -1,6 +1,8 @@
 #pragma once
 
-class ResourceManager;
+#include "../Renderer/Renderer.h"
+
+class Renderer;
 
 class ConstantBuffer
 {
@@ -8,7 +10,7 @@ public:
 	ConstantBuffer() = default;
 	~ConstantBuffer() { Clear(); }
 
-	void Initialize(ResourceManager* pManager, UINT64 bufferSize);
+	void Initialize(Renderer* pRenderer, UINT64 bufferSize);
 
 	void Upload();
 

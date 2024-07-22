@@ -7,6 +7,7 @@
 #include "../Graphics/Light.h"
 #include "../Model/Model.h"
 #include "RenderThread.h"
+#include "ResourceManager.h"
 #include "../Model/SkinnedMeshModel.h"
 #include "../Graphics/PostProcessor.h"
 
@@ -65,9 +66,10 @@ protected:
 
 	// for single thread.
 	void beginRender();
-	void shadowMapRender();
-	void objectRender();
-	void mirrorRender();
+	void renderShadowmap();
+	void renderObject();
+	void renderMirror();
+	void renderObjectBoundingModel();
 	void postProcess();
 	void endRender();
 	void present();

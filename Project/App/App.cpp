@@ -152,11 +152,11 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		// 조명 0.
 		m_Lights[0].Property.Radiance = Vector3(3.0f);
 		m_Lights[0].Property.FallOffEnd = 10.0f;
-		m_Lights[0].Property.Position = Vector3(0.0f, 0.0f, 0.0f);
+		m_Lights[0].Property.Position = Vector3(0.0f, 0.5f, 0.0f);
 		m_Lights[0].Property.Direction = Vector3(0.0f, 0.0f, 1.0f);
 		m_Lights[0].Property.SpotPower = 3.0f;
-		m_Lights[0].Property.LightType = LIGHT_POINT;
-		m_Lights[0].Property.Radius = 0.03f;
+		m_Lights[0].Property.LightType = LIGHT_POINT | LIGHT_SHADOW;
+		m_Lights[0].Property.Radius = 0.04f;
 		m_Lights[0].Initialize(pResourceManager);
 
 		// 조명 1.
@@ -166,8 +166,8 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		m_Lights[1].Property.SpotPower = 2.0f;
 		m_Lights[1].Property.Direction = Vector3(0.0f, -0.5f, 1.7f) - m_Lights[1].Property.Position;
 		m_Lights[1].Property.Direction.Normalize();
-		m_Lights[1].Property.LightType = LIGHT_SPOT;
-		m_Lights[1].Property.Radius = 0.03f;
+		m_Lights[1].Property.LightType = LIGHT_SPOT | LIGHT_SHADOW;
+		m_Lights[1].Property.Radius = 0.02f;
 		m_Lights[1].Initialize(pResourceManager);
 
 		// 조명 2.
@@ -175,7 +175,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		m_Lights[2].Property.Position = Vector3(5.0f, 5.0f, 5.0f);
 		m_Lights[2].Property.Direction = Vector3(-1.0f, -1.0f, -1.0f);
 		m_Lights[2].Property.Direction.Normalize();
-		m_Lights[2].Property.LightType = LIGHT_DIRECTIONAL;
+		m_Lights[2].Property.LightType = LIGHT_DIRECTIONAL | LIGHT_SHADOW;
 		m_Lights[2].Property.Radius = 0.05f;
 		m_Lights[2].Initialize(pResourceManager);
 	}
@@ -302,6 +302,37 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 
 		m_RenderObjects.push_back((Model*)m_pCharacter);
 	}
+
+	// 경사면
+	{
+		Model* pSlope = nullptr;
+		MeshInfo mesh = INIT_MESH_INFO;
+		MakeSlope(&mesh, 10.0f, 3.0f);
+
+		std::wstring path = L"./Assets/Textures/PBR/stringy-marble-ue/";
+		mesh.szAlbedoTextureFileName = path + L"stringy_marble_albedo.png";
+		mesh.szEmissiveTextureFileName = L"";
+		mesh.szAOTextureFileName = path + L"stringy_marble_ao.png";
+		mesh.szMetallicTextureFileName = path + L"stringy_marble_Metallic.png";
+		mesh.szNormalTextureFileName = path + L"stringy_marble_Normal-dx.png";
+		mesh.szRoughnessTextureFileName = path + L"stringy_marble_Roughness.png";
+	
+		pSlope = new Model(pResourceManager, { mesh });
+
+		MaterialConstant* pGroundMaterialConst = (MaterialConstant*)pSlope->Meshes[0]->MaterialConstant.pData;
+		pGroundMaterialConst->AlbedoFactor = Vector3(0.7f);
+		pGroundMaterialConst->EmissionFactor = Vector3(0.0f);
+		pGroundMaterialConst->MetallicFactor = 0.5f;
+		pGroundMaterialConst->RoughnessFactor = 0.3f;
+
+		// Vector3 position = Vector3(0.0f, -1.0f, 0.0f);
+		Vector3 position = Vector3(0.0f, -0.5f, 0.0f);
+		Matrix newWorld = Matrix::CreateRotationY(90.0f * DirectX::XM_PI / 180.0f) * Matrix::CreateTranslation(position);
+		pSlope->UpdateWorld(newWorld);
+
+		pSlope->ModelType = DefaultModel;
+		m_RenderObjects.push_back(pSlope);
+	}
 }
 
 void App::updateAnimationState(const float DELTA_TIME)
@@ -401,6 +432,9 @@ LB_IK_PROCESS:
 	m_pCharacter->UpdateCharacterIK(m_PickedTranslation, m_PickedEndEffectorType, s_State, s_FrameCount, DELTA_TIME);
 
 LB_UPDATE:
+	// capule collider 처리.
+
+
 	m_pCharacter->UpdateAnimation(s_State, s_FrameCount);
 	++s_FrameCount;
 }

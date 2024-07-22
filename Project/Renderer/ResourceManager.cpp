@@ -1,23 +1,24 @@
-#include <Windows.h>
-#include <d3d12.h>
-#include <dxgi1_6.h>
-#include <d3d11on12.h>
-#include <d3dx12/d3dx12.h>
-#include <d3dcompiler.h>
+//#include <Windows.h>
+//#include <d3d12.h>
+//#include <dxgi1_6.h>
+//#include <d3d11on12.h>
+//#include <d3dx12/d3dx12.h>
+//#include <d3dcompiler.h>
+#include "../pch.h"
 #include "../Graphics/GraphicsUtil.h"
 #include "ResourceManager.h"
 
-#define BREAK_IF_FAILED(hr) \
-		if (FAILED(hr))		\
-		{					\
-			__debugbreak(); \
-		}
-#define SAFE_RELEASE(p)		\
-		if (p)				\
-		{					\
-			(p)->Release(); \
-			(p) = nullptr;	\
-		}
+//#define BREAK_IF_FAILED(hr) \
+//		if (FAILED(hr))		\
+//		{					\
+//			__debugbreak(); \
+//		}
+//#define SAFE_RELEASE(p)		\
+//		if (p)				\
+//		{					\
+//			(p)->Release(); \
+//			(p) = nullptr;	\
+//		}
 
 void ResourceManager::Initialize(InitialData* pInitialData)
 {

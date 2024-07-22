@@ -366,15 +366,24 @@ void ShadowMap::SetDescriptorHeap(ResourceManager* pManager)
 			pResource = m_SpotLightShadowBuffer.GetResource();
 
 			dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
-			dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-			dsvDesc.Texture2D.MipSlice = 0;
+			// dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+			dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
+			// dsvDesc.Texture2D.MipSlice = 0;
+			dsvDesc.Texture2DArray.FirstArraySlice = 0;
+			dsvDesc.Texture2DArray.MipSlice = 0;
+			dsvDesc.Texture2DArray.ArraySize = 1;
 			pDevice->CreateDepthStencilView(pResource, &dsvDesc, dsvHandle);
 			m_SpotLightShadowBuffer.SetDSVHandle(dsvHandle);
 
 			srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
-			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-			srvDesc.Texture2D.MostDetailedMip = 0;
-			srvDesc.Texture2D.MipLevels = 1;
+			// srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+			/*srvDesc.Texture2D.MostDetailedMip = 0;
+			srvDesc.Texture2D.MipLevels = 1;*/
+			srvDesc.Texture2DArray.MostDetailedMip = 0;
+			srvDesc.Texture2DArray.MipLevels = 1;
+			srvDesc.Texture2DArray.FirstArraySlice = 0;
+			srvDesc.Texture2DArray.ArraySize = 1;
 			pDevice->CreateShaderResourceView(pResource, &srvDesc, cbvSrvHandle);
 			m_SpotLightShadowBuffer.SetSRVHandle(cbvSrvHandle);
 		}

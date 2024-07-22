@@ -73,9 +73,10 @@ void Renderer::Render()
 {
 	beginRender();
 
-	shadowMapRender();
-	objectRender();
-	mirrorRender();
+	renderShadowmap();
+	renderObject();
+	renderMirror();
+	renderObjectBoundingModel();
 	postProcess();
 
 	endRender();
@@ -1191,7 +1192,7 @@ void Renderer::beginRender()
 #endif
 }
 
-void Renderer::shadowMapRender()
+void Renderer::renderShadowmap()
 {
 #ifdef USE_MULTI_THREAD
 
@@ -1275,7 +1276,7 @@ void Renderer::shadowMapRender()
 #endif
 }
 
-void Renderer::objectRender()
+void Renderer::renderObject()
 {
 #ifdef USE_MULTI_THREAD
 
@@ -1386,12 +1387,11 @@ void Renderer::objectRender()
 #endif
 }
 
-void Renderer::mirrorRender()
+void Renderer::renderMirror()
 {
 	if (!m_pMirror)
 	{
 		return;
-		// goto LB_OBB;
 	}
 
 #ifdef USE_MULTI_THREAD
@@ -1489,8 +1489,11 @@ void Renderer::mirrorRender()
 	m_pResourceManager->SetCommonState(MirrorBlend);
 	m_pMirror->Render(m_pResourceManager, MirrorBlend);
 
+#endif
+}
 
-LB_OBB:
+void Renderer::renderObjectBoundingModel()
+{
 	// obb rendering
 	for (UINT64 i = 0, size = m_pRenderObjects->size(); i < size; ++i)
 	{
@@ -1505,7 +1508,7 @@ LB_OBB:
 		switch (pCurModel->ModelType)
 		{
 			case DefaultModel:
-				pCurModel->RenderBoundingSphere(m_pResourceManager, Wire);
+				// pCurModel->RenderBoundingSphere(m_pResourceManager, Wire);
 				break;
 
 			case SkinnedModel:
@@ -1520,8 +1523,6 @@ LB_OBB:
 				break;
 		}
 	}
-
-#endif
 }
 
 void Renderer::postProcess()

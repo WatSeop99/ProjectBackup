@@ -47,9 +47,10 @@
 #include <process.h>
 #include <synchapi.h>
 
-#define USE_MULTI_THREAD
+// #define USE_MULTI_THREAD
 
-#include "Renderer/ResourceManager.h"
+#include "Renderer/Renderer.h"
+// #include "Renderer/ResourceManager.h"
 
 #define BREAK_IF_FAILED(hr) \
 		if (FAILED(hr))		\

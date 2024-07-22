@@ -20,4 +20,6 @@ void MakeSphere(MeshInfo* pDst, const float RADIUS, const int NUM_SLICES, const 
 void MakeTetrahedron(MeshInfo* pDst);
 void MakeIcosahedron(MeshInfo* pDst);
 
+void MakeSlope(MeshInfo* pDst, const float ANGLE, const float LENGTH);
+
 void SubdivideToSphere(MeshInfo* pDst, const float RADIUS, MeshInfo& meshData);

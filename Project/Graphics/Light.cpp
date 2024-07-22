@@ -30,6 +30,8 @@ void Light::Initialize(ResourceManager* pManager)
 			break;
 
 		case LIGHT_SPOT:
+			break;
+
 		default:
 			break;
 	}

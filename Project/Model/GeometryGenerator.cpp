@@ -47,10 +47,10 @@ void Normalize(const Vector3& CENTER, const float LONGEST_LENGTH, std::vector<Me
 	// Normalize vertices
 	Vector3 vmin(1000, 1000, 1000);
 	Vector3 vmax(-1000, -1000, -1000);
-	for (size_t i = 0, totalMesh = meshes.size(); i < totalMesh; ++i)
+	for (UINT64 i = 0, totalMesh = meshes.size(); i < totalMesh; ++i)
 	{
 		MeshInfo& curMesh = meshes[i];
-		for (size_t j = 0, vertSize = curMesh.Vertices.size(); j < vertSize; ++j)
+		for (UINT64 j = 0, vertSize = curMesh.Vertices.size(); j < vertSize; ++j)
 		{
 			Vertex& v = curMesh.Vertices[j];
 			vmin.x = XMMin(vmin.x, v.Position.x);
@@ -66,7 +66,7 @@ void Normalize(const Vector3& CENTER, const float LONGEST_LENGTH, std::vector<Me
 	float scale = LONGEST_LENGTH / XMMax(XMMax(dx, dy), dz);
 	Vector3 translation = -(vmin + vmax) * 0.5f + CENTER;
 
-	for (size_t i = 0, totalMesh = meshes.size(); i < totalMesh; ++i)
+	for (UINT64 i = 0, totalMesh = meshes.size(); i < totalMesh; ++i)
 	{
 		MeshInfo& curMesh = meshes[i];
 		for (size_t j = 0, vertSize = curMesh.Vertices.size(); j < vertSize; ++j)
@@ -729,6 +729,113 @@ void MakeIcosahedron(MeshInfo* pDst)
 		1,  10, 8, 10, 3, 8, 8, 3,  5, 3, 2, 5,  3,  7, 2,
 		3,  10, 7, 10, 6, 7, 6, 11, 7, 6, 0, 11, 6,  1, 0,
 		10, 1,  6, 11, 0, 9, 2, 11, 9, 5, 2, 9,  11, 2, 7
+	};
+}
+
+void MakeSlope(MeshInfo* pDst, const float ANGLE, const float LENGTH)
+{
+	// LENGTH는 하단면 정사각형의 한 변의 길이.
+	// ANGLE은 경사면 각도(라디안 아님.)
+
+	_ASSERT(pDst);
+
+	std::vector<Vertex>& vertices = pDst->Vertices;
+	std::vector<UINT>& indices = pDst->Indices;
+	
+	const float TO_RADIAN = DirectX::XM_PI / 180.0f;
+	const float HALF_LENGTH = LENGTH * 0.5f;
+	const float ANGLE_TANGENT = tanf(ANGLE * TO_RADIAN);
+	const float HEIGHT = ANGLE_TANGENT * LENGTH;
+
+	vertices.resize(18);
+
+	// 하단면.
+	vertices[0].Position = Vector3(-HALF_LENGTH, 0.0f, -HALF_LENGTH);
+	vertices[0].Normal = Vector3(0.0f, -1.0f, 0.0f);
+	vertices[0].Texcoord = Vector2(0.0f, 0.0f);
+	
+	vertices[1].Position = Vector3(HALF_LENGTH, 0.0f, -HALF_LENGTH);
+	vertices[1].Normal = Vector3(0.0f, -1.0f, 0.0f);
+	vertices[1].Texcoord = Vector2(0.0f, 1.0f);
+	
+	vertices[2].Position = Vector3(-HALF_LENGTH, 0.0f, HALF_LENGTH);
+	vertices[2].Normal = Vector3(0.0f, -1.0f, 0.0f);
+	vertices[2].Texcoord = Vector2(1.0f, 0.0f);
+	
+	vertices[3].Position= Vector3(HALF_LENGTH, 0.0f, HALF_LENGTH);
+	vertices[3].Normal = Vector3(0.0f, -1.0f, 0.0f);
+	vertices[3].Texcoord = Vector2(1.0f, 1.0f);
+
+	// 상단면.
+	vertices[4].Position = Vector3(-HALF_LENGTH, 0.0f, -HALF_LENGTH);
+	vertices[4].Texcoord = Vector2(1.0f, 0.0f);
+
+	vertices[5].Position = Vector3(HALF_LENGTH, 0.0f, -HALF_LENGTH);
+	vertices[5].Texcoord = Vector2(1.0f, 1.0f);
+
+	vertices[6].Position = Vector3(-HALF_LENGTH, HEIGHT, HALF_LENGTH);
+	vertices[6].Texcoord = Vector2(0.0f, 0.0f);
+
+	vertices[7].Position = Vector3(HALF_LENGTH, HEIGHT, HALF_LENGTH);
+	vertices[7].Texcoord = Vector2(0.0f, 1.0f);
+
+	Vector3 vecA = vertices[5].Position - vertices[4].Position;
+	Vector3 vecB = vertices[6].Position - vertices[4].Position;
+	Vector3 normal = vecA.Cross(vecB);
+	for (int i = 4; i < 8; ++i)
+	{
+		vertices[i].Normal = normal;
+	}
+
+	// 양옆면.
+	vertices[8].Position = Vector3(-HALF_LENGTH, 0.0f, -HALF_LENGTH);
+	vertices[8].Normal = Vector3(-1.0f, 0.0f, 0.0f);
+	vertices[8].Texcoord = Vector2(1.0f, 1.0f);
+
+	vertices[9].Position = Vector3(-HALF_LENGTH, 0.0f, HALF_LENGTH);
+	vertices[9].Normal = Vector3(-1.0f, 0.0f, 0.0f);
+	vertices[9].Texcoord = Vector2(1.0f, 0.0f);
+
+	vertices[10].Position = Vector3(-HALF_LENGTH, HEIGHT, HALF_LENGTH);
+	vertices[10].Normal = Vector3(-1.0f, 0.0f, 0.0f);
+	vertices[10].Texcoord = Vector2(ANGLE_TANGENT, 0.0f);
+
+	vertices[11].Position = Vector3(HALF_LENGTH, 0.0f, -HALF_LENGTH);
+	vertices[11].Normal = Vector3(1.0f, 0.0f, 0.0f);
+	vertices[11].Texcoord = Vector2(1.0f, 0.0f);
+
+	vertices[12].Position = Vector3(HALF_LENGTH, HEIGHT, HALF_LENGTH);
+	vertices[12].Normal = Vector3(1.0f, 0.0f, 0.0f);
+	vertices[12].Texcoord = Vector2(ANGLE_TANGENT, 1.0f);
+	
+	vertices[13].Position = Vector3(HALF_LENGTH, 0.0f, HALF_LENGTH);
+	vertices[13].Normal = Vector3(1.0f, 0.0f, 0.0f);
+	vertices[13].Texcoord = Vector2(1.0f, 1.0f);
+
+	// 뒷면.
+	vertices[14].Position = Vector3(-HALF_LENGTH, 0.0f, HALF_LENGTH);
+	vertices[14].Normal = Vector3(0.0f, 0.0f, 1.0f);
+	vertices[14].Texcoord = Vector2(1.0f, 1.0f);
+
+	vertices[15].Position = Vector3(HALF_LENGTH, 0.0f, HALF_LENGTH);
+	vertices[15].Normal = Vector3(0.0f, 0.0f, 1.0f);
+	vertices[15].Texcoord = Vector2(1.0f, 0.0f);
+
+	vertices[16].Position = Vector3(-HALF_LENGTH, HEIGHT, HALF_LENGTH);
+	vertices[16].Normal = Vector3(0.0f, 0.0f, 1.0f);
+	vertices[16].Texcoord = Vector2(0.0f, 1.0f);
+	
+	vertices[17].Position = Vector3(HALF_LENGTH, HEIGHT, HALF_LENGTH);
+	vertices[17].Normal = Vector3(0.0f, 0.0f, 1.0f);
+	vertices[17].Texcoord = Vector2(0.0f, 0.0f);
+
+	// 인덱스
+	indices = 
+	{
+		0, 1, 2, 1, 3, 2,		// 하단면
+		4, 6, 5, 5, 6, 7,		// 상단면
+		8, 9, 10, 11, 12, 13,	// 양쪽면
+		14, 17, 16, 15, 17, 14,	// 뒷면
 	};
 }
 
