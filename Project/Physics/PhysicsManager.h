@@ -1,5 +1,7 @@
 #pragma once
 
+#include <physx/cooking/PxCooking.h>
+
 class PhysicsManager
 {
 public:
@@ -10,9 +12,14 @@ public:
 
 	void Update(const float DELTA_TIME);
 
+	void CookingStaticTriangleMesh(const std::vector<Vertex>* pVERTICES, const std::vector<UINT32>* pINDICES, const Matrix& WORLD);
 	void AddActor(physx::PxRigidActor* pActor);
 
 	void Cleanup();
+
+	inline physx::PxPhysics* GetPhysics() { return m_pPhysics; }
+	inline physx::PxScene* GetScene() { return m_pScene; }
+	inline physx::PxControllerManager* GetControllerManager() { return m_pControllerManager; }
 
 public:
 	physx::PxMaterial* pCommonMaterial = nullptr;
@@ -28,5 +35,5 @@ private:
 	physx::PxPvd* m_pPVD = nullptr;
 	physx::PxTaskManager* m_pTaskManager = nullptr;
 	physx::PxDefaultCpuDispatcher* m_pDispatcher = nullptr;
-
+	physx::PxControllerManager* m_pControllerManager = nullptr;
 };

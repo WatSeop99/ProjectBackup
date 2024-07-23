@@ -15,7 +15,7 @@ public:
 	void InitAnimationData(Renderer* pRenderer, const AnimationData& ANIM_DATA);
 
 	void UpdateConstantBuffers() override;
-	void UpdateAnimation(int clipID, int frame) override;
+	void UpdateAnimation(int clipID, int frame, const float DELTA_TIME) override;
 	void UpdateCharacterIK(Vector3& target, int chainPart, int clipID, int frame, const float DELTA_TIME);
 
 	void Render(Renderer* pRenderer, eRenderPSOType psoSetting) override;
@@ -42,6 +42,7 @@ protected:
 public:
 	NonImageTexture BoneTransforms;
 	AnimationData CharacterAnimationData;
+	CharacterMoveInfo MoveInfo;
 
 	DirectX::BoundingSphere RightHandMiddle;
 	DirectX::BoundingSphere LeftHandMiddle;
@@ -53,7 +54,7 @@ public:
 	Chain RightLeg;
 	Chain LeftLeg;
 
-	// capsule 계산용 클래스 필요.
+	physx::PxController* pController = nullptr;
 
 private:
 	Mesh* m_ppRightArm[4] = { nullptr, }; // right arm - right fore arm - right hand - right hand middle.

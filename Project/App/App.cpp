@@ -8,6 +8,7 @@ void App::Initialize()
 
 	initMainWidndow();
 	initDirect3D();
+	initPhysics();
 	initExternalData(&totalRenderObjectCount);
 
 	Renderer::InitialData initData =
@@ -123,6 +124,8 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 	_ASSERT(pTotalRenderObjectCount);
 
 	Renderer* pRenderer = this;
+	PhysicsManager* pPhysicsManager = GetPhysicsManager();
+	physx::PxPhysics* pPhysics = pPhysicsManager->GetPhysics();
 
 	m_Lights.resize(MAX_LIGHTS);
 	m_LightSpheres.resize(MAX_LIGHTS);
@@ -152,7 +155,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		// 조명 0.
 		m_Lights[0].Property.Radiance = Vector3(3.0f);
 		m_Lights[0].Property.FallOffEnd = 10.0f;
-		m_Lights[0].Property.Position = Vector3(0.0f, 0.5f, 0.0f);
+		m_Lights[0].Property.Position = Vector3(0.0f, 0.5f, -0.9f);
 		m_Lights[0].Property.Direction = Vector3(0.0f, 0.0f, 1.0f);
 		m_Lights[0].Property.SpotPower = 3.0f;
 		m_Lights[0].Property.LightType = LIGHT_POINT | LIGHT_SHADOW;
@@ -233,15 +236,19 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		pGroundMaterialConst->RoughnessFactor = 0.3f;
 
 		// Vector3 position = Vector3(0.0f, -1.0f, 0.0f);
-		Vector3 position = Vector3(0.0f, -0.5f, 0.0f);
+		// Vector3 position = Vector3(0.0f, -0.5f, 0.0f);
+		Vector3 position = Vector3(0.0f);
 		pGround->UpdateWorld(Matrix::CreateRotationX(DirectX::XM_PI * 0.5f) * Matrix::CreateTranslation(position));
 		pGround->bCastShadow = false; // 바닥은 그림자 만들기 생략.
 
 		m_MirrorPlane = DirectX::SimpleMath::Plane(position, Vector3(0.0f, 1.0f, 0.0f));
 		m_pMirror = pGround; // 바닥에 거울처럼 반사 구현.
 		pGround->ModelType = RenderObjectType_MirrorType;
-		// pGround->ModelType = DefaultModel;
 		m_RenderObjects.push_back(pGround);
+
+
+		physx::PxRigidStatic* pGroundPlane = physx::PxCreatePlane(*pPhysics, physx::PxPlane(0.0f, 1.0f, 0.0f, 0.0f), *(pPhysicsManager->pCommonMaterial));
+		pPhysicsManager->AddActor(pGroundPlane);
 	}
 
 	// Main Object.
@@ -249,8 +256,8 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		std::wstring path = L"./Assets/";
 		std::vector<std::wstring> clipNames =
 		{
-			L"CatwalkIdleTwistR.fbx", L"CatwalkIdleToWalkForward.fbx",
-			L"CatwalkWalkForward.fbx", L"CatwalkWalkStop.fbx",
+			L"CatwalkIdleTwistL.fbx", L"CatwalkIdleToWalkForward.fbx",
+			L"CatwalkWalkForward.fbx", L"CatwalkWalkStopTwistL.fbx",
 		};
 		AnimationData animationData;
 
@@ -286,7 +293,8 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 			m_pCharacter = new SkinnedMeshModel(pRenderer, characterMeshInfo, characterDefaultAnimData);
 		}
 
-		Vector3 center(0.0f, 0.0f, 2.0f);
+		// Vector3 center(0.0f, 0.5f, 2.0f);
+		Vector3 center(0.0f, 1.0f, 2.0f);
 		for (UINT64 i = 0, size = m_pCharacter->Meshes.size(); i < size; ++i)
 		{
 			Mesh* pCurMesh = m_pCharacter->Meshes[i];
@@ -299,15 +307,33 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		m_pCharacter->Name = "MainCharacter";
 		m_pCharacter->bIsPickable = true;
 		m_pCharacter->UpdateWorld(Matrix::CreateScale(1.0f) * Matrix::CreateTranslation(center));
-
+		m_pCharacter->MoveInfo.Position = center;
 		m_RenderObjects.push_back((Model*)m_pCharacter);
+
+
+		physx::PxControllerManager* pControlManager = pPhysicsManager->GetControllerManager();
+		physx::PxCapsuleControllerDesc capsuleDesc;
+		physx::PxController* pController = nullptr;
+
+		// capsule 메시랑 동일하게 설정. 단, 여기서는 y값을 0으로 설정해줘야 함.
+		capsuleDesc.height = (m_pCharacter->BoundingSphere.Radius * 1.3f) - 0.4f;
+		capsuleDesc.radius = 0.2f;
+		capsuleDesc.upDirection = physx::PxVec3(0.0f, 1.0f, 0.0f);
+		capsuleDesc.position = physx::PxExtendedVec3(m_pCharacter->MoveInfo.Position.x, m_pCharacter->MoveInfo.Position.y - 0.6f, -m_pCharacter->MoveInfo.Position.z);
+		capsuleDesc.material = pPhysicsManager->pCommonMaterial;
+		pController = pControlManager->createController(capsuleDesc);
+		if (!pController)
+		{
+			__debugbreak();
+		}
+		m_pCharacter->pController = pController;
 	}
 
 	// 경사면
 	{
 		Model* pSlope = nullptr;
 		MeshInfo mesh = INIT_MESH_INFO;
-		MakeSlope(&mesh, 10.0f, 3.0f);
+		MakeSlope(&mesh, 20.0f, 1.5f);
 
 		std::wstring path = L"./Assets/Textures/PBR/stringy-marble-ue/";
 		mesh.szAlbedoTextureFileName = path + L"stringy_marble_albedo.png";
@@ -316,7 +342,7 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		mesh.szMetallicTextureFileName = path + L"stringy_marble_Metallic.png";
 		mesh.szNormalTextureFileName = path + L"stringy_marble_Normal-dx.png";
 		mesh.szRoughnessTextureFileName = path + L"stringy_marble_Roughness.png";
-	
+
 		pSlope = new Model(pRenderer, { mesh });
 
 		MaterialConstant* pGroundMaterialConst = (MaterialConstant*)pSlope->Meshes[0]->MaterialConstant.pData;
@@ -326,12 +352,23 @@ void App::initExternalData(UINT64* pTotalRenderObjectCount)
 		pGroundMaterialConst->RoughnessFactor = 0.3f;
 
 		// Vector3 position = Vector3(0.0f, -1.0f, 0.0f);
-		Vector3 position = Vector3(0.0f, -0.5f, 0.0f);
+		Vector3 position(0.0f);
 		Matrix newWorld = Matrix::CreateRotationY(90.0f * DirectX::XM_PI / 180.0f) * Matrix::CreateTranslation(position);
 		pSlope->UpdateWorld(newWorld);
 
 		pSlope->ModelType = RenderObjectType_DefaultType;
 		m_RenderObjects.push_back(pSlope);
+
+		// mesh.indices ==> right-hand coordinates에 맞춰 변경.
+		mesh.Indices = 
+		{
+			0, 2, 1, 1, 2, 3, // 하단면
+			4, 5, 6, 5, 7, 6, // 상단면
+			8, 10, 9, 11, 13, 12, // 양쪽면
+			14, 16, 17, 14, 16, 15, // 뒷면
+		};
+
+		pPhysicsManager->CookingStaticTriangleMesh(&mesh.Vertices, &mesh.Indices, pSlope->World);
 	}
 }
 
@@ -346,10 +383,10 @@ void App::updateAnimationState(const float DELTA_TIME)
 	static int s_FrameCount = 0;
 
 	// 별도의 애니메이션 클립이 없을 경우.
-	if (m_pCharacter->CharacterAnimationData.Clips.size() == 1)
+	/*if (m_pCharacter->CharacterAnimationData.Clips.size() == 1)
 	{
 		goto LB_IK_PROCESS;
-	}
+	}*/
 
 	{
 		const UINT64 ANIMATION_CLIP_SIZE = m_pCharacter->CharacterAnimationData.Clips[s_State].Keys[0].size();
@@ -359,7 +396,7 @@ void App::updateAnimationState(const float DELTA_TIME)
 				if (m_Keyboard.bPressed[VK_UP])
 				{
 					// reset all update rot.
-					m_pCharacter->CharacterAnimationData.ResetAllUpdateRotationInClip(s_State);
+					// m_pCharacter->CharacterAnimationData.ResetAllUpdateRotationInClip(s_State);
 
 					s_State = 1;
 					s_FrameCount = 0;
@@ -371,6 +408,8 @@ void App::updateAnimationState(const float DELTA_TIME)
 				break;
 
 			case 1:
+				m_pCharacter->MoveInfo.Position = m_pCharacter->MoveInfo.Position + m_pCharacter->MoveInfo.Direction * m_pCharacter->MoveInfo.Velocity * 0.5f * DELTA_TIME;
+
 				if (s_FrameCount == ANIMATION_CLIP_SIZE)
 				{
 					// reset all update rot.
@@ -382,18 +421,45 @@ void App::updateAnimationState(const float DELTA_TIME)
 				break;
 
 			case 2:
+			{
+				m_pCharacter->MoveInfo.Position = m_pCharacter->MoveInfo.Position + m_pCharacter->MoveInfo.Direction * m_pCharacter->MoveInfo.Velocity * DELTA_TIME;
+
+				// moveinfo.direction과 moveinfo.rotation을 오른쪽으로 같이 회전.
 				if (m_Keyboard.bPressed[VK_RIGHT])
 				{
-					m_pCharacter->CharacterAnimationData.AccumulatedRootTransform =
+					Matrix rotMatrix = Matrix::CreateFromYawPitchRoll(DirectX::XM_PI * 60.0f / 180.0f * DELTA_TIME * 2.0f, 0.0f, 0.0f);
+					Quaternion newRot = Quaternion::CreateFromRotationMatrix(rotMatrix);
+
+					m_pCharacter->MoveInfo.Direction = Vector3::TransformNormal(m_pCharacter->MoveInfo.Direction, rotMatrix);
+					m_pCharacter->MoveInfo.Rotation = Quaternion::Concatenate(m_pCharacter->MoveInfo.Rotation, newRot);
+
+					/*m_pCharacter->CharacterAnimationData.AccumulatedRootTransform =
 						Matrix::CreateRotationY(DirectX::XM_PI * 60.0f / 180.0f * DELTA_TIME * 2.0f) *
-						m_pCharacter->CharacterAnimationData.AccumulatedRootTransform;
+						m_pCharacter->CharacterAnimationData.AccumulatedRootTransform;*/
 				}
+				// moveinfo.direction과 moveinfo.rotation을 왼쪽으로 같이 회전.
 				if (m_Keyboard.bPressed[VK_LEFT])
 				{
-					m_pCharacter->CharacterAnimationData.AccumulatedRootTransform =
+					Matrix rotMatrix = Matrix::CreateFromYawPitchRoll(-DirectX::XM_PI * 60.0f / 180.0f * DELTA_TIME * 2.0f, 0.0f, 0.0f);
+					Quaternion newRot = Quaternion::CreateFromRotationMatrix(rotMatrix);
+
+					m_pCharacter->MoveInfo.Direction = Vector3::TransformNormal(m_pCharacter->MoveInfo.Direction, rotMatrix);
+					m_pCharacter->MoveInfo.Rotation = Quaternion::Concatenate(m_pCharacter->MoveInfo.Rotation, newRot);
+
+					/*m_pCharacter->CharacterAnimationData.AccumulatedRootTransform =
 						Matrix::CreateRotationY(-DirectX::XM_PI * 60.0f / 180.0f * DELTA_TIME * 2.0f) *
-						m_pCharacter->CharacterAnimationData.AccumulatedRootTransform;
+						m_pCharacter->CharacterAnimationData.AccumulatedRootTransform;*/
 				}
+
+				// capule collider 처리.
+				physx::PxVec3 dir = physx::PxVec3(m_pCharacter->CharacterAnimationData.MoveDirection.x, m_pCharacter->CharacterAnimationData.MoveDirection.y, m_pCharacter->CharacterAnimationData.MoveDirection.z);
+				physx::PxControllerCollisionFlags flags = m_pCharacter->pController->move(dir, 0.5f, DELTA_TIME, physx::PxControllerFilters());
+				physx::PxExtendedVec3 nextPos = m_pCharacter->pController->getPosition();
+				Vector3 nextPosVec((float)nextPos.x, (float)nextPos.y, -(float)nextPos.z);
+				m_pCharacter->CharacterAnimationData.MoveDirection = nextPosVec - m_pCharacter->CharacterAnimationData.MoveDirection;
+				m_pCharacter->CharacterAnimationData.MoveDirection.Normalize();
+				// m_pCharacter->CharacterAnimationData.AccumulatedRootTransform = Matrix::CreateTranslation(nextPosVec) * m_pCharacter->CharacterAnimationData.AccumulatedRootTransform;
+
 				if (s_FrameCount == ANIMATION_CLIP_SIZE)
 				{
 					// 방향키를 누르고 있지 않으면 정지. (누르고 있으면 계속 걷기)
@@ -406,9 +472,12 @@ void App::updateAnimationState(const float DELTA_TIME)
 					}
 					s_FrameCount = 0;
 				}
-				break;
+			}
+			break;
 
 			case 3:
+				m_pCharacter->MoveInfo.Position = m_pCharacter->MoveInfo.Position + m_pCharacter->MoveInfo.Direction * m_pCharacter->MoveInfo.Velocity * 0.5f * DELTA_TIME;
+
 				if (s_FrameCount == ANIMATION_CLIP_SIZE)
 				{
 					// reset all update rot.
@@ -424,17 +493,14 @@ void App::updateAnimationState(const float DELTA_TIME)
 		}
 	}
 
-LB_IK_PROCESS:
-	if (!m_pPickedEndEffector)
-	{
-		goto LB_UPDATE;
-	}
-	m_pCharacter->UpdateCharacterIK(m_PickedTranslation, m_PickedEndEffectorType, s_State, s_FrameCount, DELTA_TIME);
+	//LB_IK_PROCESS:
+	//	if (!m_pPickedEndEffector)
+	//	{
+	//		goto LB_UPDATE;
+	//	}
+	//	m_pCharacter->UpdateCharacterIK(m_PickedTranslation, m_PickedEndEffectorType, s_State, s_FrameCount, DELTA_TIME);
 
-LB_UPDATE:
-	// capule collider 처리.
-
-
-	m_pCharacter->UpdateAnimation(s_State, s_FrameCount);
+	m_pCharacter->UpdateWorld(Matrix::CreateTranslation(m_pCharacter->MoveInfo.Position));
+	m_pCharacter->UpdateAnimation(s_State, s_FrameCount, DELTA_TIME);
 	++s_FrameCount;
 }

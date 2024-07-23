@@ -23,7 +23,7 @@ public:
 
 	virtual void UpdateConstantBuffers();
 	void UpdateWorld(const Matrix& WORLD);
-	virtual void UpdateAnimation(int clipID, int frame) { }
+	virtual void UpdateAnimation(int clipID, int frame, const float DELTA_TIME) { }
 
 	virtual void Render(Renderer* pRenderer, eRenderPSOType psoSetting);
 	virtual void Render(UINT threadIndex, ID3D12GraphicsCommandList* pCommandList, DynamicDescriptorPool* pDescriptorPool, ResourceManager* pManager, int psoSetting);

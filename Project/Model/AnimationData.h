@@ -24,7 +24,7 @@ struct AnimationClip
 		Vector3 Position;
 		Vector3 Scale = Vector3(1.0f);
 		Quaternion Rotation;
-		Quaternion UpdateRotation;
+		Quaternion IKUpdateRotation;
 	};
 
 	std::string Name;					 // Name of this animation clip.
@@ -34,6 +34,13 @@ struct AnimationClip
 	double Duration;					 // Duration of animation in ticks.
 	double TicksPerSec;					 // Frames per second.
 };
+struct CharacterMoveInfo
+{
+	Vector3 Position;
+	Vector3 Direction;
+	Quaternion Rotation;
+	float Velocity;
+};
 
 class AnimationData
 {
@@ -41,7 +48,7 @@ public:
 	AnimationData() = default;
 	~AnimationData() = default;
 
-	void Update(int clipID, int frame);
+	void Update(int clipID, int frame, const CharacterMoveInfo& MOVE_INFO);
 
 	void ResetAllUpdateRotationInClip(int clipID);
 
@@ -65,6 +72,7 @@ public:
 	Matrix RootTransform;
 	Matrix AccumulatedRootTransform;
 	Vector3 PrevPos;
+	Vector3 MoveDirection;
 };
 
 class Joint

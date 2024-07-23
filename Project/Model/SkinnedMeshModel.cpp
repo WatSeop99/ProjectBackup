@@ -18,7 +18,10 @@ void SkinnedMeshModel::Initialize(Renderer* pRenderer, const std::vector<MeshInf
 	initJointSpheres(pRenderer);
 	initChain();
 
-	return;
+	MoveInfo.Position = World.Translation();
+	MoveInfo.Direction = Vector3(0.0f, 0.0f, -1.0f); // should be normalized.
+	MoveInfo.Rotation = Quaternion();
+	MoveInfo.Velocity = 0.45f;
 }
 
 void SkinnedMeshModel::InitMeshBuffers(Renderer* pRenderer, const MeshInfo& MESH_INFO, Mesh* pNewMesh)
@@ -142,7 +145,7 @@ void SkinnedMeshModel::UpdateConstantBuffers()
 	}
 }
 
-void SkinnedMeshModel::UpdateAnimation(int clipID, int frame)
+void SkinnedMeshModel::UpdateAnimation(int clipID, int frame, const float DELTA_TIME)
 {
 	if (!bIsVisible)
 	{
@@ -150,7 +153,7 @@ void SkinnedMeshModel::UpdateAnimation(int clipID, int frame)
 	}
 
 	// 입력에 따른 변환행렬 업데이트.
-	CharacterAnimationData.Update(clipID, frame);
+	CharacterAnimationData.Update(clipID, frame, MoveInfo);
 
 	// 버퍼 업데이트.
 	Matrix* pBoneTransformConstData = (Matrix*)BoneTransforms.pData;
@@ -1008,7 +1011,6 @@ void SkinnedMeshModel::updateJointSpheres(int clipID, int frame)
 	// 캐릭터에서는 이를 방지하기 위해 bounding object만 따로 변환시킴.
 
 	const int ROOT_BONE_ID = CharacterAnimationData.BoneNameToID["mixamorig:Hips"];
-	// const Matrix ROOT_BONE_TRANSFORM = CharacterAnimationData.Get(ROOT_BONE_ID);
 	const Matrix ROOT_BONE_TRANSFORM = CharacterAnimationData.GetRootBoneTransformWithoutLocalRot(clipID, frame);
 	const Matrix CORRECTION_CENTER = Matrix::CreateTranslation(Vector3(0.2f, 0.05f, 0.0f));
 

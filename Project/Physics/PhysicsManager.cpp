@@ -15,6 +15,7 @@ void PhysicsManager::Initialize(UINT numThreads)
 		__debugbreak();
 	}
 	
+#ifdef _DEBUG
 	m_pPVD = PxCreatePvd(*m_pFoundation);
 	if (!m_pPVD)
 	{
@@ -22,7 +23,8 @@ void PhysicsManager::Initialize(UINT numThreads)
 	}
 
 	PxPvdTransport* pTransport = PxDefaultPvdSocketTransportCreate(PVD_HOST, 5425, 10);
-	m_pPVD->connect(*pTransport, PxPvdInstrumentationFlag::ePROFILE);
+	m_pPVD->connect(*pTransport, PxPvdInstrumentationFlag::eALL);
+#endif
 
 	m_pPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *m_pFoundation, PxTolerancesScale(), true, m_pPVD);
 	if (!m_pPhysics)
@@ -47,6 +49,7 @@ void PhysicsManager::Initialize(UINT numThreads)
 		__debugbreak();
 	}
 
+#ifdef _DEBUG
 	PxPvdSceneClient* pPVDClient = m_pScene->getScenePvdClient();
 	if (pPVDClient)
 	{
@@ -58,6 +61,7 @@ void PhysicsManager::Initialize(UINT numThreads)
 	{
 		__debugbreak();
 	}
+#endif
 
 	m_pTaskManager = PxTaskManager::createTaskManager(m_pFoundation->getErrorCallback(), m_pDispatcher);
 	if (!m_pTaskManager)
@@ -65,7 +69,12 @@ void PhysicsManager::Initialize(UINT numThreads)
 		__debugbreak();
 	}
 
-	// pCommonMaterial = m_pPhysics->createMaterial(0.5f, 0.5f, 0.6f);
+	m_pControllerManager = PxCreateControllerManager(*m_pScene);
+	if (!m_pControllerManager)
+	{
+		__debugbreak();
+	}
+
 	pCommonMaterial = m_pPhysics->createMaterial(0.5f, 0.5f, 0.6f); // (¸¶Âû·Â, dynamic ¸¶Âû·Â, Åº¼º·Â)
 }
 
@@ -73,8 +82,78 @@ void PhysicsManager::Update(const float DELTA_TIME)
 {
 	_ASSERT(m_pScene);
 
-	m_pScene->simulate(DELTA_TIME);
+	m_pScene->simulate(1.0f / 60.0f);
 	m_pScene->fetchResults(true);
+}
+
+void PhysicsManager::CookingStaticTriangleMesh(const std::vector<Vertex>* pVERTICES, const std::vector<UINT32>* pINDICES, const Matrix& WORLD)
+{
+	_ASSERT(m_pPhysics);
+	_ASSERT(m_pScene);
+
+	const UINT64 TOTAL_VERTEX = pVERTICES->size();
+	const UINT64 TOTAL_INDEX = pINDICES->size();
+	const Vector3 POSITION = WORLD.Transpose().Translation();
+	const PxVec3 POSITION_PX(POSITION.x, POSITION.y, -POSITION.z);
+	std::vector<PxVec3> vertices(TOTAL_VERTEX);
+	std::vector<PxU32> indices(TOTAL_INDEX);
+
+	for (UINT64 i = 0; i < TOTAL_VERTEX; ++i)
+	{
+		PxVec3& v = vertices[i];
+		const Vertex& originalV = (*pVERTICES)[i];
+
+		v.x = originalV.Position.x;
+		v.y = originalV.Position.y;
+		v.z = -originalV.Position.z; // right-hand coordinates.
+
+		// v = world.transform(v);
+	}
+	indices = *pINDICES;
+
+
+	PxTriangleMeshDesc meshDesc;
+	meshDesc.points.count = TOTAL_VERTEX;
+	meshDesc.points.stride = sizeof(PxVec3);
+	meshDesc.points.data = vertices.data();
+	meshDesc.triangles.count = TOTAL_INDEX / 3;
+	meshDesc.triangles.stride = 3 * sizeof(PxU32);
+	meshDesc.triangles.data = indices.data();
+
+	PxTolerancesScale scale;
+	PxCookingParams params(scale);
+
+	PxDefaultMemoryOutputStream writeBuffer;
+	PxTriangleMeshCookingResult::Enum result;
+
+	bool status = PxCookTriangleMesh(params, meshDesc, writeBuffer, &result);
+	if (!status)
+	{
+		__debugbreak();
+	}
+
+	PxDefaultMemoryInputData readBuffer(writeBuffer.getData(), writeBuffer.getSize());
+	PxTriangleMesh* pMesh = m_pPhysics->createTriangleMesh(readBuffer);
+	if (!pMesh)
+	{
+		__debugbreak();
+	}
+
+	PxRigidStatic* pPawn = m_pPhysics->createRigidStatic(PxTransform(POSITION_PX));
+	if (!pPawn)
+	{
+		__debugbreak();
+	}
+	
+	PxTriangleMeshGeometry geom(pMesh);
+	PxShape* pShape = m_pPhysics->createShape(geom, *pCommonMaterial);
+	if (!pShape)
+	{
+		__debugbreak();
+	}
+
+	pPawn->attachShape(*pShape);
+	m_pScene->addActor(*pPawn);
 }
 
 void PhysicsManager::AddActor(physx::PxRigidActor* pActor)
@@ -87,6 +166,12 @@ void PhysicsManager::AddActor(physx::PxRigidActor* pActor)
 
 void PhysicsManager::Cleanup()
 {
+	if (m_pControllerManager)
+	{
+		m_pControllerManager->purgeControllers();
+		m_pControllerManager->release();
+		m_pControllerManager = nullptr;
+	}
 	PX_RELEASE(m_pTaskManager);
 	PX_RELEASE(m_pScene);
 	PX_RELEASE(m_pDispatcher);

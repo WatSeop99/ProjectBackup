@@ -59,12 +59,12 @@ void Renderer::Initizlie(InitialData* pIntialData)
 	m_ScissorRect.top = 0;
 	m_ScissorRect.right = m_ScreenWidth;
 	m_ScissorRect.bottom = m_ScreenHeight;
-
-	m_PhysicsManager.Initialize(2);
 }
 
 void Renderer::Update(const float DELTA_TIME)
 {
+	m_PhysicsManager.Update(DELTA_TIME);
+
 	m_Camera.UpdateKeyboard(DELTA_TIME, &m_Keyboard);
 	processMouseControl(DELTA_TIME);
 
@@ -845,6 +845,11 @@ LB_EXIT:
 	SAFE_RELEASE(pDebugController);
 	SAFE_RELEASE(pFactory5);
 	SAFE_RELEASE(pAdapter3);
+}
+
+void Renderer::initPhysics()
+{
+	m_PhysicsManager.Initialize(m_RenderThreadCount);
 }
 
 void Renderer::initScene()
@@ -1766,14 +1771,14 @@ void Renderer::present()
 {
 	fence();
 
-	// UINT syncInterval = 1;	  // VSync On
-	UINT syncInterval = 0;  // VSync Off
+	UINT syncInterval = 1;	  // VSync On
+	// UINT syncInterval = 0;  // VSync Off
 	UINT presentFlags = 0;
 
-	if (!syncInterval)
+	/*if (!syncInterval)
 	{
 		presentFlags = DXGI_PRESENT_ALLOW_TEARING;
-	}
+	}*/
 
 	HRESULT hr = m_pSwapChain->Present(syncInterval, presentFlags);
 	if (hr == DXGI_ERROR_DEVICE_REMOVED)

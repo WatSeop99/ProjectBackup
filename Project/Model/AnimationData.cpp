@@ -5,11 +5,11 @@
 
 Matrix AnimationClip::Key::GetTransform()
 {
-	Quaternion newRot = Quaternion::Concatenate(Rotation, UpdateRotation);
+	Quaternion newRot = Quaternion::Concatenate(Rotation, IKUpdateRotation);
 	return (Matrix::CreateScale(Scale) * Matrix::CreateFromQuaternion(newRot) * Matrix::CreateTranslation(Position));
 }
 
-void AnimationData::Update(int clipID, int frame)
+void AnimationData::Update(int clipID, int frame, const CharacterMoveInfo& MOVE_INFO)
 {
 	AnimationClip& clip = Clips[clipID];
 
@@ -24,22 +24,34 @@ void AnimationData::Update(int clipID, int frame)
 		const Matrix& PARENT_MATRIX = AccumulatedRootTransform;
 		AnimationClip::Key& key = keys[frame % KEY_SIZE];
 
-		if (frame != 0)
-		{
-			AccumulatedRootTransform = (Matrix::CreateTranslation(key.Position - PrevPos) * AccumulatedRootTransform); // root 뼈의 변환을 누적시킴.
-		}
-		else
-		{
-			Vector3 rootBoneTranslation = AccumulatedRootTransform.Translation();
-			rootBoneTranslation.y = key.Position.y - 8.0f;
-			AccumulatedRootTransform.Translation(rootBoneTranslation);
-		}
+		AccumulatedRootTransform = Matrix::CreateFromQuaternion(MOVE_INFO.Rotation) * Matrix::CreateTranslation(MOVE_INFO.Position);
+		PrevPos = MOVE_INFO.Position;
 
-		PrevPos = key.Position;
+		/*{
+			char debugString[256];
+			Vector3 translation = AccumulatedRootTransform.Translation();
+			sprintf_s(debugString, 256, "translation: %f, %f, %f\n", translation.x, translation.y, translation.z);
+			OutputDebugStringA(debugString);
+		}*/
+
+		//if (frame != 0)
+		//{
+		//	AccumulatedRootTransform = (Matrix::CreateTranslation(key.Position - PrevPos) * AccumulatedRootTransform); // root 뼈의 변환을 누적시킴.
+		//}
+		//else
+		//{
+
+		//	Vector3 rootBoneTranslation = AccumulatedRootTransform.Translation();
+		//	rootBoneTranslation.y = key.Position.y - 8.0f;
+		//	AccumulatedRootTransform.Translation(rootBoneTranslation);
+		//}
+		//
+		// PrevPos = key.Position;
 		// key.Position = Vector3(0.0f);
 
-		Quaternion newRot = Quaternion::Concatenate(key.Rotation, key.UpdateRotation);
+		Quaternion newRot = Quaternion::Concatenate(key.Rotation, key.IKUpdateRotation);
 		BoneTransforms[ROOT_BONE_ID] = Matrix::CreateScale(key.Scale) * Matrix::CreateFromQuaternion(newRot) * Matrix::CreateTranslation(Vector3(0.0f)) * PARENT_MATRIX;
+	
 	}
 
 	// 나머지 bone transform 업데이트.
@@ -81,7 +93,7 @@ void AnimationData::ResetAllUpdateRotationInClip(int clipID)
 		for (UINT j = 0; j < KEY_SIZE; ++j)
 		{
 			AnimationClip::Key& key = keys[j];
-			key.UpdateRotation = Quaternion();
+			key.IKUpdateRotation = Quaternion();
 		}
 	}
 }
@@ -124,7 +136,7 @@ void Joint::Update(float deltaThetaX, float deltaThetaY, float deltaThetaZ, std:
 	const UINT64 KEY_SIZE = keys.size();
 	AnimationClip::Key& key = keys[frame % KEY_SIZE];
 	Quaternion originRot = key.Rotation;
-	Quaternion prevUpdateRot = key.UpdateRotation;
+	Quaternion prevUpdateRot = key.IKUpdateRotation;
 
 	/*for (UINT64 i = 0; i < KEY_SIZE; ++i)
 	{
@@ -179,7 +191,7 @@ void Joint::Update(float deltaThetaX, float deltaThetaY, float deltaThetaZ, std:
 	for (UINT64 i = 0; i < KEY_SIZE; ++i)
 	{
 		AnimationClip::Key& key = keys[i % KEY_SIZE];
-		key.UpdateRotation = newUpdateRot;
+		key.IKUpdateRotation = newUpdateRot;
 	}
 }
 

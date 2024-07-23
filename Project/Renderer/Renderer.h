@@ -52,6 +52,7 @@ public:
 protected:
 	void initMainWidndow();
 	void initDirect3D();
+	void initPhysics();
 	void initScene();
 	void initDescriptorHeap(Texture* pEnvTexture, Texture* pIrradianceTexture, Texture* pSpecularTexture, Texture* pBRDFTexture);
 	void initRenderThreadPool(UINT renderThreadCount);

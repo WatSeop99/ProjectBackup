@@ -1,6 +1,7 @@
 #ifndef PCH_H
 #define PCH_H
 
+#define PX_SUPPORT_OMNI_PVD
 #include <PxPhysicsAPI.h>
 
 #ifdef _DEBUG
